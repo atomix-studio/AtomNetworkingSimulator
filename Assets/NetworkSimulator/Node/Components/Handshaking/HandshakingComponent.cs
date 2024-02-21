@@ -1,0 +1,87 @@
+﻿using Atom.CommunicationSystem;
+using Atom.ComponentSystem;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using UnityEngine;
+
+namespace Atom.Services.Handshaking
+{
+    /// <summary>
+    /// Handshaking component is used to get basic data about a peer (ping, number of connections, etc..) and to ensure the node is responding
+    /// </summary>
+    public class HandshakingComponent : INodeComponent
+    {
+        public NodeEntity context { get; set; }
+        [NodeComponentDependencyInject] private PacketRouter _packetRouter;
+        [NodeComponentDependencyInject] private BroadcasterComponent _broadcasterComponent;
+
+        public void OnInitialize()
+        {
+            _packetRouter.RegisterPacketHandler(typeof(HandshakePacket), (packet) =>
+            {
+                var respondable = packet as IRespondable;
+                var response = (HandshakeResponsePacket)respondable.GetResponsePacket(respondable);
+                response.networkInfoCallersCount = (byte)context.networkInfo.Callers.Count;
+                response.networkInfoListennersCount = (byte)context.networkInfo.Listenners.Count;
+
+                _packetRouter.SendResponse(respondable, response);
+            });
+            _packetRouter.RegisterPacketHandler(typeof(HandshakeResponsePacket), null);
+        }
+
+        public async Task<HandshakeResponsePacket> GetPingWithPeerTask(PeerInfo peer)
+        {
+            var taskCompletionSource = new TaskCompletionSource<HandshakeResponsePacket>();
+            var cts = new CancellationTokenSource(1000);
+
+            var sentTime = DateTime.Now;
+            _broadcasterComponent.SendRequest(peer.peerAdress, new HandshakePacket(), (response) =>
+            {
+                float ping = (DateTime.Now - sentTime).Milliseconds;
+                taskCompletionSource.SetResult((HandshakeResponsePacket)response);
+            });
+
+            Task completedTask = await Task.WhenAny(taskCompletionSource.Task, Task.Delay(10, cts.Token));
+
+            if (completedTask == taskCompletionSource.Task)
+            {
+                // Task completed within timeout
+                return await taskCompletionSource.Task;
+                // ... handle result
+            }
+            else
+            {
+                // Task timed out
+                // ... handle timeout
+                try
+                {
+                    taskCompletionSource.TrySetCanceled(cts.Token); // If task can be canceled
+                }
+                catch (Exception)
+                {
+                    // Handle cancellation exception
+                }
+            }
+
+            return null;
+        }
+
+        public async Task<float> GetPingWithPeerTask(NodeEntity nodeEntity)
+        {
+            var taskCompletionSource = new TaskCompletionSource<float>();
+
+            var sentTime = DateTime.Now;
+            _broadcasterComponent.SendRequest(nodeEntity.name, new HandshakePacket(), (response) =>
+            {
+                float ping = (DateTime.Now - sentTime).Milliseconds;
+                taskCompletionSource.SetResult(ping);
+            });
+
+            return await taskCompletionSource.Task;
+        }
+    }
+}
