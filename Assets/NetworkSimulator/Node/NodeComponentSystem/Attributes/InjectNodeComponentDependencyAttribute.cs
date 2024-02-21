@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Atom.ComponentSystem
 {
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-    public class NodeComponentDependencyInjectAttribute : Attribute
+    public class InjectNodeComponentDependencyAttribute : Attribute
     {
     }
 }

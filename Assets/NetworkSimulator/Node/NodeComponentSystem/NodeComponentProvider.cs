@@ -10,14 +10,17 @@ namespace Atom.ComponentSystem
     /// Manager/factory for services in the Node system
     /// 
     /// </summary>
-    public class NodeComponentProvider : MonoBehaviour
+    public partial class NodeComponentProvider : MonoBehaviour
     {
-        public Dictionary<Type, INodeComponent> _components;
-        public Dictionary<Type, INodeUpdatableComponent> _updatableComponents;
         private NodeEntity _context;
+        private Dictionary<Type, INodeComponent> _components;
+        private Dictionary<Type, INodeUpdatableComponent> _updatableComponents;
+
+        private static Dictionary<Type, List<TypeInjectorHandler>> _injectorHandlers;
 
         public void Initialize()
         {
+            _injectorHandlers = new Dictionary<Type, List<TypeInjectorHandler>>();
             _components = new Dictionary<Type, INodeComponent>();
             _updatableComponents = new Dictionary<Type, INodeUpdatableComponent>();
             _context = gameObject.GetComponent<NodeEntity>();
@@ -33,38 +36,50 @@ namespace Atom.ComponentSystem
             {
                 var inst = Get(type, false);
 
-                var fields = type.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                foreach (var field in fields)
+                if (!_injectorHandlers.ContainsKey(type))
                 {
-                    var attributes = field.CustomAttributes;
-                    foreach (var attribute in attributes)
+                    _injectorHandlers.Add(type, new List<TypeInjectorHandler>());
+
+                    // TODO buffering the reflection datas to be reusable for other instances in a static class with member delegate binder
+                    var fields = type.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                    foreach (var field in fields)
                     {
-                        if (attribute.AttributeType == typeof(NodeComponentDependencyInjectAttribute))
+                        var attributes = field.CustomAttributes;
+                        foreach (var attribute in attributes)
                         {
-                            var dependency = Get(field.FieldType);
-                            field.SetValue(inst, dependency);
-                            break;
+                            if (attribute.AttributeType == typeof(InjectNodeComponentDependencyAttribute))
+                            {
+                                /*var dependency = Get(field.FieldType);
+                                field.SetValue(inst, dependency);*/
+                                _injectorHandlers[type].Add(new TypeInjectorHandler(field));
+                                break;
+                            }
+                        }
+                    }
+
+                    var properties = type.GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                    foreach (var property in properties)
+                    {
+                        var attributes = property.CustomAttributes;
+                        foreach (var attribute in attributes)
+                        {
+                            if (attribute.AttributeType == typeof(InjectNodeComponentDependencyAttribute))
+                            {
+                               /* var dependency = Get(property.PropertyType);
+                                property.SetValue(inst, dependency);*/
+                                _injectorHandlers[type].Add(new TypeInjectorHandler(property));
+                                break;
+                            }
                         }
                     }
                 }
-
-                var properties = type.GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                foreach (var property in properties)
+               
+                for(int j = 0; j < _injectorHandlers[type].Count; ++j)
                 {
-                    var attributes = property.CustomAttributes;
-                    foreach (var attribute in attributes)
-                    {
-                        if (attribute.AttributeType == typeof(NodeComponentDependencyInjectAttribute))
-                        {
-                            var dependency = Get(property.PropertyType);
-                            property.SetValue(inst, dependency);
-
-                            break;
-                        }
-                    }
+                    _injectorHandlers[type][j].Inject(this, inst);
                 }
 
-                if (!_components.ContainsKey(type))
+                //if (!_components.ContainsKey(type))
                     inst.OnInitialize();
             }
 

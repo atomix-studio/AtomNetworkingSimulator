@@ -1,6 +1,6 @@
 using Atom.CommunicationSystem;
 using Atom.ComponentSystem;
-using Atom.Services.Handshaking;
+using Atom.Components.Handshaking;
 using Atom.Transport;
 using Sirenix.OdinInspector;
 using System;
@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
-
+using Atom.Components.Connecting;
 
 /// <summary>
 /// 
@@ -39,12 +39,12 @@ using UnityEngine;
 public class PeerSamplingService : MonoBehaviour, INodeComponent
 {
     public NodeEntity context { get; set; }
-    [NodeComponentDependencyInject] private TransportLayerComponent _transportLayer;
-    [NodeComponentDependencyInject] private NetworkInfoComponent _networkInfo;
-    [NodeComponentDependencyInject] private BroadcasterComponent _broadcaster;
-    [NodeComponentDependencyInject] private HandshakingComponent _handshaking;
+    [InjectNodeComponentDependency] private TransportLayerComponent _transportLayer;
+    [InjectNodeComponentDependency] private NetworkInfoComponent _networkInfo;
+    [InjectNodeComponentDependency] private BroadcasterComponent _broadcaster;
+    [InjectNodeComponentDependency] private HandshakingComponent _handshaking;
+    [InjectNodeComponentDependency] private ConnectingComponent _connecting;
 
-    private NodeEntity _nodeEntity;
     public int ListennersTargetCount = 9;
 
     /// <summary>
@@ -77,7 +77,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
 
     private void Awake()
     {
-        _nodeEntity = GetComponent<NodeEntity>();
+        context = GetComponent<NodeEntity>();
     }
 
     public void OnInitialize()
@@ -86,18 +86,18 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
 
     private void Start()
     {
-        _nodeEntity.transportLayer.RegisterEndpoint("BROADCAST_GROUP_REQUEST", (packet) =>
+        context.transportLayer.RegisterEndpoint("BROADCAST_GROUP_REQUEST", (packet) =>
         {
-            _nodeEntity.OnReceiveGroupRequest(packet.Broadcaster);
+            context.OnReceiveGroupRequest(packet.Broadcaster);
             RelayBroadcast(packet);
         });
 
-        _nodeEntity.transportLayer.RegisterEndpoint("NEW_SUBSCRIPTION_REQUEST", (subscriberPacket) =>
+        context.transportLayer.RegisterEndpoint("NEW_SUBSCRIPTION_REQUEST", (subscriberPacket) =>
         {
             _transportLayer.SendPacket(subscriberPacket.Sender, "NEW_SUBSCRIPTION_REQUEST_RESPONSE", AvalaiblePeers);
         });
 
-        _nodeEntity.transportLayer.RegisterEndpoint("NEW_SUBSCRIPTION_REQUEST_RESPONSE", (packetResponse) =>
+        context.transportLayer.RegisterEndpoint("NEW_SUBSCRIPTION_REQUEST_RESPONSE", (packetResponse) =>
         {
             var potentialPeers = packetResponse._potentialPeers;
             potentialPeers.Sort((a, b) => Vector3.Distance(a.transform.position, transform.position).CompareTo(Vector3.Distance(b.transform.position, transform.position)));
@@ -125,8 +125,8 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
             BroadcastDiscoveryRequest();
         });
 
-        _nodeEntity.transportLayer.RegisterEndpoint("BROADCAST_DISCOVERY", OnReceive_DiscoveryBroadcast);
-        _nodeEntity.transportLayer.RegisterEndpoint("BROADCAST_DISCOVERY_RESPONSE", OnReceive_DiscoveryBroadcastReponse);
+        context.transportLayer.RegisterEndpoint("BROADCAST_DISCOVERY", OnReceive_DiscoveryBroadcast);
+        context.transportLayer.RegisterEndpoint("BROADCAST_DISCOVERY_RESPONSE", OnReceive_DiscoveryBroadcastReponse);
     }
 
     public async void OnReceiveSubscriptionResponse(SubscriptionResponsePacket subscriptionResponsePacket)
@@ -143,6 +143,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
             {
                 // node doesn't have enough connections so it will try each avalaible one
                 //TryRegisterPeer(potentialPeers[i]);
+                 _connecting.RequestConnectionTo(potentialPeers[i]);
             }
             else
             {
@@ -164,9 +165,21 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
     }
 
     [Button]
-    protected async void GetPeerScoreTask(PeerInfo peerInfo)
+    private void GetPeerScoreTask(NodeEntity nodeEntity)
     {
-        var handshakeResponse = await _handshaking.GetPingWithPeerTask(peerInfo);        
+        GetPeerScoreAsync(nodeEntity.networkInfo.LocalPeerInfo);
+    }
+
+    protected async Task<float> GetPeerScoreAsync(PeerInfo peerInfo)
+    {
+        var handshakeResponse = await _handshaking.GetHandshakeAsync(peerInfo);
+
+        if (handshakeResponse == null)
+            return 0f;
+
+        float score = peerInfo.UpdatePeerScore(handshakeResponse.ping, handshakeResponse.networkInfoCallersCount, handshakeResponse.networkInfoListennersCount);
+
+        return score;
     }
 
     [Button]
@@ -174,7 +187,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
     {
         for (int i = 0; i < clusterInfo.BootNodes.Count; ++i)
         {
-            _nodeEntity.transportLayer.SendPacket(clusterInfo.BootNodes[i], "CONNECT_TO_CLUSTER");
+            context.transportLayer.SendPacket(clusterInfo.BootNodes[i], "CONNECT_TO_CLUSTER");
         }
     }
 
@@ -182,8 +195,8 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
     {
         TryRegisterPeer(bootNode);
 
-        var wasconnected = _nodeEntity.IsConnected;
-        _nodeEntity.IsConnected = true;
+        var wasconnected = context.IsConnected;
+        context.IsConnected = true;
 
         _transportLayer.SendPacket(bootNode, "NEW_SUBSCRIPTION_REQUEST");
 
@@ -191,7 +204,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
         {
             Debug.Log("Connected !");
             // in connection color
-            _nodeEntity.material.color = Color.yellow;
+            context.material.color = Color.yellow;
         }
     }
 
@@ -316,7 +329,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
         for (int i = 0; i < count; ++i)
         {
             var index = random.Next(AvalaiblePeers.Count);
-            _nodeEntity.transportLayer.SendPacketBroadcast(_nodeEntity, AvalaiblePeers[index],  "BROADCAST_DISCOVERY");
+            context.transportLayer.SendPacketBroadcast(context, AvalaiblePeers[index],  "BROADCAST_DISCOVERY");
         }
     }
 
@@ -345,7 +358,6 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
             _relayedBroadcasts.Add(packet.BroadcastID, 0);
         }
 
-        // empecher la boucle infinie des broadcasts
 
         TryRegisterPeer(packet.Broadcaster);
         // récupérer les infos "au passage" lors d'un broadcast permet d'alimenter plus rapidement les connections connues 
@@ -359,7 +371,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
 
         // in this case we answer the broadcaster only if the local node decided this peer was a better option and keeps it data in avalaible peers
         if (AvalaiblePeers.Contains(packet.Broadcaster))
-            _nodeEntity.transportLayer.SendPacket(packet.Broadcaster, "BROADCAST_DISCOVERY_RESPONSE");
+            context.transportLayer.SendPacket(packet.Broadcaster, "BROADCAST_DISCOVERY_RESPONSE");
 
         var count = Fanout > AvalaiblePeers.Count ? AvalaiblePeers.Count : Fanout;
 
@@ -378,7 +390,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
             while (AvalaiblePeers[index] == packet.Broadcaster
                   || AvalaiblePeers[index] == packet.Sender);
 
-            _nodeEntity.transportLayer.SendPacketBroadcast(
+            context.transportLayer.SendPacketBroadcast(
                                packet.Broadcaster,
                                AvalaiblePeers[index],
                                "BROADCAST_DISCOVERY",
@@ -399,7 +411,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
         for (int i = 0; i < count; ++i)
         {
             var index = random.Next(AvalaiblePeers.Count);
-            _nodeEntity.transportLayer.SendPacketBroadcast(_nodeEntity, AvalaiblePeers[index],"BROADCAST_BENCHMARK");
+            context.transportLayer.SendPacketBroadcast(context, AvalaiblePeers[index],"BROADCAST_BENCHMARK");
         }
     }
 
@@ -445,7 +457,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
             while (AvalaiblePeers[index] == packet.Broadcaster
                   || AvalaiblePeers[index] == packet.Sender);
 
-            _nodeEntity.transportLayer.SendPacketBroadcast(
+            context.transportLayer.SendPacketBroadcast(
                packet.Broadcaster,
                AvalaiblePeers[index],
                packet.Payload,
@@ -466,7 +478,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
     {
         for (int i = 0; i < AvalaiblePeers.Count; ++i)
         {
-            _nodeEntity.transportLayer.SendPacket(AvalaiblePeers[i], "GROUP_REQUEST");
+            context.transportLayer.SendPacket(AvalaiblePeers[i], "GROUP_REQUEST");
         }
     }
 
@@ -479,7 +491,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
         if (_requestIndex >= AvalaiblePeers.Count)
             _requestIndex = 0;
 
-        _nodeEntity.transportLayer.SendPacket(AvalaiblePeers[_requestIndex], "GROUP_REQUEST");
+        context.transportLayer.SendPacket(AvalaiblePeers[_requestIndex], "GROUP_REQUEST");
         _requestIndex++;
     }
 
@@ -491,7 +503,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
     public void OnGroupRequestRefused(NetworkPacket message)
     {
         if (UnityEngine.Random.Range(0, 100) > 100 - ChancesToForgetPeerOnGroupRefused)
-            _nodeEntity.peerDiscoveryComponent.UnregisterPeer(message.Sender);
+            context.peerDiscoveryComponent.UnregisterPeer(message.Sender);
     }
 
     public void Broadcast(string PAYLOAD_NAME)
@@ -503,7 +515,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
         for (int i = 0; i < count; ++i)
         {
             var index = random.Next(AvalaiblePeers.Count);
-            _nodeEntity.transportLayer.SendPacketBroadcast(_nodeEntity, AvalaiblePeers[index], PAYLOAD_NAME);
+            context.transportLayer.SendPacketBroadcast(context, AvalaiblePeers[index], PAYLOAD_NAME);
         }
     }
 
@@ -547,7 +559,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
             while (AvalaiblePeers[index] == packet.Broadcaster
                   || AvalaiblePeers[index] == packet.Sender);
 
-            _nodeEntity.transportLayer.SendPacketBroadcast(
+            context.transportLayer.SendPacketBroadcast(
                                packet.Broadcaster,
                                AvalaiblePeers[index],
                                packet.Payload,

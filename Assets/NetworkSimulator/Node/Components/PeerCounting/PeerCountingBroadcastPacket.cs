@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Atom.Services.PeerCounting
+namespace Atom.Components.PeerCounting
 {
     public class PeerCountingBroadcastPacket : AbstractNetworkPacket, IBroadcastable, IRespondable
     {        

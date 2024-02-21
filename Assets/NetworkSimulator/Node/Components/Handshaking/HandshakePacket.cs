@@ -29,5 +29,7 @@ namespace Atom.CommunicationSystem
         /// number of listenners the node have
         /// </summary>
         public byte networkInfoListennersCount { get; set; }
+
+        public float ping { get; set; }
     }
 }

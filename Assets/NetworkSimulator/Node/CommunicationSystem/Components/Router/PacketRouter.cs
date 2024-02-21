@@ -159,7 +159,7 @@ namespace Atom.CommunicationSystem
             WorldSimulationManager._totalPacketSentPerSecondCount++;
         }
 
-        private void onReceivePacket(INetworkPacket networkPacket)
+        private void onReceivePacket<T>(T networkPacket) where T : INetworkPacket 
         {
             if (networkPacket is IResponse)
             {

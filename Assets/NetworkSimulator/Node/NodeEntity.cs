@@ -5,16 +5,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using Sirenix.OdinInspector;
 using Atom.ClusterConnectionService;
-using Atom.Services.Handshaking;
+using Atom.Components.Handshaking;
 
 public class NodeEntity : MonoBehaviour
 {
     public NodeComponentProvider componentProvider { get; private set; }
-
     public BroadcasterComponent broadcaster { get; private set; }
-    public NetworkInfoComponent networkInfo { get; private set; }
     public TransportLayerComponent transportLayer { get; private set; }
+    public NetworkInfoComponent networkInfo { get => _networkInfo; private set => _networkInfo = value; }
 
+    [SerializeField] private NetworkInfoComponent _networkInfo;
 
     [Header("Params")]
     [SerializeField] private bool _isBoot;

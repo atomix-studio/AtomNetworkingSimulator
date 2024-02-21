@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace Atom.Services.Handshaking
+namespace Atom.Components.Handshaking
 {
     /// <summary>
     /// Handshaking component is used to get basic data about a peer (ping, number of connections, etc..) and to ensure the node is responding
@@ -16,8 +16,8 @@ namespace Atom.Services.Handshaking
     public class HandshakingComponent : INodeComponent
     {
         public NodeEntity context { get; set; }
-        [NodeComponentDependencyInject] private PacketRouter _packetRouter;
-        [NodeComponentDependencyInject] private BroadcasterComponent _broadcasterComponent;
+        [InjectNodeComponentDependency] private PacketRouter _packetRouter;
+        [InjectNodeComponentDependency] private BroadcasterComponent _broadcasterComponent;
 
         public void OnInitialize()
         {
@@ -33,30 +33,35 @@ namespace Atom.Services.Handshaking
             _packetRouter.RegisterPacketHandler(typeof(HandshakeResponsePacket), null);
         }
 
-        public async Task<HandshakeResponsePacket> GetPingWithPeerTask(PeerInfo peer)
+        public async Task<HandshakeResponsePacket> GetHandshakeAsync(PeerInfo peer)
         {
             var taskCompletionSource = new TaskCompletionSource<HandshakeResponsePacket>();
-            var cts = new CancellationTokenSource(1000);
+            var cts = new CancellationTokenSource(10000);
 
             var sentTime = DateTime.Now;
             _broadcasterComponent.SendRequest(peer.peerAdress, new HandshakePacket(), (response) =>
             {
+                var handshakeResponse = (HandshakeResponsePacket)response;
+
                 float ping = (DateTime.Now - sentTime).Milliseconds;
-                taskCompletionSource.SetResult((HandshakeResponsePacket)response);
+                handshakeResponse.ping = ping;
+
+                if (taskCompletionSource.Task.IsCanceled)
+                    return;
+
+                taskCompletionSource.SetResult(handshakeResponse);
             });
 
-            Task completedTask = await Task.WhenAny(taskCompletionSource.Task, Task.Delay(10, cts.Token));
+            Task completedTask = await Task.WhenAny(taskCompletionSource.Task, Task.Delay(10000, cts.Token));
 
             if (completedTask == taskCompletionSource.Task)
             {
                 // Task completed within timeout
                 return await taskCompletionSource.Task;
-                // ... handle result
             }
             else
             {
                 // Task timed out
-                // ... handle timeout
                 try
                 {
                     taskCompletionSource.TrySetCanceled(cts.Token); // If task can be canceled

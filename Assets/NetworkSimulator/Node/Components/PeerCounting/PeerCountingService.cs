@@ -1,6 +1,6 @@
 ﻿using Atom.CommunicationSystem;
 using Atom.ComponentSystem;
-using Atom.Services.PeerCounting;
+using Atom.Components.PeerCounting;
 using Sirenix.OdinInspector;
 using UnityEngine;
 
@@ -8,8 +8,8 @@ namespace Atom.BroadcastingProtocol
 {
     public class PeerCountingService : MonoBehaviour, INodeComponent
     {
-        [NodeComponentDependencyInject] private BroadcasterComponent _broadcaster;
-        [NodeComponentDependencyInject] private PacketRouter _router;
+        [InjectNodeComponentDependency] private BroadcasterComponent _broadcaster;
+        [InjectNodeComponentDependency] private PacketRouter _router;
         [SerializeField, ShowInInspector, ReadOnly] private int _responsesCount = 0;
 
         public NodeEntity context { get; set; }

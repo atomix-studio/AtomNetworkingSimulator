@@ -10,8 +10,8 @@ namespace Atom.ClusterConnectionService
     public class ClusterConnectionService : INodeComponent
     {
         public NodeEntity context { get; set; }
-        [NodeComponentDependencyInject] private PeerSamplingService _samplingService;
-        [NodeComponentDependencyInject] private PacketRouter _packetRouter;
+        [InjectNodeComponentDependency] private PeerSamplingService _samplingService;
+        [InjectNodeComponentDependency] private PacketRouter _packetRouter;
 
         /// <summary>
         /// the maximum number of boot nodes a node can reach while joining the network

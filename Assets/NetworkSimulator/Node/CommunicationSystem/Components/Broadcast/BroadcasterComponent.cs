@@ -20,7 +20,7 @@ namespace Atom.CommunicationSystem
 
     public class BroadcasterComponent : MonoBehaviour, INodeComponent
     {
-        [NodeComponentDependencyInject] private PacketRouter _router;
+        [InjectNodeComponentDependency] private PacketRouter _router;
 
         [Header("Broadcasting Properties")]
         // number of calls for a broadcast

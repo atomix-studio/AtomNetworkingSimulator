@@ -1,9 +1,11 @@
 ﻿using Atom.ComponentSystem;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Atom.CommunicationSystem
 {
+    [Serializable]
     public class NetworkInfoComponent :  INodeComponent
     {
         /// <summary>
