@@ -100,14 +100,14 @@ namespace Atom.CommunicationSystem
         /// <param name="broadcastable"></param>
         public void SendBroadcast(IBroadcastable broadcastable)
         {
-            if (context.networkInfo.Listenners.Count <= 0)
+            if (context.networkHandling.Listenners.Count <= 0)
                 return;
 
-            var count = _fanout > context.networkInfo.Listenners.Count ? context.networkInfo.Listenners.Count : _fanout;
+            var count = _fanout > context.networkHandling.Listenners.Count ? context.networkHandling.Listenners.Count : _fanout;
             for (int i = 0; i < count; ++i)
             {
                 var index = _random.Next(count);
-                _router.Send(context.networkInfo.Listenners.ElementAt(index).Value.peerAdress, broadcastable.packet);
+                _router.Send(context.networkHandling.Listenners.ElementAt(index).Value.peerAdress, broadcastable.packet);
             }
         }
 
@@ -130,10 +130,10 @@ namespace Atom.CommunicationSystem
               to remove TryRegisterPeer(packet.Sender);
  */
             // broadcast cannot be relayed if the node doesn't have any listenners to send it to
-            if (context.networkInfo.Listenners.Count <= 0)
+            if (context.networkHandling.Listenners.Count <= 0)
                 return;
 
-            var count = _fanout > context.networkInfo.Listenners.Count ? context.networkInfo.Listenners.Count : _fanout;
+            var count = _fanout > context.networkHandling.Listenners.Count ? context.networkHandling.Listenners.Count : _fanout;
 
             for (int i = 0; i < count; ++i)
             {
@@ -149,11 +149,11 @@ namespace Atom.CommunicationSystem
                 }
                 // there is a probability that a node receive a broadcast from its callers that has been issued by a node contained in the callers view
                 // so we don't want to send it back its message 
-                while (context.networkInfo.Listenners.ElementAt(index).Value.peerID == broadcastable.broadcasterID);
+                while (context.networkHandling.Listenners.ElementAt(index).Value.peerID == broadcastable.broadcasterID);
 
                 // create a new packet from the received and forwards it to the router
                 var relayedPacket = broadcastable.GetForwardablePacket(broadcastable.packet);
-                _router.Send(context.networkInfo.Listenners.ElementAt(index).Value.peerAdress, relayedPacket);
+                _router.Send(context.networkHandling.Listenners.ElementAt(index).Value.peerAdress, relayedPacket);
 
                 /* _nodeEntity.transportLayer.SendPacketBroadcast(
                                     packet.Broadcaster,

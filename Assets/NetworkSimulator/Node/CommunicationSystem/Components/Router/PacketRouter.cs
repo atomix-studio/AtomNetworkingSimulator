@@ -23,7 +23,7 @@ namespace Atom.CommunicationSystem
             {
                 if (_peerId == null)
                 {
-                    _peerId = context.networkInfo.LocalPeerInfo.peerID;
+                    _peerId = context.networkHandling.LocalPeerInfo.peerID;
                 }
                 return _peerId;
             }
@@ -47,34 +47,20 @@ namespace Atom.CommunicationSystem
 
         public PacketRouter()
         {
-
-            /*packetHandlers = new Dictionary<short, IPacketHandler>();
-            packetHandlersTyped = new Dictionary<Type, IPacketHandler>();
-
-            var packet_handler_type = typeof(IPacketHandler);
-            var types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(s => s.GetTypes()).Where(p => packet_handler_type.IsAssignableFrom(p) && !p.IsAbstract);
-
-            short identifier = 0;
-            foreach (var type in types)
-            {
-                var packet_handler_instance = (IPacketHandler)Activator.CreateInstance(type);
-                packet_handler_instance.OnCreated(, identifier);
-
-                packetHandlers.Add(identifier, packet_handler_instance);
-                packetHandlersTyped.Add(type, packet_handler_instance);
-
-                identifier++;
-            }*/
         }
 
         public void OnInitialize()
         {
+            // the callback is initialized and kept as a member to avoid runtime allocation 
             _onReceiveExternal = onReceivePacket;
+            
             this.transportLayer = context.GetNodeComponent<TransportLayerComponent>();
+            // we route the transport layer here
+            // the transport layer will be an abstraction from this point so we need to ba able to hook up to many different implementations
             this.transportLayer.SetRoutingCallback(_onReceiveExternal);
         }
 
-        public void OnUpdate()
+        public async void OnUpdate()
         {
             if (_packetResponseAwaitersBuffer.Count == 0)
                 return;
@@ -86,6 +72,10 @@ namespace Atom.CommunicationSystem
 
                 if (awaiter.Value.createdTime.AddMilliseconds(awaiter.Value.timeout) > now)
                 {
+                    // on timed-out, we callback the resquest with NULL value so the service can 
+                    // implement its logic on this assertion
+                    awaiter.Value.responseCallback?.Invoke(null);
+
                     awaiter.Value.Dispose();
                     _packetResponseAwaitersBuffer.Remove(awaiter.Key);
                     i--;
@@ -153,13 +143,13 @@ namespace Atom.CommunicationSystem
             networkPacket.senderID = peerId;
 
             if (networkPacket is IRespondable)
-                (networkPacket as IRespondable).senderAdress = context.networkInfo.LocalPeerInfo.peerAdress;
+                (networkPacket as IRespondable).senderAdress = context.networkHandling.LocalPeerInfo.peerAdress;
 
             WorldSimulationManager._totalPacketSent++;
             WorldSimulationManager._totalPacketSentPerSecondCount++;
         }
 
-        private void onReceivePacket<T>(T networkPacket) where T : INetworkPacket 
+        private void onReceivePacket(INetworkPacket networkPacket)
         {
             if (networkPacket is IResponse)
             {
@@ -173,7 +163,7 @@ namespace Atom.CommunicationSystem
                     return;
                 }
 
-                // responses can be sent outside of a request awaiter so we check for a potential handler for the message outside of the awaiters
+                // responses might be sent outside of a request awaiter (if implemented), so we have to check for a potential handler for the message outside of the awaiters
                 if (_receivePacketHandlers.ContainsKey(networkPacket.packetTypeIdentifier))
                 {
                     _receivePacketHandlers[networkPacket.packetTypeIdentifier].Invoke(networkPacket);

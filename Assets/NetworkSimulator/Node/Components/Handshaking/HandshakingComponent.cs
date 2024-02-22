@@ -17,7 +17,6 @@ namespace Atom.Components.Handshaking
     {
         public NodeEntity context { get; set; }
         [InjectNodeComponentDependency] private PacketRouter _packetRouter;
-        [InjectNodeComponentDependency] private BroadcasterComponent _broadcasterComponent;
 
         public void OnInitialize()
         {
@@ -25,8 +24,8 @@ namespace Atom.Components.Handshaking
             {
                 var respondable = packet as IRespondable;
                 var response = (HandshakeResponsePacket)respondable.GetResponsePacket(respondable);
-                response.networkInfoCallersCount = (byte)context.networkInfo.Callers.Count;
-                response.networkInfoListennersCount = (byte)context.networkInfo.Listenners.Count;
+                response.networkInfoCallersCount = (byte)context.networkHandling.Callers.Count;
+                response.networkInfoListennersCount = (byte)context.networkHandling.Listenners.Count;
 
                 _packetRouter.SendResponse(respondable, response);
             });
@@ -39,7 +38,7 @@ namespace Atom.Components.Handshaking
             var cts = new CancellationTokenSource(10000);
 
             var sentTime = DateTime.Now;
-            _broadcasterComponent.SendRequest(peer.peerAdress, new HandshakePacket(), (response) =>
+            _packetRouter.SendRequest(peer.peerAdress, new HandshakePacket(), (response) =>
             {
                 var handshakeResponse = (HandshakeResponsePacket)response;
 
@@ -75,12 +74,12 @@ namespace Atom.Components.Handshaking
             return null;
         }
 
-        public async Task<float> GetPingWithPeerTask(NodeEntity nodeEntity)
+        public async Task<float> GetPingAsync(NodeEntity nodeEntity)
         {
             var taskCompletionSource = new TaskCompletionSource<float>();
 
             var sentTime = DateTime.Now;
-            _broadcasterComponent.SendRequest(nodeEntity.name, new HandshakePacket(), (response) =>
+            _packetRouter.SendRequest(nodeEntity.name, new HandshakePacket(), (response) =>
             {
                 float ping = (DateTime.Now - sentTime).Milliseconds;
                 taskCompletionSource.SetResult(ping);

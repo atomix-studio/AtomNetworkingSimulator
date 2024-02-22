@@ -146,7 +146,7 @@ namespace Atom.Transport
             if (message.Payload == "BROADCAST_BENCHMARK")
             {
                 _nodeEntity.material.color = Color.red;
-                _nodeEntity.peerDiscoveryComponent.OnReceive_BenchmarkBroadcast(message);
+                _nodeEntity.peerSampling.OnReceive_BenchmarkBroadcast(message);
                 return;
             }
 
@@ -161,7 +161,7 @@ namespace Atom.Transport
             }
             else if (message.Payload == "CONNECT_TO_CLUSTER_RESPONSE")
             {
-                _nodeEntity.peerDiscoveryComponent.OnReceiveConnectToClusterResponse(message.Sender);
+                _nodeEntity.peerSampling.OnReceiveConnectToClusterResponse(message.Sender);
             }
             else if (message.Payload == "GROUP_REQUEST")
             {
@@ -170,7 +170,7 @@ namespace Atom.Transport
             else if (message.Payload == "GROUP_REQUEST_REFUSED")
             {
                 // faire de la place pour trouver un groupe
-                _nodeEntity.peerDiscoveryComponent.OnGroupRequestRefused(message);
+                _nodeEntity.peerSampling.OnGroupRequestRefused(message);
             }
             else
             {

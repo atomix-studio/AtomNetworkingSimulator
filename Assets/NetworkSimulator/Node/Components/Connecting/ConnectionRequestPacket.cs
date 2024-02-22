@@ -9,6 +9,16 @@ namespace Atom.Components.Connecting
 {
     public class ConnectionRequestPacket : AbstractNetworkPacket, IRespondable
     {
+        public ConnectionRequestPacket()
+        {
+        }
+
+        public ConnectionRequestPacket(byte networkInfoCallersCount, byte networkInfoListennersCount)
+        {
+            this.networkInfoCallersCount = networkInfoCallersCount;
+            this.networkInfoListennersCount = networkInfoListennersCount;
+        }
+
         public string senderAdress { get ; set ; }
 
         /// <summary>

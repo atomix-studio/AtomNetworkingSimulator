@@ -37,9 +37,13 @@ namespace Atom.CommunicationSystem
         /// </summary>
         public float trust_coefficient { get; set; }    
 
+        /// <summary>
+        /// For callers, the last time a heartbeat was received
+        /// For Listenners (locally), the last time local node sent a heartbeat
+        /// </summary>
         public DateTime last_updated { get; set; }
 
-        public float UpdatePeerScore(float ping, int callersCount, int listennersCount)
+        public float ComputeScore(float ping, int callersCount, int listennersCount)
         {
             // the more ping the less score
             float pingratio = ping;
@@ -54,5 +58,10 @@ namespace Atom.CommunicationSystem
             return score;
         }
 
+        public void SetScore(float score)
+        {
+            this.score = score;
+            this.last_updated = DateTime.Now;
+        }
     }
 }

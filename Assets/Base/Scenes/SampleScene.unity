@@ -724,7 +724,7 @@ MonoBehaviour:
   _maxNodeEntitiesCount: 100
   _incomingConnectionsPerMinute: 100
   _incomingDisconnectionsPerMinute: 0
-  _autoSpawn: 0
+  _autoSpawn: 1
   _defaultCluster:
     ClusterName: CLUSTER 1
     BootNodes:
@@ -788,7 +788,7 @@ PrefabInstance:
     - target: {fileID: 5533586626479675272, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5533586626479675273, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
@@ -940,7 +940,7 @@ PrefabInstance:
     - target: {fileID: 5533586626479675272, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5533586626479675273, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}

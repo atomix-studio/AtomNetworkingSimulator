@@ -36,9 +36,9 @@ namespace Atom.ClusterConnectionService
                 var subResponse = (SubscriptionResponsePacket)respondable.GetResponsePacket(respondable);
 
                 // the boot sends all the node he knows to allow the newcomer to make a first selection of the best peers from this list
-                subResponse.potentialPeerInfos = context.networkInfo.Callers.Values.ToList();
-                subResponse.potentialPeerInfos.Add(context.networkInfo.LocalPeerInfo);
-                subResponse.potentialPeerInfos.AddRange(context.networkInfo.Listenners.Values.ToList());
+                subResponse.potentialPeerInfos = context.networkHandling.Callers.Values.ToList();
+                subResponse.potentialPeerInfos.Add(context.networkHandling.LocalPeerInfo);
+                subResponse.potentialPeerInfos.AddRange(context.networkHandling.Listenners.Values.ToList());
                 // the new peer will eventually propagate a discovery request to these new nodes to really deeply connect to the network
 
                 _packetRouter.SendResponse(respondable, subResponse);
@@ -60,11 +60,11 @@ namespace Atom.ClusterConnectionService
                 if (_btNodeCalls > _maximumBootNodeCalls)
                     break;
 
-                broadcaster.SendRequest(v.networkInfo.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
+                broadcaster.SendRequest(v.networkHandling.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
                 {
                     Debug.Log("Received cluster connection response. Sending new subscription request.");
 
-                    broadcaster.SendRequest(v.networkInfo.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
+                    broadcaster.SendRequest(v.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
                     {
                         var subscriptionResponse = (SubscriptionResponsePacket)response;
 

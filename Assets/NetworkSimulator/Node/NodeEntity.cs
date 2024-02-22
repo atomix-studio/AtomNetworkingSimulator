@@ -12,9 +12,10 @@ public class NodeEntity : MonoBehaviour
     public NodeComponentProvider componentProvider { get; private set; }
     public BroadcasterComponent broadcaster { get; private set; }
     public TransportLayerComponent transportLayer { get; private set; }
-    public NetworkInfoComponent networkInfo { get => _networkInfo; private set => _networkInfo = value; }
+    public NetworkHandlingComponent networkHandling { get => _networkInfo; private set => _networkInfo = value; }
+    public PeerSamplingService peerSampling { get; private set; }
 
-    [SerializeField] private NetworkInfoComponent _networkInfo;
+    [SerializeField] private NetworkHandlingComponent _networkInfo;
 
     [Header("Params")]
     [SerializeField] private bool _isBoot;
@@ -39,7 +40,6 @@ public class NodeEntity : MonoBehaviour
     /// </summary>
     public List<NodeEntity> Connections = new List<NodeEntity>();
 
-    public PeerSamplingService peerDiscoveryComponent;
 
     private float _timerBetweenTryConnection;
     private int _groupRequestsSent;
@@ -50,26 +50,25 @@ public class NodeEntity : MonoBehaviour
         componentProvider = GetComponent<NodeComponentProvider>();
         componentProvider.Initialize();
 
-        broadcaster = (BroadcasterComponent)componentProvider.Get<BroadcasterComponent>();
-        transportLayer = (TransportLayerComponent)componentProvider.Get<TransportLayerComponent>();
-        networkInfo = (NetworkInfoComponent)componentProvider.Get<NetworkInfoComponent>();
-        networkInfo.Initialize(new PeerInfo() { peerAdress = this.name, ping = 0, trust_coefficient = 0 });     
+        broadcaster = GetNodeComponent<BroadcasterComponent>();
+        transportLayer = GetNodeComponent<TransportLayerComponent>();
+        networkHandling = GetNodeComponent<NetworkHandlingComponent>();
+        networkHandling.Initialize(new PeerInfo() { peerAdress = this.name, ping = 0, trust_coefficient = 0 });
+        peerSampling = GetNodeComponent<PeerSamplingService>();
 
-
-        peerDiscoveryComponent = GetComponent<PeerSamplingService>();
         _material = GetComponent<MeshRenderer>().material;
     }
 
     public T GetNodeComponent<T>() where T: INodeComponent
     {
-        return (T)componentProvider.Get<T>();
+        return componentProvider.Get<T>();
     }
 
     void OnDisable()
     {
         for (int i = 0; i < Connections.Count; ++i)
         {
-            Connections[i]?.Disconnect(this);
+            Connections[i]?.GroupDisconnect(this);
         }
 
         Connections.Clear();
@@ -81,7 +80,7 @@ public class NodeEntity : MonoBehaviour
     [Button]
     public void TestConnectToCluster()
     {
-        var clusterConnectionService = (ClusterConnectionService)componentProvider.Get<ClusterConnectionService>();
+        var clusterConnectionService = componentProvider.Get<ClusterConnectionService>();
         clusterConnectionService.ConnectToCluster(WorldSimulationManager.defaultCluster);
     }
 
@@ -89,8 +88,8 @@ public class NodeEntity : MonoBehaviour
 
     public async void TestAwaitableGetPingWithPeer(NodeEntity nodeEntity)
     {
-        var handshakingService = (HandshakingComponent)componentProvider.Get<HandshakingComponent>();
-        var ping = await handshakingService.GetPingWithPeerTask(nodeEntity);
+        var handshakingService = componentProvider.Get<HandshakingComponent>();
+        var ping = await handshakingService.GetPingAsync(nodeEntity);
         Debug.LogError("Ping" + ping);
     }
 
@@ -112,7 +111,7 @@ public class NodeEntity : MonoBehaviour
         {
             //   requester.JoinLocalGroup();
 
-            if (requester.Connect(this))
+            if (requester.GroupConnect(this))
             {
                 Connections.Add(requester);
                 IsInGroup = true;
@@ -125,7 +124,7 @@ public class NodeEntity : MonoBehaviour
     }
 
 
-    public bool Connect(NodeEntity connection)
+    public bool GroupConnect(NodeEntity connection)
     {
         if (Connections.Count < _preferedGroupSize
              && !IsConnectedWith(connection))
@@ -154,7 +153,7 @@ public class NodeEntity : MonoBehaviour
         return false;
     }
 
-    public void Disconnect(NodeEntity connection)
+    public void GroupDisconnect(NodeEntity connection)
     {
         //Debug.Log($"{this} is disconnecting from {connection}");
         Connections.Remove(connection);
@@ -173,9 +172,9 @@ public class NodeEntity : MonoBehaviour
             }
             else if (WorldSimulationManager.Instance.DisplayPartialViewPeers)
             {
-                for (int i = 0; i < peerDiscoveryComponent.AvalaiblePeers.Count; ++i)
+                for (int i = 0; i < peerSampling.AvalaiblePeers.Count; ++i)
                 {
-                    Debug.DrawLine(transform.position + Vector3.up, peerDiscoveryComponent.AvalaiblePeers[i].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.red);
+                    Debug.DrawLine(transform.position + Vector3.up, peerSampling.AvalaiblePeers[i].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.red);
                 }
             }
         }
@@ -185,7 +184,7 @@ public class NodeEntity : MonoBehaviour
 
         CurrentPingSimulatorMultiplier = Mathf.PerlinNoise(Random.Range(-10, 10), Random.Range(-10, 10)) * _pingSimulatorStability;
 
-        peerDiscoveryComponent.OnUpdated();
+        peerSampling.OnUpdated();
 
         if (_isBoot)
             return;
@@ -196,7 +195,7 @@ public class NodeEntity : MonoBehaviour
             if (_timerBetweenTryConnection > _delayBetweenGroupFindingRequest)
             {
                 // broadcast in the network to find new connections (TCP)
-                peerDiscoveryComponent.SendNextGroupConnectionRequest();
+                peerSampling.SendNextGroupConnectionRequest();
                 _timerBetweenTryConnection = 0;
             }
         }

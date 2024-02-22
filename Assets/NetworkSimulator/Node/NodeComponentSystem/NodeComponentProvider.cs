@@ -125,7 +125,12 @@ namespace Atom.ComponentSystem
             }
         }
 
-        public INodeComponent Get<T>() where T : INodeComponent
+        public T Get<T>() where T : INodeComponent
+        {
+            return (T)_get<T>();
+        }
+
+        public INodeComponent _get<T>() where T : INodeComponent
         {
             if (_components.ContainsKey(typeof(T))) return _components[typeof(T)];
 

@@ -1,3 +1,4 @@
+using Atom.ClusterConnectionService;
 using Atom.CommunicationSystem;
 using Sirenix.OdinInspector;
 using System.Collections;
@@ -79,7 +80,18 @@ public class WorldSimulationManager : MonoBehaviour
     [Button]
     private void GenerateEntities(int nodesCount, bool sleeping) => StartCoroutine(GenerateEntitiesRoutine(nodesCount, sleeping));
 
-    [HorizontalGroup("P/N"), Button]
+
+    [HorizontalGroup("SHOW"), Button]
+    private void ShowPreviousEntity()
+    {
+        SelectedIndex--;
+        if (SelectedIndex < 0)
+            SelectedIndex = _currentAliveNodes.Count - 1;
+
+        DebugSelectedNodeEntity = _currentAliveNodes[SelectedIndex];
+    }
+
+    [HorizontalGroup("SHOW"), Button]
     private void ShowNextEntity()
     {
         SelectedIndex++;
@@ -144,7 +156,7 @@ public class WorldSimulationManager : MonoBehaviour
 
         newNodeEntity.name = "nodeEntity_" + _nodeEntityIdGenerator++;
         newNodeEntity.transform.SetParent(this.transform);
-        newNodeEntity.peerDiscoveryComponent.ConnectToCluster(_defaultCluster);
+        newNodeEntity.GetNodeComponent<ClusterConnectionService>().ConnectToCluster(_defaultCluster);
         newNodeEntity.IsSleeping = startAsleep;
 
         _currentAliveNodes.Add(newNodeEntity);
@@ -196,21 +208,21 @@ public class WorldSimulationManager : MonoBehaviour
         }
 
         var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
-        startNode.peerDiscoveryComponent.BroadcastBenchmark();
+        startNode.peerSampling.BroadcastBenchmark();
     }
 
     [Button]
     private void BroadcastDiscovery()
     {
         var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
-        startNode.peerDiscoveryComponent.BroadcastDiscoveryRequest();
+        startNode.peerSampling.BroadcastDiscoveryRequest();
     }
 
     [Button]
     private void SendGroupConnectionRequest()
     {
         var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
-        startNode.peerDiscoveryComponent.SendGroupConnectionRequest();
+        startNode.peerSampling.SendGroupConnectionRequest();
     }
 
     private void OnGUI()
