@@ -152,7 +152,7 @@ namespace Atom.Transport
 
             Debug.Log($"{this.gameObject} received message {message.Payload} from {message.Sender}");
 
-            if (message.Payload == "CONNECT_TO_CLUSTER")
+            /*if (message.Payload == "CONNECT_TO_CLUSTER")
             {
                 if (!_nodeEntity.IsBoot)
                     Debug.LogError("Connection to cluster received by a non-boot node !");
@@ -162,8 +162,8 @@ namespace Atom.Transport
             else if (message.Payload == "CONNECT_TO_CLUSTER_RESPONSE")
             {
                 _nodeEntity.peerSampling.OnReceiveConnectToClusterResponse(message.Sender);
-            }
-            else if (message.Payload == "GROUP_REQUEST")
+            }*/
+            if (message.Payload == "GROUP_REQUEST")
             {
                 _nodeEntity.OnReceiveGroupRequest(message.Sender);
             }

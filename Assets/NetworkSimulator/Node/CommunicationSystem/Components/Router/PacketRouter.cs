@@ -7,13 +7,15 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace Atom.CommunicationSystem
 {
     public class PacketRouter : INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }
-        protected TransportLayerComponent transportLayer { get; set; }
+        [InjectNodeComponentDependency] public TransportLayerComponent transportLayer { get; set; }
+        [InjectNodeComponentDependency] public NetworkHandlingComponent networkHandling { get; set; }
 
         private string _peerId;
         protected string peerId
@@ -32,6 +34,7 @@ namespace Atom.CommunicationSystem
         private Dictionary<Type, short> _packetIdentifiers = new Dictionary<Type, short>();
         private Dictionary<short, Action<INetworkPacket>> _receivePacketHandlers = new Dictionary<short, Action<INetworkPacket>>();
         private Dictionary<long, INetworkPacketResponseAwaiter> _packetResponseAwaitersBuffer = new Dictionary<long, INetworkPacketResponseAwaiter>();
+
         private Action<INetworkPacket> _onReceiveExternal;
 
         private long _packetIdGenerator;
@@ -53,8 +56,7 @@ namespace Atom.CommunicationSystem
         {
             // the callback is initialized and kept as a member to avoid runtime allocation 
             _onReceiveExternal = onReceivePacket;
-            
-            this.transportLayer = context.GetNodeComponent<TransportLayerComponent>();
+
             // we route the transport layer here
             // the transport layer will be an abstraction from this point so we need to ba able to hook up to many different implementations
             this.transportLayer.SetRoutingCallback(_onReceiveExternal);
@@ -83,8 +85,13 @@ namespace Atom.CommunicationSystem
             }
         }
 
-        public void RegisterPacketHandler(Type packetType, Action<INetworkPacket> packetReceiveHandler)
+        public void RegisterPacketHandler(Type packetType, Action<INetworkPacket> packetReceiveHandler, bool broadcasterCall = false)
         {
+            if (!broadcasterCall && TypeHelpers.ImplementsInterface<IBroadcastable>(packetType))
+            {
+                Debug.LogError($"Broadcastable packets should always be registered from the broadcaster.");
+            }
+
             var packetIdentifier = _packetIdentifierGenerator++;
 
             _receivePacketHandlers.Add(packetIdentifier, packetReceiveHandler);

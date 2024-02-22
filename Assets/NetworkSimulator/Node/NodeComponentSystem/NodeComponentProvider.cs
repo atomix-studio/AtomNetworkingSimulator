@@ -65,22 +65,26 @@ namespace Atom.ComponentSystem
                         {
                             if (attribute.AttributeType == typeof(InjectNodeComponentDependencyAttribute))
                             {
-                               /* var dependency = Get(property.PropertyType);
-                                property.SetValue(inst, dependency);*/
+                                /* var dependency = Get(property.PropertyType);
+                                 property.SetValue(inst, dependency);*/
                                 _injectorHandlers[type].Add(new TypeInjectorHandler(property));
                                 break;
                             }
                         }
                     }
                 }
-               
-                for(int j = 0; j < _injectorHandlers[type].Count; ++j)
+
+                for (int j = 0; j < _injectorHandlers[type].Count; ++j)
                 {
                     _injectorHandlers[type][j].Inject(this, inst);
                 }
 
-                //if (!_components.ContainsKey(type))
-                    inst.OnInitialize();
+            }
+
+            foreach (var type in types)
+            {
+                var inst = Get(type, false);
+                inst.OnInitialize();
             }
 
             //TODO 

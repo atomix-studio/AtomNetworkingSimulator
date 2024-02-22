@@ -6,6 +6,7 @@ using UnityEngine;
 using Sirenix.OdinInspector;
 using Atom.ClusterConnectionService;
 using Atom.Components.Handshaking;
+using System.Linq;
 
 public class NodeEntity : MonoBehaviour
 {
@@ -53,10 +54,17 @@ public class NodeEntity : MonoBehaviour
         broadcaster = GetNodeComponent<BroadcasterComponent>();
         transportLayer = GetNodeComponent<TransportLayerComponent>();
         networkHandling = GetNodeComponent<NetworkHandlingComponent>();
-        networkHandling.Initialize(new PeerInfo() { peerAdress = this.name, ping = 0, trust_coefficient = 0 });
         peerSampling = GetNodeComponent<PeerSamplingService>();
 
         _material = GetComponent<MeshRenderer>().material;
+    }
+
+    public void OnStart(ClusterInfo clusterInfo, bool sleeping)
+    {
+        networkHandling.InitializeLocalInfo(new PeerInfo() { peerAdress = this.name, ping = 0, trust_coefficient = 0 });
+
+        GetNodeComponent<ClusterConnectionService>().ConnectToCluster(clusterInfo);
+        IsSleeping = sleeping;
     }
 
     public T GetNodeComponent<T>() where T: INodeComponent
@@ -170,11 +178,22 @@ public class NodeEntity : MonoBehaviour
                     Debug.DrawLine(transform.position + Vector3.up, Connections[i].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.red);
                 }
             }
-            else if (WorldSimulationManager.Instance.DisplayPartialViewPeers)
+            else
             {
-                for (int i = 0; i < peerSampling.AvalaiblePeers.Count; ++i)
+                if (WorldSimulationManager.Instance.DisplayCallersConnections)
                 {
-                    Debug.DrawLine(transform.position + Vector3.up, peerSampling.AvalaiblePeers[i].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.red);
+                    for (int i = 0; i < networkHandling.Callers.Count; ++i)
+                    {
+                        Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Callers.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.red);
+                    }
+                }
+
+                if (WorldSimulationManager.Instance.DisplayListennersConnections)
+                {
+                    for (int i = 0; i < networkHandling.Listenners.Count; ++i)
+                    {
+                        Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Listenners.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.green);
+                    }
                 }
             }
         }
@@ -184,7 +203,7 @@ public class NodeEntity : MonoBehaviour
 
         CurrentPingSimulatorMultiplier = Mathf.PerlinNoise(Random.Range(-10, 10), Random.Range(-10, 10)) * _pingSimulatorStability;
 
-        peerSampling.OnUpdated();
+        //peerSampling.OnUpdated();
 
         if (_isBoot)
             return;

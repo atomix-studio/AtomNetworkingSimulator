@@ -12,7 +12,8 @@ public class WorldSimulationManager : MonoBehaviour
     public static WorldSimulationManager Instance;
 
     public bool DisplayGroupConnections;
-    public bool DisplayPartialViewPeers;
+    public bool DisplayCallersConnections;
+    public bool DisplayListennersConnections;
     public bool DisplaySelectedOnly;
 
 
@@ -155,12 +156,11 @@ public class WorldSimulationManager : MonoBehaviour
         }
 
         newNodeEntity.name = "nodeEntity_" + _nodeEntityIdGenerator++;
-        newNodeEntity.transform.SetParent(this.transform);
-        newNodeEntity.GetNodeComponent<ClusterConnectionService>().ConnectToCluster(_defaultCluster);
-        newNodeEntity.IsSleeping = startAsleep;
-
         _currentAliveNodes.Add(newNodeEntity);
         nodeAddresses.Add(newNodeEntity.name, newNodeEntity);
+      
+        newNodeEntity.transform.SetParent(this.transform);
+        newNodeEntity.OnStart(_defaultCluster, startAsleep);
     }
 
     public void DisconnectRandomNodeEntity()

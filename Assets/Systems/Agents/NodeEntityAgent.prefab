@@ -10,14 +10,15 @@ GameObject:
   m_Component:
   - component: {fileID: 5533586626479675273}
   - component: {fileID: 5533586626479675316}
+  - component: {fileID: 5308062706113184368}
+  - component: {fileID: 5959474041996457471}
+  - component: {fileID: 5533586626479675319}
   - component: {fileID: 5533586626479675318}
   - component: {fileID: 3554877669675035482}
-  - component: {fileID: 5533586626479675319}
   - component: {fileID: 5533586626479675317}
   - component: {fileID: 5533586626479675315}
   - component: {fileID: 5533586626479675312}
-  - component: {fileID: 5308062706113184368}
-  - component: {fileID: 5959474041996457471}
+  - component: {fileID: 5173503354320299876}
   m_Layer: 0
   m_Name: NodeEntityAgent
   m_TagString: Untagged
@@ -52,15 +53,58 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5a10ca522df19c64194c8887a32cf44b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _networkInfo: {fileID: 0}
   _isBoot: 0
   _preferedGroupSize: 2
   _delayBetweenGroupFindingRequest: 10
+  _pingSimulatorStability: 1
   IsConnected: 0
   IsInGroup: 0
   IsSleeping: 0
+  CurrentPingSimulatorMultiplier: 1
   Connections: []
-  transportLayer: {fileID: 0}
-  peerDiscoveryComponent: {fileID: 0}
+--- !u!114 &5308062706113184368
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5533586626479675272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08d6be3c420ffa24f9f4183ebe587e61, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &5959474041996457471
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5533586626479675272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 60192e49c1bb51341922bed4b3cb07f8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _fanout: 3
+  _broadcastRelayingCycles: 2
+  _broadcastMessageMaxCycles: -1
+  _relayedBroadcastBufferSize: 2500
+--- !u!114 &5533586626479675319
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5533586626479675272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae42cfb1755f0214a94919683ff564a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsSleeping: 0
+  MessageSpeed: 25
 --- !u!114 &5533586626479675318
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -73,6 +117,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f674e9aae3c25a44b89f65f9b6563c55, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ListennersTargetCount: 9
   AvalaiblePeers: []
   PartialViewMaximumCount: 9
   RefreshingTime: 12
@@ -93,20 +138,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _responsesCount: 0
---- !u!114 &5533586626479675319
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5533586626479675272}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ae42cfb1755f0214a94919683ff564a7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  IsSleeping: 0
-  MessageSpeed: 25
 --- !u!195 &5533586626479675317
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -179,7 +210,7 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5533586626479675272}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
---- !u!114 &5308062706113184368
+--- !u!114 &5173503354320299876
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -188,22 +219,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 5533586626479675272}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 08d6be3c420ffa24f9f4183ebe587e61, type: 3}
+  m_Script: {fileID: 11500000, guid: c9f2c10cf80178047b46e298d00521e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &5959474041996457471
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5533586626479675272}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 60192e49c1bb51341922bed4b3cb07f8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _fanout: 3
-  _broadcastRelayingCycles: 2
-  _broadcastMessageMaxCycles: -1
-  _relayedBroadcastBufferSize: 2500
+  _localPeerInfo:
+    _peerID: 
+    _peerAdress: 
+    _ping: 0
+    _score: 0
+    _trust_coefficient: 0

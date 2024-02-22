@@ -51,20 +51,20 @@ namespace Atom.ClusterConnectionService
         {
             var broadcaster = context.GetNodeComponent<BroadcasterComponent>();
             int _btNodeCalls = 0;
-            foreach (var v in clusterInfo.BootNodes)
+            foreach (var bootNode in clusterInfo.BootNodes)
             {
-                if (v == context)
+                if (bootNode == context)
                     continue;
 
                 _btNodeCalls++;
                 if (_btNodeCalls > _maximumBootNodeCalls)
                     break;
 
-                broadcaster.SendRequest(v.networkHandling.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
+                broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
                 {
                     Debug.Log("Received cluster connection response. Sending new subscription request.");
 
-                    broadcaster.SendRequest(v.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
+                    broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
                     {
                         var subscriptionResponse = (SubscriptionResponsePacket)response;
 

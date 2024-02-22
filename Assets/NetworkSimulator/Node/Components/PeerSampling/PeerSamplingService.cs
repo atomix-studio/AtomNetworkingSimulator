@@ -36,7 +36,7 @@ using Atom.Components.Connecting;
 /// Removing unresponding nodes
 /// Ensuring the node is not going isolated
 /// </summary>
-public class PeerSamplingService : MonoBehaviour, INodeComponent
+public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
 {
     public NodeEntity context { get; set; }
     [InjectNodeComponentDependency] private TransportLayerComponent _transportLayer;
@@ -82,6 +82,15 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
 
     public void OnInitialize()
     {
+        _broadcaster.RegisterPacketHandler(typeof(NetworkDiscoveryBroadcastPacket), (packet) =>
+        {
+        
+        });
+
+        _broadcaster.RegisterPacketHandler(typeof(NetworkDiscoveryBroadcastResponsePacket), (packet) =>
+        {
+        
+        });
     }
 
     private void Start()
@@ -92,7 +101,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
             RelayBroadcast(packet);
         });
 
-        context.transportLayer.RegisterEndpoint("NEW_SUBSCRIPTION_REQUEST", (subscriberPacket) =>
+ /*       context.transportLayer.RegisterEndpoint("NEW_SUBSCRIPTION_REQUEST", (subscriberPacket) =>
         {
             _transportLayer.SendPacket(subscriberPacket.Sender, "NEW_SUBSCRIPTION_REQUEST_RESPONSE", AvalaiblePeers);
         });
@@ -124,7 +133,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
 
             BroadcastDiscoveryRequest();
         });
-
+*/
         context.transportLayer.RegisterEndpoint("BROADCAST_DISCOVERY", OnReceive_DiscoveryBroadcast);
         context.transportLayer.RegisterEndpoint("BROADCAST_DISCOVERY_RESPONSE", OnReceive_DiscoveryBroadcastReponse);
     }
@@ -170,46 +179,24 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
         BroadcastDiscoveryRequest();
     }
 
-    [Button]
-    public void ConnectToCluster(ClusterInfo clusterInfo)
+    public void OnUpdate()
     {
-        for (int i = 0; i < clusterInfo.BootNodes.Count; ++i)
-        {
-            context.transportLayer.SendPacket(clusterInfo.BootNodes[i], "CONNECT_TO_CLUSTER");
-        }
-    }
+        if (context.IsSleeping)
+            return;
 
-    public void OnReceiveConnectToClusterResponse(NodeEntity bootNode)
-    {
-        TryRegisterPeer(bootNode);
-
-        var wasconnected = context.IsConnected;
-        context.IsConnected = true;
-
-        _transportLayer.SendPacket(bootNode, "NEW_SUBSCRIPTION_REQUEST");
-
-        if (!wasconnected)
-        {
-            Debug.Log("Connected !");
-            // in connection color
-            context.material.color = Color.yellow;
-        }
-    }
-
-    public void OnUpdated()
-    {
-        _refreshTimer += Time.deltaTime;
+        // done by the networkHandlingComponent
+        /*_refreshTimer += Time.deltaTime;
         if (_refreshTimer > RefreshingTime)
         {
             Heartbeat();
             _refreshTimer = 0;
-        }
+        }*/
 
         _discoveryBroadcastTimer -= Time.deltaTime;
         if (_discoveryBroadcastTimer > 0)
             return;
 
-        if (AvalaiblePeers.Count < PartialViewMaximumCount)
+        if (_networkInfo.Listenners.Count < ListennersTargetCount)
         {
             BroadcastDiscoveryRequest();
         }
@@ -307,7 +294,7 @@ public class PeerSamplingService : MonoBehaviour, INodeComponent
     [Button]
     public void BroadcastDiscoveryRequest()
     {
-        if (AvalaiblePeers.Count <= 0)
+        if(_networkInfo.Listenners.Count == 0)
             return;
 
         _discoveryBroadcastTimer += DelayBetweenDiscoveryRequests;
