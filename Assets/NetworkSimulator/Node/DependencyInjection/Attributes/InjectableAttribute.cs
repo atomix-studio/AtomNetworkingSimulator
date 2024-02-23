@@ -4,10 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Atom.ComponentSystem
+namespace Atom.ComponentProvider
 {
-    [AttributeUsage(AttributeTargets.Class)]
-    public class NodeComponentInjectorAttribute : Attribute
+    internal class InjectableAttribute : Attribute
     {
     }
 }

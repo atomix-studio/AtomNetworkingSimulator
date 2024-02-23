@@ -1,6 +1,6 @@
 ﻿using Atom.CommunicationSystem;
 using Atom.Components.Handshaking;
-using Atom.ComponentSystem;
+using Atom.ComponentProvider;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,10 +17,10 @@ namespace Atom.Components.Connecting
     public class ConnectingComponent : INodeComponent
     {
         public NodeEntity context { get; set; }
-        [InjectNodeComponentDependency] private PacketRouter _packetRouter;
-        [InjectNodeComponentDependency] private PeerSamplingService _peerSampling;
-        [InjectNodeComponentDependency] private NetworkHandlingComponent _networkInfo;
-        [InjectNodeComponentDependency] private HandshakingComponent _handshaking;
+        [InjectComponent] private PacketRouter _packetRouter;
+        [InjectComponent] private PeerSamplingService _peerSampling;
+        [InjectComponent] private NetworkHandlingComponent _networkInfo;
+        [InjectComponent] private HandshakingComponent _handshaking;
 
         public void OnInitialize()
         {
@@ -37,16 +37,17 @@ namespace Atom.Components.Connecting
                 PeerInfo peerInfo = new PeerInfo(received.senderID, respondable.senderAdress);
                 peerInfo.ComputeScore(ping, connectionRequest.networkInfoCallersCount, connectionRequest.networkInfoListennersCount);
 
-                response.isAccepted = AcceptConnection(peerInfo);
+                response.isAccepted = TryAcceptCaller(peerInfo);
 
                 _packetRouter.SendResponse((IRespondable)received, response);
             });
 
             _packetRouter.RegisterPacketHandler(typeof(DisconnectFromPeerNotificationPacket), (packet) =>
             {
-                if (_networkInfo.Callers.TryGetValue((packet as IRespondable).senderAdress, out var peerInfo))
+                var caller = _networkInfo.FindCallerByAdress((packet as IRespondable).senderAdress);
+                if (caller != null) 
                 {
-                    _networkInfo.RemoveCaller(peerInfo);
+                    _networkInfo.RemoveCaller(caller);
                 }
             });
         }
@@ -63,7 +64,7 @@ namespace Atom.Components.Connecting
             });
         }
 
-        public bool AcceptConnection(PeerInfo peerInfo)
+        public bool TryAcceptCaller(PeerInfo peerInfo)
         {
             if (_networkInfo.Callers.Count == 0)
             {
@@ -73,14 +74,14 @@ namespace Atom.Components.Connecting
 
             if (_networkInfo.Callers.Count >= _peerSampling.ListennersTargetCount)
             {
-                // trying to replace an existing worst listenner by the requesting one
-                foreach (var listenner in _networkInfo.Callers)
+                // trying to replace an existing worst caller by the requesting one
+                foreach (var caller in _networkInfo.Callers)
                 {
-                    if (peerInfo.score > listenner.Value.score)
+                    if (peerInfo.score > caller.Value.score)
                     {
                         // add random function
                         // replacing the listenner by the new peer
-                        DisconnectFrom(listenner.Value);
+                        DisconnectFrom(caller.Value);
                         _networkInfo.AddCaller(peerInfo);
 
                         return true;

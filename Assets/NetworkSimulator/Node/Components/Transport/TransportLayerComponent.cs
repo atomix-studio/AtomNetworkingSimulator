@@ -1,5 +1,5 @@
 ﻿using Atom.CommunicationSystem;
-using Atom.ComponentSystem;
+using Atom.ComponentProvider;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -59,6 +59,7 @@ namespace Atom.Transport
             _addPacket(destination, packet);
         }
 
+        // add a packet to the collections that simulates the network travelling
         private void _addPacket(NodeEntity target, INetworkPacket packet)
         {
             currentTravellingPacketTarget.Add(packet, target);
@@ -71,6 +72,9 @@ namespace Atom.Transport
             currentTravellingPacketTarget.Remove(packet);
             currentTravellingPacketsDestination.Remove(packet);
             currentTravellingPacketsPosition.Remove(packet);
+
+            // packets are disposed when their job is done 
+            packet.DisposePacket();
         }
 
         private void _updateTravellingPackets()

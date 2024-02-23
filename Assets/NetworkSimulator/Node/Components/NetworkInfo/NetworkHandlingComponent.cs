@@ -1,6 +1,6 @@
 ﻿using Atom.Components.Connecting;
 using Atom.Components.Handshaking;
-using Atom.ComponentSystem;
+using Atom.ComponentProvider;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
@@ -20,9 +20,9 @@ namespace Atom.CommunicationSystem
     public class NetworkHandlingComponent : MonoBehaviour, INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }
-        [InjectNodeComponentDependency] private HandshakingComponent _handshaking;
-        [InjectNodeComponentDependency] private ConnectingComponent _connecting;
-        [InjectNodeComponentDependency] private PeerSamplingService _peerSampling;
+        [InjectComponent] private HandshakingComponent _handshaking;
+        [InjectComponent] private ConnectingComponent _connecting;
+        [InjectComponent] private PeerSamplingService _peerSampling;
 
         protected int knownPeersMaximumCount = 100;
         protected int peerConnectionLeaseTime = 60;
@@ -52,7 +52,12 @@ namespace Atom.CommunicationSystem
         /// <summary>
         /// A collection of known peers which are note in the listenners or the callers.
         /// </summary>
-        public List<PeerInfo> KnownPeers { get; set; }
+        public List<PeerInfo> KnownPeers { get => _knownPeers; set => _knownPeers = value; }
+        [SerializeField] private List<PeerInfo> _knownPeers;
+
+        [SerializeField] private List<PeerInfo> _callersDebug;
+        [SerializeField] private List<PeerInfo> _listennersDebug;
+
         #endregion
 
         public void OnInitialize()
@@ -60,12 +65,37 @@ namespace Atom.CommunicationSystem
             Callers = new Dictionary<string, PeerInfo>();
             Listenners = new Dictionary<string, PeerInfo>();
             KnownPeers = new List<PeerInfo>();
+            _callersDebug = new List<PeerInfo>();
+            _listennersDebug = new List<PeerInfo>();
+
+            var router = context.GetNodeComponent<PacketRouter>();
+            router.RegisterPacketReceiveMiddleware((packet) =>
+            {                
+                if (Callers.TryGetValue(packet.senderID, out var callerInfo))
+                {
+                    callerInfo.last_updated = DateTime.UtcNow;
+                }
+
+                return true;
+            });
+
+            /*router.RegisterPacketReceiveMiddleware((packet) =>
+            {
+                if (Listenners.ContainsKey(packet.senderID))
+                {
+
+                }
+
+                return true;
+            });*/
         }
 
         // Initialization could eventually handle the retrieving of previous known connections ?
         public void InitializeLocalInfo(PeerInfo localPeerInfo)
         {
             LocalPeerInfo = localPeerInfo;
+            // ugly, will see later to optimize inits
+            context.GetNodeComponent<PacketRouter>().InitPeerAdress(localPeerInfo.peerAdress);
         }
 
         public void AddCaller(PeerInfo peerInfo)
@@ -73,27 +103,37 @@ namespace Atom.CommunicationSystem
             TryRemoveKnownPeer(peerInfo);
 
             Debug.Log($"{this} adding new caller => {peerInfo.peerAdress}");
-            Callers.Add(peerInfo.peerAdress, peerInfo);
+            Callers.Add(peerInfo.peerID, peerInfo);
+            _callersDebug.Add(peerInfo);
             peerInfo.last_updated = DateTime.Now;
         }
 
         public void RemoveCaller(PeerInfo peerInfo)
         {
+            Debug.Log($"{this} removing caller => {peerInfo.peerAdress}");
+
             TryAddKnownPeer(peerInfo);
-            Callers.Remove(peerInfo.peerAdress);
+            Callers.Remove(peerInfo.peerID);
+            _callersDebug.Remove(peerInfo);
         }
 
         public void AddListenner(PeerInfo peerInfo)
         {
+            Debug.Log($"{this} adding new listenner => {peerInfo.peerAdress}");
+
             TryRemoveKnownPeer(peerInfo);
-            Listenners.Add(peerInfo.peerAdress, peerInfo);
+            Listenners.Add(peerInfo.peerID, peerInfo);
+            _listennersDebug.Add(peerInfo);
             peerInfo.last_updated = DateTime.Now;
         }
 
         public void RemoveListenner(PeerInfo peerInfo)
         {
+            Debug.Log($"{this} removing listenner => {peerInfo.peerAdress}");
+
             TryAddKnownPeer(peerInfo);
-            Listenners.Remove(peerInfo.peerAdress);
+            _listennersDebug.Remove(peerInfo);
+            Listenners.Remove(peerInfo.peerID);
         }
 
         private void TryAddKnownPeer(PeerInfo peerInfo)
@@ -102,7 +142,7 @@ namespace Atom.CommunicationSystem
                 KnownPeers.Add(peerInfo);
 
             if (KnownPeers.Count > knownPeersMaximumCount)
-                KnownPeers.RemoveAt(0); 
+                KnownPeers.RemoveAt(0);
         }
 
         private void TryRemoveKnownPeer(PeerInfo peerInfo)
@@ -110,10 +150,37 @@ namespace Atom.CommunicationSystem
             if (KnownPeers.Contains(peerInfo))
                 KnownPeers.Remove(peerInfo);
         }
-                
-        public void OnUpdate()
+        
+        public PeerInfo FindCallerByAdress(string adress)
         {
-            for(int i = 0; i < Callers.Count; ++i)
+            foreach(var  peer in Callers)
+            {
+                if(peer.Value.peerAdress == adress)
+                {
+                    return peer.Value;
+                }
+            }
+
+            return null;
+        }
+
+        public PeerInfo FindListennerByAdress(string adress)
+        {
+            foreach (var peer in Listenners)
+            {
+                if (peer.Value.peerAdress == adress)
+                {
+                    return peer.Value;
+                }
+            }
+
+            return null;
+        }
+
+
+         public void OnUpdate()
+        {
+            for (int i = 0; i < Callers.Count; ++i)
             {
                 if ((DateTime.Now - Callers.ElementAt(i).Value.last_updated).Seconds > peerConnectionLeaseTime)
                 {
@@ -125,12 +192,12 @@ namespace Atom.CommunicationSystem
             }
 
             for (int i = 0; i < Listenners.Count; ++i)
-            {                
+            {
                 if ((DateTime.Now - Listenners.ElementAt(i).Value.last_updated).Seconds > peerConnectionLeaseRefreshTime)
                 {
                     // refresh message to listenner
                     // refreshing the score at the same time
-                    HeartbeatAsync(Listenners.ElementAt(i).Value);
+                    UpdatePeerInfoAsync(Listenners.ElementAt(i).Value);
 
                     UpdateNetworkScore();
                 }
@@ -162,9 +229,8 @@ namespace Atom.CommunicationSystem
                 _networkScoreBuffer.Add(current_peers_score);
             }
         }
-        #region RPC
 
-        protected async Task<bool> HeartbeatAsync(PeerInfo peerInfo)
+        public async Task<bool> UpdatePeerInfoAsync(PeerInfo peerInfo)
         {
             var handshakeResponse = await _handshaking.GetHandshakeAsync(peerInfo);
 
@@ -178,6 +244,5 @@ namespace Atom.CommunicationSystem
             return true;
         }
 
-        #endregion
     }
 }

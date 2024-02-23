@@ -1,5 +1,6 @@
-﻿using Atom.CommunicationSystem;
-using Atom.ComponentSystem;
+﻿using Assets.NetworkSimulator.Node.CommunicationSystem.Components.Router;
+using Atom.CommunicationSystem;
+using Atom.ComponentProvider;
 using Atom.Transport;
 using System;
 using System.Collections.Generic;
@@ -14,28 +15,18 @@ namespace Atom.CommunicationSystem
     public class PacketRouter : INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }
-        [InjectNodeComponentDependency] public TransportLayerComponent transportLayer { get; set; }
-        [InjectNodeComponentDependency] public NetworkHandlingComponent networkHandling { get; set; }
+        [InjectComponent] public TransportLayerComponent transportLayer { get; set; }
+        [InjectComponent] public NetworkHandlingComponent networkHandling { get; set; }
 
         private string _peerId;
-        protected string peerId
-
-        {
-            get
-            {
-                if (_peerId == null)
-                {
-                    _peerId = context.networkHandling.LocalPeerInfo.peerID;
-                }
-                return _peerId;
-            }
-        }
-
+       
         private Dictionary<Type, short> _packetIdentifiers = new Dictionary<Type, short>();
         private Dictionary<short, Action<INetworkPacket>> _receivePacketHandlers = new Dictionary<short, Action<INetworkPacket>>();
         private Dictionary<long, INetworkPacketResponseAwaiter> _packetResponseAwaitersBuffer = new Dictionary<long, INetworkPacketResponseAwaiter>();
 
         private Action<INetworkPacket> _onReceiveExternal;
+        private List<Func<INetworkPacket, bool>> _receivePacketMiddlewares;
+        private List<Func<INetworkPacket, bool>> _sendPacketMiddlewares;
 
         private long _packetIdGenerator;
         protected long packetIdGenerator
@@ -61,6 +52,44 @@ namespace Atom.CommunicationSystem
             // the transport layer will be an abstraction from this point so we need to ba able to hook up to many different implementations
             this.transportLayer.SetRoutingCallback(_onReceiveExternal);
         }
+
+        public void InitPeerAdress(string peerAdress)
+        {
+            _peerId = peerAdress;
+        }
+
+        public void RegisterPacketSendingMiddleware(Func<INetworkPacket, bool> routingMiddleware)
+        {
+            if (_sendPacketMiddlewares == null)
+                _sendPacketMiddlewares = new List<Func<INetworkPacket, bool>>();
+
+            _sendPacketMiddlewares.Add(routingMiddleware);
+        }
+
+        public void UnregisterPacketSendingMiddleware(Func<INetworkPacket, bool> routingMiddleware)
+        {
+            if (_sendPacketMiddlewares == null)
+                return;
+
+            _sendPacketMiddlewares.Add(routingMiddleware);
+        }
+
+        public void RegisterPacketReceiveMiddleware(Func<INetworkPacket, bool> routingMiddleware)
+        {
+            if (_receivePacketMiddlewares == null)
+                _receivePacketMiddlewares = new List<Func<INetworkPacket, bool>>();
+
+            _receivePacketMiddlewares.Add(routingMiddleware);
+        }
+
+        public void UnregisterPacketReceiveMiddleware(Func<INetworkPacket, bool> routingMiddleware)
+        {
+            if (_receivePacketMiddlewares == null)
+                return;
+
+            _receivePacketMiddlewares.Add(routingMiddleware);
+        }
+
 
         public async void OnUpdate()
         {
@@ -89,7 +118,7 @@ namespace Atom.CommunicationSystem
         {
             if (!broadcasterCall && TypeHelpers.ImplementsInterface<IBroadcastable>(packetType))
             {
-                Debug.LogError($"Broadcastable packets should always be registered from the broadcaster.");
+                Debug.LogError($"Broadcastable packets should always be registered from the broadcaster => Error with packet of type {packetType}.");
             }
 
             var packetIdentifier = _packetIdentifierGenerator++;
@@ -147,7 +176,7 @@ namespace Atom.CommunicationSystem
             networkPacket.packetUniqueId = packetIdGenerator;
             networkPacket.packetTypeIdentifier = _packetIdentifiers[networkPacket.GetType()];
             networkPacket.sentTime = DateTime.Now;
-            networkPacket.senderID = peerId;
+            networkPacket.senderID = _peerId;
 
             if (networkPacket is IRespondable)
                 (networkPacket as IRespondable).senderAdress = context.networkHandling.LocalPeerInfo.peerAdress;
@@ -158,6 +187,12 @@ namespace Atom.CommunicationSystem
 
         private void onReceivePacket(INetworkPacket networkPacket)
         {
+            for(int i = 0; i < _receivePacketMiddlewares.Count; ++i)
+            {
+                if (!_receivePacketMiddlewares[i](networkPacket))
+                    return;
+            }
+
             if (networkPacket is IResponse)
             {
                 var callerId = (networkPacket as IResponse).callerPacketUniqueId;

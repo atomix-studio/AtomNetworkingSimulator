@@ -1,5 +1,5 @@
 ﻿using Atom.CommunicationSystem;
-using Atom.ComponentSystem;
+using Atom.ComponentProvider;
 using Sirenix.OdinInspector;
 using System;
 using System.Linq;
@@ -10,9 +10,9 @@ namespace Atom.ClusterConnectionService
     public class ClusterConnectionService : INodeComponent
     {
         public NodeEntity context { get; set; }
-        [InjectNodeComponentDependency] private PeerSamplingService _samplingService;
-        [InjectNodeComponentDependency] private PacketRouter _packetRouter;
-
+        [InjectComponent] private PeerSamplingService _samplingService;
+        [InjectComponent] private PacketRouter _packetRouter;
+        [InjectComponent] private BroadcasterComponent _broadcaster;
         /// <summary>
         /// the maximum number of boot nodes a node can reach while joining the network
         /// </summary>
@@ -49,7 +49,7 @@ namespace Atom.ClusterConnectionService
 
         public void ConnectToCluster(ClusterInfo clusterInfo)
         {
-            var broadcaster = context.GetNodeComponent<BroadcasterComponent>();
+           
             int _btNodeCalls = 0;
             foreach (var bootNode in clusterInfo.BootNodes)
             {
@@ -60,11 +60,11 @@ namespace Atom.ClusterConnectionService
                 if (_btNodeCalls > _maximumBootNodeCalls)
                     break;
 
-                broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
+                _broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
                 {
                     Debug.Log("Received cluster connection response. Sending new subscription request.");
 
-                    broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
+                    _broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
                     {
                         var subscriptionResponse = (SubscriptionResponsePacket)response;
 

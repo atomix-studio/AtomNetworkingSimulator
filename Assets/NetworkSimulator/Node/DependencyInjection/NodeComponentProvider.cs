@@ -4,7 +4,7 @@ using System.Linq;
 using Unity.VisualScripting;
 using UnityEngine;
 
-namespace Atom.ComponentSystem
+namespace Atom.ComponentProvider
 {
     /// <summary>
     /// Manager/factory for services in the Node system
@@ -18,24 +18,26 @@ namespace Atom.ComponentSystem
 
         private static Dictionary<Type, List<TypeInjectorHandler>> _injectorHandlers;
 
+        private static Dictionary<Type, TypeInjectorHandler> _injectors;
+
         public void Initialize()
         {
             _injectorHandlers = new Dictionary<Type, List<TypeInjectorHandler>>();
             _components = new Dictionary<Type, INodeComponent>();
             _updatableComponents = new Dictionary<Type, INodeUpdatableComponent>();
             _context = gameObject.GetComponent<NodeEntity>();
+
             InitializeServices();
         }
 
         private void InitializeServices()
         {
-            var iNodeComponentType = typeof(INodeComponent);
-            var types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(s => s.GetTypes()).Where(p => iNodeComponentType.IsAssignableFrom(p) && !p.IsAbstract);
-
-            foreach (var type in types)
+            /*var iNodeComponentType = typeof(INodeComponent);
+            var types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(s => s.GetTypes()).Where(p => iNodeComponentType.IsAssignableFrom(p) && !p.IsAbstract);*/
+            foreach (var type in ComponentProvider.InjectableTypes)
             {
-                var inst = Get(type, false);
-
+                // creating a delegate to handle the injection of components in a given type
+                // by doing this we do the reflection call one time per type only
                 if (!_injectorHandlers.ContainsKey(type))
                 {
                     _injectorHandlers.Add(type, new List<TypeInjectorHandler>());
@@ -47,7 +49,7 @@ namespace Atom.ComponentSystem
                         var attributes = field.CustomAttributes;
                         foreach (var attribute in attributes)
                         {
-                            if (attribute.AttributeType == typeof(InjectNodeComponentDependencyAttribute))
+                            if (attribute.AttributeType == typeof(InjectComponentAttribute))
                             {
                                 /*var dependency = Get(field.FieldType);
                                 field.SetValue(inst, dependency);*/
@@ -63,7 +65,7 @@ namespace Atom.ComponentSystem
                         var attributes = property.CustomAttributes;
                         foreach (var attribute in attributes)
                         {
-                            if (attribute.AttributeType == typeof(InjectNodeComponentDependencyAttribute))
+                            if (attribute.AttributeType == typeof(InjectComponentAttribute))
                             {
                                 /* var dependency = Get(property.PropertyType);
                                  property.SetValue(inst, dependency);*/
@@ -74,14 +76,15 @@ namespace Atom.ComponentSystem
                     }
                 }
 
+                var inst = Get(type, false);
                 for (int j = 0; j < _injectorHandlers[type].Count; ++j)
                 {
                     _injectorHandlers[type][j].Inject(this, inst);
                 }
-
             }
 
-            foreach (var type in types)
+            // 
+            foreach (var type in ComponentProvider.InjectableTypes)
             {
                 var inst = Get(type, false);
                 inst.OnInitialize();
@@ -98,9 +101,8 @@ namespace Atom.ComponentSystem
             if (type.IsSubclassOf(typeof(Component)))
             {
                 var newServiceInstance = (INodeComponent)_context.gameObject.GetComponent(type);
-
                 if (newServiceInstance == null)
-                    throw new Exception("Components of type Monobehaviour should be placed on the gameobject before intialisation as the provider can't add dynamic components");
+                    newServiceInstance = (INodeComponent)_context.gameObject.AddComponent(type);
 
                 newServiceInstance.context = _context;
                 _components.Add(type, newServiceInstance);

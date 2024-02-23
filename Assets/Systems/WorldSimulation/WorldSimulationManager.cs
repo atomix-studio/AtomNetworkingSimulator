@@ -61,7 +61,8 @@ public class WorldSimulationManager : MonoBehaviour
 
         for (int i = 0; i < defaultCluster.BootNodes.Count; i++)
         {
-            nodeAddresses.Add(defaultCluster.BootNodes[i].name, defaultCluster.BootNodes[i]);   
+            nodeAddresses.Add(defaultCluster.BootNodes[i].name, defaultCluster.BootNodes[i]);
+            defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = defaultCluster.BootNodes[i].name, peerAdress = defaultCluster.BootNodes[i].name, ping = 0, trust_coefficient = 0 });
         }
     }
 

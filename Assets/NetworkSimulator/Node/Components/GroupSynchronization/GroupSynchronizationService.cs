@@ -1,4 +1,4 @@
-﻿using Atom.ComponentSystem;
+﻿using Atom.ComponentProvider;
 using System;
 
 namespace Atom.GroupManagement

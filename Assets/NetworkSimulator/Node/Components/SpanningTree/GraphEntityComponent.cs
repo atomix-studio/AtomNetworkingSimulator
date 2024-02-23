@@ -1,5 +1,5 @@
 ﻿using Atom.CommunicationSystem;
-using Atom.ComponentSystem;
+using Atom.ComponentProvider;
 using System;
 using System.Collections.Generic;
 using System.Linq;

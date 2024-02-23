@@ -9,26 +9,33 @@ namespace Atom.CommunicationSystem
 {
     public class NetworkDiscoveryBroadcastPacket : AbstractNetworkPacket, IRespondable, IBroadcastable
     {
-        public string senderAdress { get ; set ; }
-        public string broadcasterID { get; set ; }
+        public string senderAdress { get; set; }
+        public string broadcasterID { get; set; }
         public string broadcastID { get; set; }
 
         public INetworkPacket packet => this;
 
+        // not all broadcast messages needs to hold the adress of the broadcaster
+        // for discovery over network we need that data because a receiver will have to ping the broadcaster to determine if a connection is profitable
+        public string broadcasterAdress { get; set; }
 
-        public NetworkDiscoveryBroadcastPacket() { }
+        public NetworkDiscoveryBroadcastPacket(string broadcasterAdress)
+        {
+            this.broadcasterAdress = broadcasterAdress;
+        }
 
-        public NetworkDiscoveryBroadcastPacket(short packetIdentifier, string senderID, DateTime sentTime, string broadcastID, string broadcasterID)
+        public NetworkDiscoveryBroadcastPacket(short packetIdentifier, string senderID, DateTime sentTime, string broadcastID, string broadcasterID, string broadcasterAdress)
         {
             this.packetTypeIdentifier = packetIdentifier;
             this.senderID = senderID;
             this.sentTime = sentTime;
             this.broadcastID = broadcastID;
             this.broadcasterID = broadcasterID;
+            this.broadcasterAdress = broadcasterAdress;
         }
 
         public NetworkDiscoveryBroadcastPacket(NetworkDiscoveryBroadcastPacket subscriptionPacket) :
-            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID)
+            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.broadcasterAdress)
         {
 
         }
@@ -45,7 +52,9 @@ namespace Atom.CommunicationSystem
     }
 
     public class NetworkDiscoveryBroadcastResponsePacket : AbstractNetworkPacket, IResponse
-    {
+    {     
         public long callerPacketUniqueId { get; set; }
+        public string listennerAdress { get; set; }
+        public string listennerID { get; set; }
     }
 }

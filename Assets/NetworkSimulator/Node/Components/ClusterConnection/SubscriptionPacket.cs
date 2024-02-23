@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Atom.CommunicationSystem
 {
-    public class SubscriptionPacket : AbstractNetworkPacket, IBroadcastable, IRespondable
+    public class SubscriptionPacket : AbstractNetworkPacket, IRespondable
     {       
         public string broadcasterID { get; set; }
         public string broadcastID { get; set; }
@@ -33,13 +33,13 @@ namespace Atom.CommunicationSystem
         {
 
         }
-
+/*
         public INetworkPacket GetForwardablePacket(INetworkPacket received)
         {
             var copy = new SubscriptionPacket(received as SubscriptionPacket);
             return copy;
         }
-
+*/
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
             return new SubscriptionResponsePacket();

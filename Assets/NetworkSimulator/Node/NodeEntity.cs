@@ -1,6 +1,6 @@
 using Atom.Transport;
 using Atom.CommunicationSystem;
-using Atom.ComponentSystem;
+using Atom.ComponentProvider;
 using System.Collections.Generic;
 using UnityEngine;
 using Sirenix.OdinInspector;

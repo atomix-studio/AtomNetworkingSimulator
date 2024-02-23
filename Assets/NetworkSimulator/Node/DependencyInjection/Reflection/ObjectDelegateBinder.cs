@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace Atom.ComponentSystem
+namespace Atom.ComponentProvider
 {
     /// <summary>
     /// Permet de créer un ensemble de délégué par reflection sur une classe afin de réinitialiser les valeurs par défaut au runtime.
@@ -59,7 +59,7 @@ namespace Atom.ComponentSystem
         {
             for (int i = 0; i < customAttributes.Count(); ++i)
             {
-                if (customAttributes.ElementAt(i).AttributeType == typeof(InjectNodeComponentDependencyAttribute))
+                if (customAttributes.ElementAt(i).AttributeType == typeof(InjectComponentAttribute))
                 {
                     return true;
                 }

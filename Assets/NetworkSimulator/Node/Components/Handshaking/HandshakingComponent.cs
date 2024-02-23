@@ -1,5 +1,5 @@
 ﻿using Atom.CommunicationSystem;
-using Atom.ComponentSystem;
+using Atom.ComponentProvider;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +16,7 @@ namespace Atom.Components.Handshaking
     public class HandshakingComponent : INodeComponent
     {
         public NodeEntity context { get; set; }
-        [InjectNodeComponentDependency] private PacketRouter _packetRouter;
+        [InjectComponent] private PacketRouter _packetRouter;
 
         public void OnInitialize()
         {

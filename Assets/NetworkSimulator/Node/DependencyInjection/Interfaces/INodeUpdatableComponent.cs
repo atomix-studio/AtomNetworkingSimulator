@@ -1,5 +1,5 @@
 ﻿
-namespace Atom.ComponentSystem
+namespace Atom.ComponentProvider
 {
     public interface INodeUpdatableComponent : INodeComponent
     {

@@ -4,11 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Atom.ComponentSystem
+namespace Atom.ComponentProvider
 {
+    [Injectable]
     public interface INodeComponent
     {
-        public NodeEntity context { get; set; }
+        [InjectComponent] public NodeEntity context { get; set; }
         public void OnInitialize();
     }
 }

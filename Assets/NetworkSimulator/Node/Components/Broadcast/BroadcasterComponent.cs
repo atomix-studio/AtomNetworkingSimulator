@@ -1,6 +1,6 @@
 ﻿using Atom.CommunicationSystem;
 using Atom.CommunicationSystem;
-using Atom.ComponentSystem;
+using Atom.ComponentProvider;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,8 +20,8 @@ namespace Atom.CommunicationSystem
 
     public class BroadcasterComponent : MonoBehaviour, INodeComponent
     {
-        [InjectNodeComponentDependency] private PacketRouter _router;
-        [InjectNodeComponentDependency] private NetworkHandlingComponent _networkHandling;
+        [InjectComponent] private PacketRouter _router;
+        [InjectComponent] private NetworkHandlingComponent _networkHandling;
 
         [Header("Broadcasting Properties")]
         // number of calls for a broadcast
@@ -60,7 +60,7 @@ namespace Atom.CommunicationSystem
         /// </summary>
         /// <param name="packetType"></param>
         /// <param name="packetReceiveHandler"></param>
-        public void RegisterPacketHandler(Type packetType, Action<INetworkPacket> packetReceiveHandler)
+        public void RegisterPacketHandlerWithMiddleware(Type packetType, Action<INetworkPacket> packetReceiveHandler)
         {
             _router.RegisterPacketHandler(packetType, (receivedPacket) => 
             {
@@ -114,6 +114,8 @@ namespace Atom.CommunicationSystem
             if (_networkHandling.Listenners.Count <= 0)
                 return;
 
+            broadcastable.broadcastID = Guid.NewGuid().ToString();
+
             var calls_count = GetCurrentFanout(fanoutOverride);
             for (int i = 0; i < calls_count; ++i)
             {
@@ -152,12 +154,13 @@ namespace Atom.CommunicationSystem
                 var index = 0;
                 do
                 {
-                    index = _random.Next(calls_count);
+                    index = _random.Next(_networkHandling.Listenners.Count);
                     count_break++;
 
                     if (count_break > calls_count * 2)
                         break;
                 }
+
                 // there is a probability that a node receive a broadcast from its callers that has been issued by a node contained in the callers view
                 // so we don't want to send it back its message 
                 while (_networkHandling.Listenners.ElementAt(index).Value.peerID == broadcastable.broadcasterID);
@@ -209,7 +212,7 @@ namespace Atom.CommunicationSystem
             }
             else
             {
-                if (_relayedBroadcastsBuffer.Count >= _broadcastMessageMaxCycles)
+                if (_relayedBroadcastsBuffer.Count >= _relayedBroadcastBufferSize)
                 {
                     _relayedBroadcastsBuffer.Remove(_relayedBroadcastsBuffer.ElementAt(0).Key);
                 }
@@ -220,7 +223,7 @@ namespace Atom.CommunicationSystem
 
         public bool IsBroadcastForwardable(IBroadcastable packet)
         {
-            return _relayedBroadcastsBuffer[packet.broadcastID] <= _broadcastRelayingCycles;
+            return !_relayedBroadcastsBuffer.ContainsKey(packet.broadcastID) || _relayedBroadcastsBuffer[packet.broadcastID] <= _broadcastRelayingCycles;
         }
 
 
