@@ -198,16 +198,17 @@ namespace Atom.CommunicationSystem
             if (context.IsSleeping)
                 return;
 
-            /*  for (int i = 0; i < Callers.Count; ++i)
-              {
-                  if ((DateTime.Now - Callers.ElementAt(i).Value.last_updated).Seconds > peerConnectionLeaseTime)
-                  {
-                      // the caller hasnt pinged the local node for more than the lease time
-                      // it is the expiration of the connection
-                      // we send a disconnection message to caller
-                      _connecting.DisconnectFromCaller(Callers.ElementAt(i).Value);
-                  }
-              }*/
+            // callers before
+            /*for (int i = 0; i < Connections.Count; ++i)
+            {
+                if ((DateTime.Now - Connections.ElementAt(i).Value.last_updated).Seconds > peerConnectionLeaseTime)
+                {
+                    // the caller hasnt pinged the local node for more than the lease time
+                    // it is the expiration of the connection
+                    // we send a disconnection message to caller
+                    _connecting.DisconnectFromPeer(Connections.ElementAt(i).Value);
+                }
+            }*/
 
             for (int i = 0; i < Connections.Count; ++i)
             {
@@ -221,10 +222,10 @@ namespace Atom.CommunicationSystem
                 }
             }
 
-            if (Connections.Count > context.NetworkViewsTargetCount)
+            /*if (Connections.Count > context.NetworkViewsTargetCount)
             {
                 // sorting listenners by score and disconnect from the one that are not kept in selection
-            }
+            }*/
         }
 
         private float _peerScore;
@@ -247,7 +248,7 @@ namespace Atom.CommunicationSystem
 
             ///TODO analyzing the _networkScoreBuffer curve more in depth
 
-            if (current_peers_score * 1.33f < _peerScore)
+            if (current_peers_score * 1.1f < _peerScore)
             {
                 _peerSampling.BroadcastDiscoveryRequest();
                 //_networkScoreBuffer.Add(current_peers_score);

@@ -76,11 +76,17 @@ namespace Atom.Components.Connecting
         /// <param name="peerInfo"></param>
         public void SendConnectionRequestTo(PeerInfo peerInfo, PeerInfo removeOnSuccss = null)
         {
+            //var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
             if (_networkInfo.Connections.ContainsKey(peerInfo.peerID))
                 return;
 
             _packetRouter.SendRequest(peerInfo.peerAdress, new ConnectionRequestPacket((byte)_networkInfo.Connections.Count), (response) =>
             {
+                if (response == null)
+                    //tcs.SetResult(false);
+                    return;
+
                 var connectionResponsePacket = (ConnectionRequestResponsePacket)response;
                 if (connectionResponsePacket.isAccepted)
                 {
@@ -90,10 +96,15 @@ namespace Atom.Components.Connecting
                     peerInfo.SetScoreByDistance(context.transform.position);
                     _networkInfo.AddConnection(peerInfo);
 
+
                     if (removeOnSuccss != null)
                         DisconnectFromPeer(removeOnSuccss);
                 }
+
+                //tcs.SetResult(connectionResponsePacket.isAccepted);
             });
+
+            //return await tcs.Task;
         }
 
         /*        public bool TryAcceptCaller(PeerInfo peerInfo)
@@ -154,17 +165,17 @@ namespace Atom.Components.Connecting
                 // trying to replace an existing worst caller by the requesting one
                 foreach (var connection in _networkInfo.Connections)
                 {
-                    /*if (peerInfo.score > connection.Value.score)
-                    {
-                        toDisconnect = connection.Value;
-                        return true;
-                    }*/
-
-                    if (NodeRandom.Range(0, 100) > 99)
+                    if (peerInfo.score > connection.Value.score)
                     {
                         toDisconnect = connection.Value;
                         return true;
                     }
+
+                   /* if (NodeRandom.Range(0f, 100f) > 97)
+                    {
+                        toDisconnect = connection.Value;
+                        return true;
+                    }*/
                 }
 
                 return false;

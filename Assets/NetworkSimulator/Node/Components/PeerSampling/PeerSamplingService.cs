@@ -105,7 +105,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
             }
 
             //float listennerRatio = ListennersTargetCount / _networkInfo.Listenners.Count;
-            float chances = NodeMath.Map(WorldSimulationManager.nodeAddresses.Count, 0, 100000, 90, 99.999f);
+            float chances = NodeMath.Map(WorldSimulationManager.nodeAddresses.Count, 0, 100000, 60, 99.999f);
             var accept_connection = UnityEngine.Random.Range(0, 100) > chances; // here a real random function / use peer counting to get datas of the global network
             if (accept_connection)
             {
@@ -187,6 +187,8 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
         }
 
         await Task.WhenAll(handshakeTasks);
+
+        potentialPeers.Sort((a, b) => a.score.CompareTo(b.score));
 
         for (int i = 0; i < potentialPeers.Count; i++)
         {
@@ -281,7 +283,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
         {
             _discoveryBroadcastCooldown += Time.deltaTime;
 
-            if (_discoveryBroadcastCooldown > 0 && _discoveryBroadcastCooldown < 5)
+            if (_discoveryBroadcastTimer > 0 && _discoveryBroadcastCooldown < 5)
                 return;
 
             BroadcastDiscoveryRequest();
