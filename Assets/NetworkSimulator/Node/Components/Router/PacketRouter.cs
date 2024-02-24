@@ -20,8 +20,8 @@ namespace Atom.CommunicationSystem
         private Dictionary<long, INetworkPacketResponseAwaiter> _packetResponseAwaitersBuffer = new Dictionary<long, INetworkPacketResponseAwaiter>();
 
         private Action<INetworkPacket> _onReceiveExternal;
-        private List<Func<INetworkPacket, bool>> _receivePacketMiddlewares;
-        private List<Func<INetworkPacket, bool>> _sendPacketMiddlewares;
+        private List<Func<INetworkPacket, bool>> _receivePacketMiddlewares = new List<Func<INetworkPacket, bool>>();
+        private List<Func<INetworkPacket, bool>> _sendPacketMiddlewares = new List<Func<INetworkPacket, bool>>();
 
         private long _packetIdGenerator;
         protected long packetIdGenerator
@@ -86,7 +86,6 @@ namespace Atom.CommunicationSystem
 
             _receivePacketMiddlewares.Add(routingMiddleware);
         }
-
 
         public async void OnUpdate()
         {

@@ -28,7 +28,7 @@ namespace Atom.ComponentProvider
                 {
                     foreach(var attr in all_types[i].CustomAttributes)
                     {
-                        if(attr.AttributeType == typeof(InjectableAttribute))
+                        if(attr.AttributeType == typeof(InjectionContextAttribute))
                         {
                             injectableAbstractTypes.Add(all_types[i]);
                             break;
@@ -47,7 +47,7 @@ namespace Atom.ComponentProvider
 
                 foreach (var attribute in all_types[i].CustomAttributes)
                 {
-                    if (attribute.AttributeType == typeof(InjectableAttribute) || attribute.AttributeType == typeof(SingletonAttribute))
+                    if (attribute.AttributeType == typeof(InjectionContextAttribute) || attribute.AttributeType == typeof(SingletonAttribute))
                     {                        
                         _injectableTypes.Add(all_types[i]);
 

@@ -7,16 +7,18 @@ using Sirenix.OdinInspector;
 using Atom.ClusterConnectionService;
 using Atom.Components.Handshaking;
 using System.Linq;
+using Atom.Components.Connecting;
 
 public class NodeEntity : MonoBehaviour
 {
     public NodeComponentProvider componentProvider { get; private set; }
-    public BroadcasterComponent broadcaster { get; private set; }
-    public TransportLayerComponent transportLayer { get; private set; }
-    public NetworkHandlingComponent networkHandling { get => _networkInfo; private set => _networkInfo = value; }
-    public PeerSamplingService peerSampling { get; private set; }
+    public BroadcasterComponent broadcaster { get; set; }
+    public TransportLayerComponent transportLayer { get; set; }
+    public PeerSamplingService peerSampling { get; set; }
+    public NetworkHandlingComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }
 
     [SerializeField] private NetworkHandlingComponent _networkInfo;
+    private BootNodeHandling _bootNodeHandling;
 
     [Header("Params")]
     [SerializeField] private bool _isBoot;
@@ -62,6 +64,11 @@ public class NodeEntity : MonoBehaviour
         peerSampling = GetNodeComponent<PeerSamplingService>();
 
         _material = GetComponent<MeshRenderer>().material;
+
+        if (IsBoot)
+        {
+            _bootNodeHandling = GetNodeComponent<BootNodeHandling>();
+        }
     }
 
     public void OnStart(ClusterInfo clusterInfo, bool sleeping)
@@ -72,7 +79,7 @@ public class NodeEntity : MonoBehaviour
         IsSleeping = sleeping;
     }
 
-    public T GetNodeComponent<T>() where T: INodeComponent
+    public T GetNodeComponent<T>() where T : INodeComponent
     {
         return componentProvider.Get<T>();
     }
@@ -174,7 +181,7 @@ public class NodeEntity : MonoBehaviour
 
     private void Update()
     {
-        if(!WorldSimulationManager.Instance.DisplaySelectedOnly || this == WorldSimulationManager.Instance.DebugSelectedNodeEntity)
+        if (!WorldSimulationManager.Instance.DisplaySelectedOnly || this == WorldSimulationManager.Instance.DebugSelectedNodeEntity)
         {
             if (WorldSimulationManager.Instance.DisplayGroupConnections)
             {

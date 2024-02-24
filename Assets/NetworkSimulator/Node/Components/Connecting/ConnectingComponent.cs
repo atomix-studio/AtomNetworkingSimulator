@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using Atom.Helpers;
 
 namespace Atom.Components.Connecting
 {
@@ -153,7 +154,13 @@ namespace Atom.Components.Connecting
                 // trying to replace an existing worst caller by the requesting one
                 foreach (var connection in _networkInfo.Connections)
                 {
-                    if (peerInfo.score > connection.Value.score)
+                    /*if (peerInfo.score > connection.Value.score)
+                    {
+                        toDisconnect = connection.Value;
+                        return true;
+                    }*/
+
+                    if (NodeRandom.Range(0, 100) > 99)
                     {
                         toDisconnect = connection.Value;
                         return true;
@@ -165,6 +172,8 @@ namespace Atom.Components.Connecting
 
             return true;
         }
+
+
         /*
                 public void DisconnectFromCaller(PeerInfo peerInfo)
                 {

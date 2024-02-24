@@ -32,10 +32,9 @@ namespace Atom.ClusterConnectionService
             {
                 var respondable = (packet as IRespondable);
                 var response = (ClusterConnectionRequestResponsePacket)respondable.GetResponsePacket(respondable).packet;
-                response.potentialPeerInfos = new System.Collections.Generic.List<PeerInfo>();
-                response.potentialPeerInfos.Add(context.networkHandling.LocalPeerInfo);
+                response.potentialPeerInfos = new System.Collections.Generic.List<PeerInfo>() { context.networkHandling.LocalPeerInfo };
                 response.potentialPeerInfos.AddRange(context.networkHandling.Connections.Values.ToList());
-                response.potentialPeerInfos.AddRange(context.networkHandling.KnownPeers);
+                response.potentialPeerInfos.AddRange(context.networkHandling.KnownPeers.Values.ToList());
                 while(response.potentialPeerInfos.Count > 9)
                 {
                     response.potentialPeerInfos.RemoveAt(UnityEngine.Random.Range(0, response.potentialPeerInfos.Count));   

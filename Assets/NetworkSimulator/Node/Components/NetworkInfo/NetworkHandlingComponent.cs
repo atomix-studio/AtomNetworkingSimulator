@@ -33,6 +33,8 @@ namespace Atom.CommunicationSystem
         // the component uses that data to detect changes (decrease) and will react to a network health going down by rebroadcasting discovery requets
         [SerializeField, ReadOnly] private List<float> _networkScoreBuffer = new List<float>();
 
+
+        public int KnownPeersMaximumCount => knownPeersMaximumCount;
         #region Peer Infos
         /// <summary>
         /// INFO of the local peer
@@ -53,7 +55,7 @@ namespace Atom.CommunicationSystem
         /// <summary>
         /// A collection of known peers which are note in the listenners or the callers.
         /// </summary>
-        public List<PeerInfo> KnownPeers { get => _knownPeers; set => _knownPeers = value; }
+        public Dictionary<string, PeerInfo> KnownPeers { get; set; }
 
         //[SerializeField] private List<PeerInfo> _callersDebug;
         [SerializeField] private List<PeerInfo> _connectionsDebug;
@@ -65,7 +67,7 @@ namespace Atom.CommunicationSystem
         {
             //Callers = new Dictionary<string, PeerInfo>();
             Connections = new Dictionary<string, PeerInfo>();
-            KnownPeers = new List<PeerInfo>();
+            KnownPeers = new Dictionary<string, PeerInfo>();
             //_callersDebug = new List<PeerInfo>();
             _connectionsDebug = new List<PeerInfo>();
             _networkScoreBuffer.Add(0);
@@ -99,29 +101,29 @@ namespace Atom.CommunicationSystem
             // ugly, will see later to optimize inits
             context.GetNodeComponent<PacketRouter>().InitPeerAdress(localPeerInfo.peerAdress);
         }
-/*
-        public void AddCaller(PeerInfo peerInfo)
-        {
-            TryRemoveKnownPeer(peerInfo);
+        /*
+                public void AddCaller(PeerInfo peerInfo)
+                {
+                    TryRemoveKnownPeer(peerInfo);
 
-            if (Callers.ContainsKey(peerInfo.peerID))
-                return;
+                    if (Callers.ContainsKey(peerInfo.peerID))
+                        return;
 
-            Debug.Log($"{this} adding new caller => {peerInfo.peerAdress}");
-            Callers.Add(peerInfo.peerID, peerInfo);
-            _callersDebug.Add(peerInfo);
-            peerInfo.last_updated = DateTime.Now;
-        }
+                    Debug.Log($"{this} adding new caller => {peerInfo.peerAdress}");
+                    Callers.Add(peerInfo.peerID, peerInfo);
+                    _callersDebug.Add(peerInfo);
+                    peerInfo.last_updated = DateTime.Now;
+                }
 
-        public void RemoveCaller(PeerInfo peerInfo)
-        {
-            Debug.Log($"{this} removing caller => {peerInfo.peerAdress}");
+                public void RemoveCaller(PeerInfo peerInfo)
+                {
+                    Debug.Log($"{this} removing caller => {peerInfo.peerAdress}");
 
-            TryAddKnownPeer(peerInfo);
-            Callers.Remove(peerInfo.peerID);
-            _callersDebug.Remove(peerInfo);
-        }
-*/
+                    TryAddKnownPeer(peerInfo);
+                    Callers.Remove(peerInfo.peerID);
+                    _callersDebug.Remove(peerInfo);
+                }
+        */
         public void AddConnection(PeerInfo peerInfo)
         {
             Debug.Log($"{this} adding new listenner => {peerInfo.peerAdress}");
@@ -135,7 +137,7 @@ namespace Atom.CommunicationSystem
             _connectionsDebug.Add(peerInfo);
             peerInfo.last_updated = DateTime.Now;
 
-           
+
             UpdateNetworkScore();
 
         }
@@ -151,31 +153,31 @@ namespace Atom.CommunicationSystem
 
         private void TryAddKnownPeer(PeerInfo peerInfo)
         {
-            if (!KnownPeers.Contains(peerInfo))
-                KnownPeers.Add(peerInfo);
+            if (!KnownPeers.ContainsKey(peerInfo.peerID))
+                KnownPeers.Add(peerInfo.peerID, peerInfo);
 
             if (KnownPeers.Count > knownPeersMaximumCount)
-                KnownPeers.RemoveAt(0);
+                KnownPeers.Remove(KnownPeers.ElementAt(0).Key);
         }
 
         private void TryRemoveKnownPeer(PeerInfo peerInfo)
         {
-            if (KnownPeers.Contains(peerInfo))
-                KnownPeers.Remove(peerInfo);
+            if (KnownPeers.ContainsKey(peerInfo.peerID))
+                KnownPeers.Remove(peerInfo.peerID);
         }
-/*
-        public PeerInfo FindCallerByAdress(string adress)
-        {
-            foreach (var peer in Callers)
-            {
-                if (peer.Value.peerAdress == adress)
+        /*
+                public PeerInfo FindCallerByAdress(string adress)
                 {
-                    return peer.Value;
-                }
-            }
+                    foreach (var peer in Callers)
+                    {
+                        if (peer.Value.peerAdress == adress)
+                        {
+                            return peer.Value;
+                        }
+                    }
 
-            return null;
-        }*/
+                    return null;
+                }*/
 
         public PeerInfo FindConnectionByAdress(string adress)
         {
@@ -196,16 +198,16 @@ namespace Atom.CommunicationSystem
             if (context.IsSleeping)
                 return;
 
-          /*  for (int i = 0; i < Callers.Count; ++i)
-            {
-                if ((DateTime.Now - Callers.ElementAt(i).Value.last_updated).Seconds > peerConnectionLeaseTime)
-                {
-                    // the caller hasnt pinged the local node for more than the lease time
-                    // it is the expiration of the connection
-                    // we send a disconnection message to caller
-                    _connecting.DisconnectFromCaller(Callers.ElementAt(i).Value);
-                }
-            }*/
+            /*  for (int i = 0; i < Callers.Count; ++i)
+              {
+                  if ((DateTime.Now - Callers.ElementAt(i).Value.last_updated).Seconds > peerConnectionLeaseTime)
+                  {
+                      // the caller hasnt pinged the local node for more than the lease time
+                      // it is the expiration of the connection
+                      // we send a disconnection message to caller
+                      _connecting.DisconnectFromCaller(Callers.ElementAt(i).Value);
+                  }
+              }*/
 
             for (int i = 0; i < Connections.Count; ++i)
             {
@@ -225,6 +227,7 @@ namespace Atom.CommunicationSystem
             }
         }
 
+        private float _peerScore;
         private void UpdateNetworkScore()
         {
             var oldScroe = _averageScore;
@@ -238,25 +241,22 @@ namespace Atom.CommunicationSystem
             current_peers_score /= Connections.Count;
             _averageScore = current_peers_score;
 
-            if (oldScroe > _averageScore)
-            {
-                Debug.LogError("Network score going down");
-            }
-
             // abritrary value for now
             // the idea is to check if the score is decreasing from a previous high value
             // if so, the node will trigger a discovery request to recreate its network with better peers
 
             ///TODO analyzing the _networkScoreBuffer curve more in depth
 
-            if (current_peers_score * 1.33f < oldScroe)
+            if (current_peers_score * 1.33f < _peerScore)
             {
                 _peerSampling.BroadcastDiscoveryRequest();
-                _networkScoreBuffer.Add(current_peers_score);
+                //_networkScoreBuffer.Add(current_peers_score);
+                _peerScore = current_peers_score;
             }
-            else 
+            else if (current_peers_score > _peerScore)
             {
-                _networkScoreBuffer.Add(current_peers_score);
+                //_networkScoreBuffer.Add(current_peers_score);
+                _peerScore = current_peers_score;
             }
         }
 

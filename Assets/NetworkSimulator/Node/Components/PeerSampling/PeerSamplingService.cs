@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Atom.Components.Connecting;
 using Atom.ClusterConnectionService;
+using Atom.Helpers;
 
 /// <summary>
 /// 
@@ -104,7 +105,8 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
             }
 
             //float listennerRatio = ListennersTargetCount / _networkInfo.Listenners.Count;
-            var accept_connection = UnityEngine.Random.Range(0, 100) > 77; // here a real random function / use peer counting to get datas of the global network
+            float chances = NodeMath.Map(WorldSimulationManager.nodeAddresses.Count, 0, 100000, 90, 99.999f);
+            var accept_connection = UnityEngine.Random.Range(0, 100) > chances; // here a real random function / use peer counting to get datas of the global network
             if (accept_connection)
             {
                 //if listenners full => checking score to find if broadcaster is better than any listenner

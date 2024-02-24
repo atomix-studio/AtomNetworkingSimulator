@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Atom.ComponentProvider
 {
-    [Injectable]
+    [InjectionContext]
     public interface INodeComponent
     {
         [InjectComponent] public NodeEntity context { get; set; }

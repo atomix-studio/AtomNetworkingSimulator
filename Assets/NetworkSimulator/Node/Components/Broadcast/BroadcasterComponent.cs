@@ -46,6 +46,7 @@ namespace Atom.CommunicationSystem
         private Dictionary<string, int> _relayedBroadcastsBuffer;
 
         public Dictionary<string, int> relayedBroadcastsBuffer => _relayedBroadcastsBuffer;
+        private List<Func<IBroadcastablePacket, bool>> _receivedBroadcastMiddlewares = new List<Func<IBroadcastablePacket, bool>>();
 
         public NodeEntity context { get; set; }
 
@@ -73,15 +74,39 @@ namespace Atom.CommunicationSystem
             {
                 // the router checks for packet that are IBroadcastable and ensure they haven't been too much relayed
                 // if the packet as reached is maximum broadcast cycles on the node and the router receives it one more time
-                if (receivedPacket is IBroadcastablePacket
-                    && !CheckBroadcastRelayCycles((IBroadcastablePacket)receivedPacket))
+                if (receivedPacket is IBroadcastablePacket)
                 {
-                    return;
+                    var broadcastable = (IBroadcastablePacket)receivedPacket;
+                    if (!CheckBroadcastRelayCycles(broadcastable))
+                        return;
+
+                    for (int i = 0; i < _receivedBroadcastMiddlewares.Count; ++i)
+                    {
+                        if (!_receivedBroadcastMiddlewares[i](broadcastable))
+                            return;
+                    }
+
                 }
 
                 packetReceiveHandler?.Invoke(receivedPacket);
             },
             true);
+        }
+
+        public void RegisterBroadcastReceptionMiddleware(Func<IBroadcastablePacket, bool> routingMiddleware)
+        {
+            if (_receivedBroadcastMiddlewares == null)
+                _receivedBroadcastMiddlewares = new List<Func<IBroadcastablePacket, bool>>();
+
+            _receivedBroadcastMiddlewares.Add(routingMiddleware);
+        }
+
+        public void UnregisterBroadcastReceptionMiddleware(Func<IBroadcastablePacket, bool> routingMiddleware)
+        {
+            if (_receivedBroadcastMiddlewares == null)
+                return;
+
+            _receivedBroadcastMiddlewares.Add(routingMiddleware);
         }
 
         /// <summary>

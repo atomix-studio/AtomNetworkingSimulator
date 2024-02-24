@@ -14,6 +14,5 @@ namespace Atom.ComponentProvider
     {
         public InjectComponentAttribute() { }
 
-        public InjectComponentAttribute(bool getOnly) { }
     }
 }

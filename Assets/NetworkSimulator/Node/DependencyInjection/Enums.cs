@@ -6,7 +6,11 @@ using System.Threading.Tasks;
 
 namespace Atom.ComponentProvider
 {
-    internal class InjectableAttribute : Attribute
+    public enum DependencyInjectionMode
     {
+        // all dependencies marked in the
+        Awake = 0,
+        // onrequested only
+        LazyLoading = 1
     }
 }
