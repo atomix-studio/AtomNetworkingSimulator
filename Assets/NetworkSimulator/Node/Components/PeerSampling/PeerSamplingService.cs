@@ -104,7 +104,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
             }
 
             //float listennerRatio = ListennersTargetCount / _networkInfo.Listenners.Count;
-            var accept_connection = UnityEngine.Random.Range(0, 100) > 0; // here a real random function / use peer counting to get datas of the global network
+            var accept_connection = UnityEngine.Random.Range(0, 100) > 77; // here a real random function / use peer counting to get datas of the global network
             if (accept_connection)
             {
                 //if listenners full => checking score to find if broadcaster is better than any listenner
@@ -112,7 +112,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
                 /*await _networkInfo.UpdatePeerInfoAsync(temp_broadcasterPeerInfo);
                 // temp_broadcastPeerInfo is updated at this point*/
 
-                var temp_broadcasterPeerInfo = new PeerInfo(discoveryPacket.broadcastID, discoveryPacket.broadcasterAdress);
+                var temp_broadcasterPeerInfo = new PeerInfo(discoveryPacket.broadcasterID, discoveryPacket.broadcasterAdress);
                 temp_broadcasterPeerInfo.SetScoreByDistance(context.transform.position);
 
                 if (_networkInfo.Connections.Count >= context.NetworkViewsTargetCount)
