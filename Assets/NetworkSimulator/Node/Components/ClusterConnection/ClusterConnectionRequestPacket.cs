@@ -6,23 +6,21 @@ namespace Atom.ClusterConnectionService
     {
         public string senderAdress { get ; set ; }
 
+        public INetworkPacket packet => this;
+
         public ClusterConnectionRequestPacket()
         {
         }
 
-        public INetworkPacket GetResponsePacket(INetworkPacket answerPacket)
-        {
-            return new ClusterConnectionRequestResponsePacket() { callerPacketUniqueId = answerPacket.packetUniqueId };
-        }
-
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
-            return new ClusterConnectionRequestResponsePacket();
+            return new ClusterConnectionRequestResponsePacket() { callerPacketUniqueId = answerPacket.packet.packetUniqueId };
         }
     }
 
     public class ClusterConnectionRequestResponsePacket : AbstractNetworkPacket, IResponse
     {
         public long callerPacketUniqueId { get; set ; }
+        public INetworkPacket packet => this;
     }
 }

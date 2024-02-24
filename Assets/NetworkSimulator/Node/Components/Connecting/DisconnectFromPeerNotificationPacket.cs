@@ -10,6 +10,7 @@ namespace Atom.Components.Connecting
     public class DisconnectFromPeerNotificationPacket : AbstractNetworkPacket, IRespondable
     {
         public string senderAdress { get; set; }
+        public INetworkPacket packet => this;
 
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {

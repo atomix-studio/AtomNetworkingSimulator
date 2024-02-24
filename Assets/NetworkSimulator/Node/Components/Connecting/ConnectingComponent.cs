@@ -44,19 +44,35 @@ namespace Atom.Components.Connecting
 
             _packetRouter.RegisterPacketHandler(typeof(DisconnectFromPeerNotificationPacket), (packet) =>
             {
-                var caller = _networkInfo.FindCallerByAdress((packet as IRespondable).senderAdress);
+                var adress = (packet as IRespondable).senderAdress;
+                var caller = _networkInfo.FindCallerByAdress(adress);
                 if (caller != null) 
                 {
                     _networkInfo.RemoveCaller(caller);
+                    return;
+                }
+
+                var listenner = _networkInfo.FindListennerByAdress(adress);
+                if(listenner != null)
+                {
+                    _networkInfo.RemoveListenner(listenner);
                 }
             });
         }
 
+        /// <summary>
+        /// A connection request aims to add the requested node in LISTENNERS view
+        /// </summary>
+        /// <param name="peerInfo"></param>
         public void SendConnectionRequestTo(PeerInfo peerInfo)
         {
+            var sentTime = DateTime.Now;
             _packetRouter.SendRequest(peerInfo.peerAdress, new ConnectionRequestPacket((byte)_networkInfo.Callers.Count, (byte)_networkInfo.Listenners.Count), (response) =>
             {
                 var connectionResponsePacket = (ConnectionRequestResponsePacket)response;
+                peerInfo.ping = (DateTime.Now - sentTime).Milliseconds;
+                // we want to be sure that the sure is up to date here because if its 0 the new connection could be replaced by a worst one at any time
+                peerInfo.ComputeScore(peerInfo.ping, context.NetworkViewsTargetCount, context.NetworkViewsTargetCount);
                 if (connectionResponsePacket.isAccepted)
                 {
                     _networkInfo.AddListenner(peerInfo);
@@ -72,7 +88,7 @@ namespace Atom.Components.Connecting
                 return true;
             }
 
-            if (_networkInfo.Callers.Count >= _peerSampling.ListennersTargetCount)
+            if (_networkInfo.Callers.Count >= context.NetworkViewsTargetCount)
             {
                 // trying to replace an existing worst caller by the requesting one
                 foreach (var caller in _networkInfo.Callers)
@@ -81,20 +97,87 @@ namespace Atom.Components.Connecting
                     {
                         // add random function
                         // replacing the listenner by the new peer
-                        DisconnectFrom(caller.Value);
+                        DisconnectFromCaller(caller.Value);
+
                         _networkInfo.AddCaller(peerInfo);
 
                         return true;
                     }
                 }
+
+                return false;
             }
 
-            return false;
+            _networkInfo.AddCaller(peerInfo);
+            return true;
         }
 
-        public void DisconnectFrom(PeerInfo peerInfo)
+        public bool TryAcceptListenner(PeerInfo peerInfo)
+        {
+            if (_networkInfo.Listenners.Count == 0)
+            {
+                _networkInfo.AddListenner(peerInfo);
+                return true;
+            }
+
+            if (_networkInfo.Listenners.Count >= context.NetworkViewsTargetCount)
+            {
+                // trying to replace an existing worst caller by the requesting one
+                foreach (var listenner in _networkInfo.Listenners)
+                {
+                    if (peerInfo.score > listenner.Value.score)
+                    {
+                        // add random function
+                        // replacing the listenner by the new peer
+
+                        DisconnectFromListenner(listenner.Value);
+
+                        _networkInfo.AddListenner(peerInfo);
+
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            _networkInfo.AddListenner(peerInfo);
+            return true;
+        }
+
+        public bool CanAcceptListenner(PeerInfo peerInfo)
+        {
+            if (_networkInfo.Listenners.Count == 0)
+            {
+                return true;
+            }
+
+            if (_networkInfo.Listenners.Count >= context.NetworkViewsTargetCount)
+            {
+                // trying to replace an existing worst caller by the requesting one
+                foreach (var listenner in _networkInfo.Listenners)
+                {
+                    if (peerInfo.score > listenner.Value.score)
+                    {                        
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        public void DisconnectFromCaller(PeerInfo peerInfo)
         {
             _networkInfo.RemoveCaller(peerInfo);
+            _packetRouter.Send(peerInfo.peerAdress, new DisconnectFromPeerNotificationPacket());
+        }
+
+        public void DisconnectFromListenner(PeerInfo peerInfo)
+        {
+            _networkInfo.RemoveListenner(peerInfo);
             _packetRouter.Send(peerInfo.peerAdress, new DisconnectFromPeerNotificationPacket());
         }
 

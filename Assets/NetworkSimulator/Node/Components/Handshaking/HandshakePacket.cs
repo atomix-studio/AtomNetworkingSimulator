@@ -9,6 +9,7 @@ namespace Atom.CommunicationSystem
     public class HandshakePacket : AbstractNetworkPacket, IRespondable
     {       
         public string senderAdress { get; set; }
+        public INetworkPacket packet => this;
 
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
@@ -30,6 +31,6 @@ namespace Atom.CommunicationSystem
         /// </summary>
         public byte networkInfoListennersCount { get; set; }
 
-        public float ping { get; set; }
+        public INetworkPacket packet => this;
     }
 }

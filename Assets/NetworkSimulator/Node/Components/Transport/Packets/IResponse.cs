@@ -9,5 +9,6 @@ namespace Atom.CommunicationSystem
     public interface IResponse
     {
         public long callerPacketUniqueId { get; set; }
+        public INetworkPacket packet { get; }
     }
 }

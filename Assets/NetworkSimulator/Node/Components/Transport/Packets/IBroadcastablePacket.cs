@@ -7,14 +7,12 @@ using System.Threading.Tasks;
 
 namespace Atom.CommunicationSystem
 {
-    public interface IBroadcastable 
+    public interface IBroadcastablePacket  : INetworkPacket
     {
         public string broadcasterID { get; set; }   
 
         // identifier of the broadcaster
         public string broadcastID { get; set; }
-
-        public INetworkPacket packet { get; }
 
         /// <summary>
         /// Returns a copy of the received packet but keeps the broadcast datas 

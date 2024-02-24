@@ -31,6 +31,8 @@ namespace Atom.Components.Connecting
         /// </summary>
         public byte networkInfoListennersCount { get; set; }
 
+        public INetworkPacket packet => this;
+
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
             return new ConnectionRequestResponsePacket();
@@ -46,5 +48,7 @@ namespace Atom.Components.Connecting
         /// On receiving this response a node adds the sender in its listeners (aka the nodes he speaks to)
         /// </summary>
         public bool isAccepted { get; set; }
+
+        public INetworkPacket packet => this;
     }
 }

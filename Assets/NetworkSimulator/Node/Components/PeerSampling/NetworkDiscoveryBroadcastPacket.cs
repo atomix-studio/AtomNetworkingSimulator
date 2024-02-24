@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Atom.CommunicationSystem
 {
-    public class NetworkDiscoveryBroadcastPacket : AbstractNetworkPacket, IRespondable, IBroadcastable
+    public class NetworkDiscoveryBroadcastPacket : AbstractNetworkPacket, IRespondable, IBroadcastablePacket
     {
         public string senderAdress { get; set; }
         public string broadcasterID { get; set; }
@@ -56,5 +56,7 @@ namespace Atom.CommunicationSystem
         public long callerPacketUniqueId { get; set; }
         public string listennerAdress { get; set; }
         public string listennerID { get; set; }
+
+        public INetworkPacket packet => this;
     }
 }

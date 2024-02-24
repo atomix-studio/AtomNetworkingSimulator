@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Atom.Components.PeerCounting
 {
-    public class PeerCountingBroadcastPacket : AbstractNetworkPacket, IBroadcastable, IRespondable
+    public class PeerCountingBroadcastPacket : AbstractNetworkPacket, IBroadcastablePacket, IRespondable
     {        
         public string broadcasterID { get; set; }
         public string broadcastID { get; set; }
@@ -45,7 +45,9 @@ namespace Atom.Components.PeerCounting
     }
 
     public class PeerCountingBroadcastResponsePacket : AbstractNetworkPacket, IResponse
-    {        
+    {
+        public INetworkPacket packet => this;
+
         public long callerPacketUniqueId { get; set; }
 
         public PeerCountingBroadcastResponsePacket() { }

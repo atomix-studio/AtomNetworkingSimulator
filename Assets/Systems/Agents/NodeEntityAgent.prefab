@@ -58,6 +58,7 @@ MonoBehaviour:
   _preferedGroupSize: 2
   _delayBetweenGroupFindingRequest: 10
   _pingSimulatorStability: 1
+  _networkViewsTargetCount: 4
   IsConnected: 0
   IsInGroup: 0
   IsSleeping: 0
@@ -117,7 +118,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f674e9aae3c25a44b89f65f9b6563c55, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ListennersTargetCount: 9
   AvalaiblePeers: []
   PartialViewMaximumCount: 9
   RefreshingTime: 12
@@ -222,9 +222,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9f2c10cf80178047b46e298d00521e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  knownPeersMaximumCount: 25
+  peerConnectionLeaseTime: 120
+  peerConnectionLeaseRefreshTime: 3
   _localPeerInfo:
     _peerID: 
     _peerAdress: 
     _ping: 0
     _score: 0
     _trust_coefficient: 0
+  _knownPeers: []
+  _callersDebug: []
+  _listennersDebug: []

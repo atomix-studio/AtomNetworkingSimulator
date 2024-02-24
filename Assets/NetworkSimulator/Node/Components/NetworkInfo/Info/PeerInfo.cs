@@ -61,7 +61,8 @@ namespace Atom.CommunicationSystem
             float score = connectivity / pingratio;
 
             this.ping = pingratio;
-            this.score = score;
+            //this.score = score;
+            this.score = 1 / ping * 100f;
             this.last_updated = DateTime.UtcNow;
             return score;
         }

@@ -18,7 +18,7 @@ namespace Atom.BroadcastingProtocol
         {
             _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(PeerCountingBroadcastPacket), (onreceived) =>
             {
-                var broadcastable = onreceived as IBroadcastable;
+                var broadcastable = onreceived as IBroadcastablePacket;
 
                 if (!_broadcaster.relayedBroadcastsBuffer.ContainsKey(broadcastable.broadcastID))
                 {

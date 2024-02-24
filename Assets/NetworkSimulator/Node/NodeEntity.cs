@@ -26,6 +26,11 @@ public class NodeEntity : MonoBehaviour
     // the highest value  the more the ping will do up and down with high amplitude
     [SerializeField] private float _pingSimulatorStability = 1;
 
+    // aimed number of callers/listenners
+    [SerializeField] private int _networkViewsTargetCount = 9;
+
+    public int NetworkViewsTargetCount => _networkViewsTargetCount;
+
     [Header("Variables")]
     public bool IsConnected = false;
     public bool IsInGroup = false;
@@ -61,7 +66,7 @@ public class NodeEntity : MonoBehaviour
 
     public void OnStart(ClusterInfo clusterInfo, bool sleeping)
     {
-        networkHandling.InitializeLocalInfo(new PeerInfo() { peerAdress = this.name, ping = 0, trust_coefficient = 0 });
+        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = System.Guid.NewGuid().ToString(), peerAdress = this.name, ping = 0, trust_coefficient = 0 });
 
         GetNodeComponent<ClusterConnectionService>().ConnectToCluster(clusterInfo);
         IsSleeping = sleeping;
@@ -192,7 +197,7 @@ public class NodeEntity : MonoBehaviour
                 {
                     for (int i = 0; i < networkHandling.Listenners.Count; ++i)
                     {
-                        Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Listenners.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.green);
+                        Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Listenners.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.black);
                     }
                 }
             }

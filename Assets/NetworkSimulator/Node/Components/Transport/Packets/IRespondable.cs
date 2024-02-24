@@ -10,6 +10,7 @@ namespace Atom.CommunicationSystem
     public interface IRespondable
     {
         public string senderAdress { get; set; }
+        public INetworkPacket packet { get; }
 
         public IResponse GetResponsePacket(IRespondable answerPacket);
     }

@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace Atom.CommunicationSystem
 {
-    public class PacketRouter : INodeUpdatableComponent
+    public class PacketRouter : MonoBehaviour, INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }
         [InjectComponent] public TransportLayerComponent transportLayer { get; set; }
@@ -93,6 +93,14 @@ namespace Atom.CommunicationSystem
 
         public async void OnUpdate()
         {
+            
+        }
+
+        void Update()
+        {
+            if (context.IsSleeping)
+                return;
+
             if (_packetResponseAwaitersBuffer.Count == 0)
                 return;
 
@@ -116,7 +124,7 @@ namespace Atom.CommunicationSystem
 
         public void RegisterPacketHandler(Type packetType, Action<INetworkPacket> packetReceiveHandler, bool broadcasterCall = false)
         {
-            if (!broadcasterCall && TypeHelpers.ImplementsInterface<IBroadcastable>(packetType))
+            if (!broadcasterCall && TypeHelpers.ImplementsInterface<IBroadcastablePacket>(packetType))
             {
                 Debug.LogError($"Broadcastable packets should always be registered from the broadcaster => Error with packet of type {packetType}.");
             }
@@ -148,9 +156,9 @@ namespace Atom.CommunicationSystem
         /// <param name="networkPacket"></param>
         public void SendResponse(IRespondable callingPacket, IResponse response)
         {
-            onBeforeSendInternal(response as INetworkPacket);
-            response.callerPacketUniqueId = (callingPacket as INetworkPacket).packetUniqueId;
-            transportLayer.Send(callingPacket.senderAdress, (INetworkPacket)response);
+            onBeforeSendInternal(response.packet);
+            response.callerPacketUniqueId = callingPacket.packet.packetUniqueId;
+            transportLayer.Send(callingPacket.senderAdress, response.packet);
         }
 
         /// <summary>
@@ -201,7 +209,7 @@ namespace Atom.CommunicationSystem
                     awaiter.responseCallback(networkPacket);
                     _packetResponseAwaitersBuffer.Remove(callerId);
                     awaiter.Dispose();
-                    networkPacket.DisposePacket();
+                    //networkPacket.DisposePacket();
                     return;
                 }
 
@@ -209,7 +217,7 @@ namespace Atom.CommunicationSystem
                 if (_receivePacketHandlers.ContainsKey(networkPacket.packetTypeIdentifier))
                 {
                     _receivePacketHandlers[networkPacket.packetTypeIdentifier].Invoke(networkPacket);
-                    networkPacket.DisposePacket();
+                    //networkPacket.DisposePacket();
                     return;
                 }
 
@@ -219,7 +227,7 @@ namespace Atom.CommunicationSystem
             else
             {
                 _receivePacketHandlers[networkPacket.packetTypeIdentifier].Invoke(networkPacket);
-                networkPacket.DisposePacket();
+                //networkPacket.DisposePacket();
             }
         }
     }

@@ -15,7 +15,13 @@ public class WorldSimulationManager : MonoBehaviour
     public bool DisplayCallersConnections;
     public bool DisplayListennersConnections;
     public bool DisplaySelectedOnly;
+    [OnValueChanged("updateDisplayPackets")] public bool DisplayPackets;
 
+    private void updateDisplayPackets() => displayPackets = Instance.DisplayPackets;
+    public static bool displayPackets;
+
+    [OnValueChanged("updatePacketSpeed")] public float PacketSpeed = 100;
+    private void updatePacketSpeed() => packetSpeed = Instance.PacketSpeed; 
 
     [SerializeField] private NodeEntity _pf_NodeEntity;
 
@@ -59,11 +65,6 @@ public class WorldSimulationManager : MonoBehaviour
         Instance = this;
         nodeAddresses = new Dictionary<string, NodeEntity>();
 
-        for (int i = 0; i < defaultCluster.BootNodes.Count; i++)
-        {
-            nodeAddresses.Add(defaultCluster.BootNodes[i].name, defaultCluster.BootNodes[i]);
-            defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = defaultCluster.BootNodes[i].name, peerAdress = defaultCluster.BootNodes[i].name, ping = 0, trust_coefficient = 0 });
-        }
     }
 
     [Button]
@@ -76,6 +77,12 @@ public class WorldSimulationManager : MonoBehaviour
 
     private void Start()
     {
+        for (int i = 0; i < defaultCluster.BootNodes.Count; i++)
+        {
+            nodeAddresses.Add(defaultCluster.BootNodes[i].name, defaultCluster.BootNodes[i]);
+            defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = defaultCluster.BootNodes[i].name, peerAdress = defaultCluster.BootNodes[i].name, ping = 0, trust_coefficient = 0 });
+        }
+
         GenerateEntities(_startNodeEntitiesCount, false);
     }
 
@@ -209,7 +216,8 @@ public class WorldSimulationManager : MonoBehaviour
         }
 
         var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
-        startNode.peerSampling.BroadcastBenchmark();
+        startNode.broadcaster.BroadcastBenchmark();
+        //startNode.peerSampling.BroadcastBenchmark();
     }
 
     [Button]

@@ -45,8 +45,6 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
     [InjectComponent] private HandshakingComponent _handshaking;
     [InjectComponent] private ConnectingComponent _connecting;
 
-    public int ListennersTargetCount = 9;
-
     /// <summary>
     /// Known connections that can be 
     /// </summary>
@@ -93,42 +91,100 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
             if (_networkInfo.Callers.TryGetValue(discoveryPacket.broadcastID, out var _))
             {
                 // in this case, we just forward the packet
-                _broadcaster.RelayBroadcast((IBroadcastable)packet);
+                _broadcaster.RelayBroadcast((IBroadcastablePacket)packet);
                 return;
             }
 
             //float listennerRatio = ListennersTargetCount / _networkInfo.Listenners.Count;
-            var accept_connection = UnityEngine.Random.Range(0, 100) > 0; // here a real random function / use peer counting to get datas of the global network
+            var accept_connection = UnityEngine.Random.Range(0, 100) > 33; // here a real random function / use peer counting to get datas of the global network
             if (accept_connection)
             {
                 //if listenners full => checking score to find if broadcaster is better than any listenner
-                var temp_broadcasterPeerInfo = new PeerInfo(discoveryPacket.broadcastID, discoveryPacket.broadcasterAdress);
-                await _networkInfo.UpdatePeerInfoAsync(temp_broadcasterPeerInfo);
-                // temp_broadcastPeerInfo is updated at this point
+                //var temp_broadcasterPeerInfo = new PeerInfo(discoveryPacket.broadcastID, discoveryPacket.broadcasterAdress);
+                /*await _networkInfo.UpdatePeerInfoAsync(temp_broadcasterPeerInfo);
+                // temp_broadcastPeerInfo is updated at this point*/
 
-                if (_connecting.TryAcceptCaller(temp_broadcasterPeerInfo))
+                if (_networkInfo.Callers.Count < context.NetworkViewsTargetCount)
                 {
+                    // the node has room for new incoming connections (callers)
+                    // he notify the broadcaster that a connection is avalaible
+                    var temp_broadcasterPeerInfo = new PeerInfo(discoveryPacket.broadcastID, discoveryPacket.broadcasterAdress);
                     var responsePacket = (NetworkDiscoveryBroadcastResponsePacket)discoveryPacket.GetResponsePacket(discoveryPacket);
                     responsePacket.listennerID = _networkInfo.LocalPeerInfo.peerID;
                     responsePacket.listennerAdress = _networkInfo.LocalPeerInfo.peerAdress;
 
                     _broadcaster.Send(temp_broadcasterPeerInfo.peerAdress, responsePacket);
+                    _discoveryBroadcastTimer = DelayBetweenDiscoveryRequests;
+                    return;
                 }
 
                 //else if listenners not full, accept directly than handshake ?
             }
 
-            _discoveryBroadcastTimer = DelayBetweenDiscoveryRequests;
-            _broadcaster.RelayBroadcast((IBroadcastable)packet);
+            _broadcaster.RelayBroadcast((IBroadcastablePacket)packet);
         });
 
-        _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(NetworkDiscoveryBroadcastResponsePacket), (packet) =>
+        _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(NetworkDiscoveryBroadcastResponsePacket), async (packet) =>
         {
             var resp = (NetworkDiscoveryBroadcastResponsePacket)packet;
 
-            _networkInfo.AddCaller(new PeerInfo(resp.listennerID, resp.listennerAdress));
+            var newPeerInfo = new PeerInfo(resp.listennerID, resp.listennerAdress);
+            var pingReceived = await _networkInfo.UpdatePeerInfoAsync(newPeerInfo);
+            if (!pingReceived)
+                return;
+
+            // when receiving broadcast responses, the local node have to tryadd the new peer 
+            // if he cant add the peer bases
+            if (_connecting.CanAcceptListenner(newPeerInfo))
+            {
+                _connecting.SendConnectionRequestTo(newPeerInfo);
+            }
         });
     }
+
+    // this method is firing only on first connection to network, as a response from cluster boot nodes
+    // boot nodes give to the new peer a bunch of possible peers to connect with
+    // the local node will have to ping them to compute a score that represents the value of a connection
+    // the highest the cost the most effective the connection will be for the network (we enforce low latency and allowing node with fewer connections to quickly achieve a good number of peers)
+    public async void OnReceiveSubscriptionResponse(SubscriptionResponsePacket subscriptionResponsePacket)
+    {
+        var potentialPeers = subscriptionResponsePacket.potentialPeerInfos;
+
+        // this should be sending a ping-pong to 
+        Task[] handshakeTasks = new Task[potentialPeers.Count];
+        for (int i = 0; i < potentialPeers.Count; i++)
+        {
+            handshakeTasks[i] = _networkInfo.UpdatePeerInfoAsync(potentialPeers[i]);
+        }
+
+        await Task.WhenAll(handshakeTasks);
+
+        for (int i = 0; i < potentialPeers.Count; i++)
+        {
+            if (_networkInfo.Listenners.Count < context.NetworkViewsTargetCount)
+            {
+                // node doesn't have enough connections so it will try each avalaible one
+                //TryRegisterPeer(potentialPeers[i]);
+                _connecting.SendConnectionRequestTo(potentialPeers[i]);
+            }
+            else
+            {
+                for (int j = 0; j < _networkInfo.Listenners.Count; ++j)
+                {
+                    // if better peer is found
+                    if (_networkInfo.Listenners.ElementAt(j).Value.score < potentialPeers[i].score)
+                    {
+                        _connecting.DisconnectFromListenner(_networkInfo.Listenners.ElementAt(j).Value);
+                        _connecting.SendConnectionRequestTo(potentialPeers[i]);
+                        break;
+                    }
+                }
+            }
+        }
+
+        BroadcastDiscoveryRequest();
+    }
+
 
     private void Start()
     {
@@ -175,49 +231,6 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
         context.transportLayer.RegisterEndpoint("BROADCAST_DISCOVERY_RESPONSE", OnReceive_DiscoveryBroadcastReponse);
     }
 
-    // this method is firing only on first connection to network, as a response from cluster boot nodes
-    // boot nodes give to the new peer a bunch of possible peers to connect with
-    // the local node will have to ping them to compute a score that represents the value of a connection
-    // the highest the cost the most effective the connection will be for the network (we enforce low latency and allowing node with fewer connections to quickly achieve a good number of peers)
-    public async void OnReceiveSubscriptionResponse(SubscriptionResponsePacket subscriptionResponsePacket)
-    {
-        var potentialPeers = subscriptionResponsePacket.potentialPeerInfos;
-
-        // this should be sending a ping-pong to 
-        Task[] handshakeTasks = new Task[potentialPeers.Count];
-        for (int i = 0; i < potentialPeers.Count; i++)
-        {
-            handshakeTasks[i] = _networkInfo.UpdatePeerInfoAsync(potentialPeers[i]);
-        }
-
-        await Task.WhenAll(handshakeTasks);
-
-        for (int i = 0; i < potentialPeers.Count; i++)
-        {
-            if (_networkInfo.Listenners.Count < ListennersTargetCount)
-            {
-                // node doesn't have enough connections so it will try each avalaible one
-                //TryRegisterPeer(potentialPeers[i]);
-                _connecting.SendConnectionRequestTo(potentialPeers[i]);
-            }
-            else
-            {
-                for (int j = 0; j < _networkInfo.Listenners.Count; ++j)
-                {
-                    // if better peer is found
-                    if (_networkInfo.Listenners.ElementAt(j).Value.score < potentialPeers[i].score)
-                    {
-                        _connecting.DisconnectFrom(_networkInfo.Listenners.ElementAt(j).Value);
-                        _connecting.SendConnectionRequestTo(potentialPeers[i]);
-                        break;
-                    }
-                }
-            }
-        }
-
-        BroadcastDiscoveryRequest();
-    }
-
     public void OnUpdate()
     {
         if (context.IsSleeping)
@@ -236,7 +249,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
         if (_discoveryBroadcastTimer > 0)
             return;
 
-        if (_networkInfo.Listenners.Count < ListennersTargetCount)
+        if (_networkInfo.Listenners.Count < context.NetworkViewsTargetCount)
         {
             BroadcastDiscoveryRequest();
         }
@@ -418,6 +431,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
         {
             var index = random.Next(AvalaiblePeers.Count);
             context.transportLayer.SendPacketBroadcast(context, AvalaiblePeers[index], "BROADCAST_BENCHMARK");
+
         }
     }
 

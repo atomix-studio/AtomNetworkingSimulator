@@ -32,7 +32,12 @@ namespace Atom.Transport
         private Dictionary<INetworkPacket, Vector3> currentTravellingPacketsDestination = new Dictionary<INetworkPacket, Vector3>();
 
         public NodeEntity context { get; set; }
+        private WorldSimulationManager _simulationManager;
 
+        void Awake()
+        {
+            _simulationManager = WorldSimulationManager.Instance;
+        }
         /// <summary>
         /// Initialize the routing of the packets received by the transport layer to a delegate routing service
         /// </summary>
@@ -50,6 +55,7 @@ namespace Atom.Transport
         public void OnInitialize()
         {
             _nodeEntity = context;
+            _simulationManager = WorldSimulationManager.Instance;
         }
 
 
@@ -83,7 +89,10 @@ namespace Atom.Transport
             {
                 var packet = currentTravellingPacketsPosition.ElementAt(i);
                 var direction = currentTravellingPacketsDestination[packet.Key] - currentTravellingPacketsPosition[packet.Key];
-                Debug.DrawLine(transform.position, currentTravellingPacketsPosition[packet.Key], Color.green);
+
+                // 
+                if (WorldSimulationManager.displayPackets)
+                    Debug.DrawLine(transform.position, currentTravellingPacketsPosition[packet.Key], Color.blue);
 
                 if (direction.magnitude < .1f)
                 {
@@ -91,10 +100,14 @@ namespace Atom.Transport
                     {
                         WorldSimulationManager._totalPacketReceived++;
                         WorldSimulationManager._totalPacketReceivedPerSecondCount++;
-                        currentTravellingPacketTarget[packet.Key].transportLayer.routerReceiveCallback.Invoke(packet.Key);
+
+                        if (!IsSleeping)
+                            currentTravellingPacketTarget[packet.Key].transportLayer.routerReceiveCallback.Invoke(packet.Key);
                     }
 
+                    
                     _removePacket(packet.Key);
+                    packet.Key.DisposePacket();
                     i--;
                 }
                 else
@@ -107,7 +120,7 @@ namespace Atom.Transport
 
         public void OnUpdate()
         {
-            _updateTravellingPackets();
+            //_updateTravellingPackets();
         }
 
         // *************************************
@@ -116,8 +129,11 @@ namespace Atom.Transport
 
         private void Update()
         {
-            for (int i = 0; i < travellingPackets.Count; ++i)
-                travellingPackets[i].OnUpdate();
+           /* for (int i = 0; i < travellingPackets.Count; ++i)
+                travellingPackets[i].OnUpdate();*/
+
+
+            _updateTravellingPackets();
 
         }
 

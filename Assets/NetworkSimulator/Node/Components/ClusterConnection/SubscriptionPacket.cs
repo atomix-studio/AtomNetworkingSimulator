@@ -50,6 +50,8 @@ namespace Atom.CommunicationSystem
     {
         public long callerPacketUniqueId { get; set ; }
 
+        public INetworkPacket packet => this;
+
         /// <summary>
         /// A collection of peer infos provided by the sender of this response / a starting point for the node entering in the network
         /// </summary>

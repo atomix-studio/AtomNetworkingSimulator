@@ -1,6 +1,7 @@
 ﻿using Atom.CommunicationSystem;
 using Atom.CommunicationSystem;
 using Atom.ComponentProvider;
+using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,9 +14,9 @@ namespace Atom.CommunicationSystem
 {
     public static class BroadcasterEventHandler
     {
-        public delegate void BroadcastPacketRelayedHandler(IBroadcastable packet);
+        public delegate void BroadcastPacketRelayedHandler(IBroadcastablePacket packet);
         public static event BroadcastPacketRelayedHandler OnBroadcastPacketRelayed;
-        public static void BroadcastPacketRelayed(IBroadcastable packet) => OnBroadcastPacketRelayed?.Invoke(packet);
+        public static void BroadcastPacketRelayed(IBroadcastablePacket packet) => OnBroadcastPacketRelayed?.Invoke(packet);
     }
 
     public class BroadcasterComponent : MonoBehaviour, INodeComponent
@@ -52,6 +53,12 @@ namespace Atom.CommunicationSystem
         {
             _random = new System.Random((int)DateTime.Now.Ticks % int.MaxValue);
             _relayedBroadcastsBuffer = new Dictionary<string, int>();
+
+            RegisterPacketHandlerWithMiddleware(typeof(BroadcastBenchmarkPacket), (received) =>
+            {
+                context.material.color = Color.red;
+                RelayBroadcast((IBroadcastablePacket)received);
+            });
         }
 
         /// <summary>
@@ -62,14 +69,17 @@ namespace Atom.CommunicationSystem
         /// <param name="packetReceiveHandler"></param>
         public void RegisterPacketHandlerWithMiddleware(Type packetType, Action<INetworkPacket> packetReceiveHandler)
         {
-            _router.RegisterPacketHandler(packetType, (receivedPacket) => 
+            _router.RegisterPacketHandler(packetType, (receivedPacket) =>
             {
                 // the router checks for packet that are IBroadcastable and ensure they haven't been too much relayed
                 // if the packet as reached is maximum broadcast cycles on the node and the router receives it one more time
-                if (receivedPacket is IBroadcastable && !IsBroadcastForwardable((IBroadcastable)receivedPacket))
+                if (receivedPacket is IBroadcastablePacket && !UpdateAndCheckBroadcastIsForwardable((IBroadcastablePacket)receivedPacket))
+                {
+                    receivedPacket.DisposePacket();
                     return;
+                }
 
-                packetReceiveHandler?.Invoke(receivedPacket); 
+                packetReceiveHandler?.Invoke(receivedPacket);
             },
             true);
         }
@@ -109,18 +119,20 @@ namespace Atom.CommunicationSystem
         /// Sends a packet to <_fanout> listenners, selected randomly
         /// </summary>
         /// <param name="broadcastable"></param>
-        public void SendBroadcast(IBroadcastable broadcastable, int fanoutOverride = -1)
+        public void SendBroadcast(IBroadcastablePacket broadcastable, int fanoutOverride = -1)
         {
             if (_networkHandling.Listenners.Count <= 0)
                 return;
 
             broadcastable.broadcastID = Guid.NewGuid().ToString();
+            var current = broadcastable;
 
             var calls_count = GetCurrentFanout(fanoutOverride);
             for (int i = 0; i < calls_count; ++i)
             {
                 var index = _random.Next(_networkHandling.Listenners.Count);
-                _router.Send(_networkHandling.Listenners.ElementAt(index).Value.peerAdress, broadcastable.packet);
+                _router.Send(_networkHandling.Listenners.ElementAt(index).Value.peerAdress, current);
+                current = (IBroadcastablePacket)broadcastable.GetForwardablePacket(current);
             }
         }
 
@@ -128,7 +140,7 @@ namespace Atom.CommunicationSystem
         /// Handle the relaying/forwarding of a received broadcasted-type packet
         /// </summary>
         /// <param name="packet"></param>
-        public void RelayBroadcast(IBroadcastable broadcastable, int fanoutOverride = -1)
+        public void RelayBroadcast(IBroadcastablePacket broadcastable, int fanoutOverride = -1)
         {
             if (!UpdateAndCheckBroadcastIsForwardable(broadcastable))
                 return;
@@ -166,7 +178,7 @@ namespace Atom.CommunicationSystem
                 while (_networkHandling.Listenners.ElementAt(index).Value.peerID == broadcastable.broadcasterID);
 
                 // create a new packet from the received and forwards it to the router
-                var relayedPacket = broadcastable.GetForwardablePacket(broadcastable.packet);
+                var relayedPacket = broadcastable.GetForwardablePacket(broadcastable);
                 _router.Send(_networkHandling.Listenners.ElementAt(index).Value.peerAdress, relayedPacket);
 
                 /* _nodeEntity.transportLayer.SendPacketBroadcast(
@@ -199,7 +211,7 @@ namespace Atom.CommunicationSystem
 
         }
 
-        private bool UpdateAndCheckBroadcastIsForwardable(IBroadcastable packet)
+        private bool UpdateAndCheckBroadcastIsForwardable(IBroadcastablePacket packet)
         {
             if (_relayedBroadcastsBuffer.ContainsKey(packet.broadcastID))
             {
@@ -221,12 +233,16 @@ namespace Atom.CommunicationSystem
             }
         }
 
-        public bool IsBroadcastForwardable(IBroadcastable packet)
+        public bool IsBroadcastForwardable(IBroadcastablePacket packet)
         {
             return !_relayedBroadcastsBuffer.ContainsKey(packet.broadcastID) || _relayedBroadcastsBuffer[packet.broadcastID] <= _broadcastRelayingCycles;
         }
 
-
+        [Button]
+        public void BroadcastBenchmark()
+        {
+            SendBroadcast(new BroadcastBenchmarkPacket());
+        }
 
         /*        public void Broadcast(Protocol protocol, string PAYLOAD_NAME)
                 {
