@@ -109,7 +109,7 @@ namespace Atom.CommunicationSystem
                 {
                     // on timed-out, we callback the resquest with NULL value so the service can 
                     // implement its logic on this assertion
-                    //awaiter.Value.responseCallback?.Invoke(null);
+                    awaiter.Value.responseCallback?.Invoke(null);
                     _packetResponseAwaitersBuffer.Remove(awaiter.Key);
                     i--;
                 }

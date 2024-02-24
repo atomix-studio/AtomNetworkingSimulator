@@ -66,6 +66,13 @@ namespace Atom.ClusterConnectionService
 
                 _broadcaster.SendRequest(nodesList[index].networkHandling.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
                 {
+                    // means a timout or an error
+                    if(response == null)
+                    {
+                        _isConnecting = false;
+                        return;
+                    }
+
                     Debug.Log("Received cluster connection response. Sending new subscription request.");
                     var clusterResponse = (ClusterConnectionRequestResponsePacket)response;
                     // the datas goes to the peer sampling service at this moment.
