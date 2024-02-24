@@ -35,6 +35,12 @@ namespace Atom.ClusterConnectionService
                 response.potentialPeerInfos = new System.Collections.Generic.List<PeerInfo>();
                 response.potentialPeerInfos.Add(context.networkHandling.LocalPeerInfo);
                 response.potentialPeerInfos.AddRange(context.networkHandling.Connections.Values.ToList());
+                response.potentialPeerInfos.AddRange(context.networkHandling.KnownPeers);
+                while(response.potentialPeerInfos.Count > 9)
+                {
+                    response.potentialPeerInfos.RemoveAt(UnityEngine.Random.Range(0, response.potentialPeerInfos.Count));   
+                }
+
                 _packetRouter.SendResponse(respondable, response);
             });
 

@@ -249,7 +249,7 @@ namespace Atom.CommunicationSystem
 
             ///TODO analyzing the _networkScoreBuffer curve more in depth
 
-            if (current_peers_score * 1.33f < _networkScoreBuffer.Last())
+            if (current_peers_score * 1.33f < oldScroe)
             {
                 _peerSampling.BroadcastDiscoveryRequest();
                 _networkScoreBuffer.Add(current_peers_score);

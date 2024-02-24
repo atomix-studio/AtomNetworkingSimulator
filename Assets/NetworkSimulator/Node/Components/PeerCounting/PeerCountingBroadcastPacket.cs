@@ -45,10 +45,10 @@ namespace Atom.Components.PeerCounting
     }
 
     public class PeerCountingBroadcastResponsePacket : AbstractNetworkPacket, IResponse
-    {
-        public INetworkPacket packet => this;
-
+    {        
         public long callerPacketUniqueId { get; set; }
+
+        public INetworkPacket packet => this;
 
         public PeerCountingBroadcastResponsePacket() { }
     }

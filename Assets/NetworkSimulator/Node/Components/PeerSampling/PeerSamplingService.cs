@@ -132,29 +132,13 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
 
                     if (_connecting.CanAcceptConnectionWith(temp_broadcasterPeerInfo, out var swappedPeer))
                     {
-                        _packetRouter.SendRequest(temp_broadcasterPeerInfo.peerAdress, new ConnectionRequestPacket((byte)_networkInfo.Connections.Count), (response) =>
-                        {
-                            var connectionResponsePacket = (ConnectionRequestResponsePacket)response;
-                            if (connectionResponsePacket.isAccepted)
-                            {
-                                peerInfo.ping = 2 * (DateTime.Now - response.sentTime).Milliseconds;
-                                // we want to be sure that the sure is up to date here because if its 0 the new connection could be replaced by a worst one at any time
-                                peerInfo.ComputeScore(peerInfo.ping, context.NetworkViewsTargetCount);
-                                peerInfo.SetScoreByDistance(context.transform.position);
-                                _networkInfo.AddConnection(peerInfo);
-                            }
-                        });
+                        _connecting.SendConnectionRequestTo(temp_broadcasterPeerInfo, swappedPeer);                        
                     }
                 }
                 else
                 {
-                    // the node has room for new incoming connections (callers)
-                    // he notify the broadcaster that a connection is avalaible
-                    var responsePacket = new NetworkDiscoveryPotentialConnectionNotificationPacket();
-                    responsePacket.listennerID = _networkInfo.LocalPeerInfo.peerID;
-                    responsePacket.listennerAdress = _networkInfo.LocalPeerInfo.peerAdress;
+                    _connecting.SendConnectionRequestTo(temp_broadcasterPeerInfo);
 
-                    _broadcaster.Send(temp_broadcasterPeerInfo.peerAdress, responsePacket);
                     _discoveryBroadcastTimer = DelayBetweenDiscoveryRequests;
                     return;
                 }
@@ -165,7 +149,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
             _broadcaster.RelayBroadcast((IBroadcastablePacket)packet);
         });
 
-        _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(NetworkDiscoveryPotentialConnectionNotificationPacket), (packet) =>
+        /*_broadcaster.RegisterPacketHandlerWithMiddleware(typeof(NetworkDiscoveryPotentialConnectionNotificationPacket), (packet) =>
         {
             var resp = (NetworkDiscoveryPotentialConnectionNotificationPacket)packet;
 
@@ -173,8 +157,8 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
             newPeerInfo.SetScoreByDistance(context.transform.position);
             newPeerInfo.ping = (DateTime.Now - packet.sentTime).Milliseconds;
             //var pingReceived = await _networkInfo.UpdatePeerInfoAsync(newPeerInfo);
-            /*if (!pingReceived)
-                return;*/
+            *//*if (!pingReceived)
+                return;*//*
 
             // when receiving broadcast responses, the local node have to tryadd the new peer 
             // if he cant add the peer bases
@@ -182,7 +166,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
             {                
                 _connecting.SendConnectionRequestTo(newPeerInfo);
             }
-        });
+        });*/
     }
 
     // this method is firing only on first connection to network, as a response from cluster boot nodes

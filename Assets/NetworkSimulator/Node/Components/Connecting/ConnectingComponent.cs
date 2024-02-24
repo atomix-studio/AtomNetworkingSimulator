@@ -28,7 +28,6 @@ namespace Atom.Components.Connecting
             _packetRouter.RegisterPacketHandler(typeof(ConnectionRequestPacket), (received) =>
             {
                 var respondable = (IRespondable)received;
-                var response = (ConnectionRequestResponsePacket)respondable.GetResponsePacket(respondable);
                 var connectionRequest = (ConnectionRequestPacket)received;
 
                 // is this node avalaible ?
@@ -39,9 +38,17 @@ namespace Atom.Components.Connecting
 
                 peerInfo.SetScoreByDistance(context.transform.position);
 
-                response.isAccepted = TryConnectWith(peerInfo);
+                if (CanAcceptConnectionWith(peerInfo, out var toRemove))
+                {
+                    var response = (ConnectionRequestResponsePacket)respondable.GetResponsePacket(respondable);
 
-                _packetRouter.SendResponse((IRespondable)received, response);
+                    response.isAccepted = true;
+                    _networkInfo.AddConnection(peerInfo);
+                    _packetRouter.SendResponse((IRespondable)received, response);
+
+                    if(toRemove != null)
+                        DisconnectFromPeer(toRemove);   
+                }
             });
 
             _packetRouter.RegisterPacketHandler(typeof(DisconnectFromPeerNotificationPacket), (packet) =>
@@ -66,8 +73,11 @@ namespace Atom.Components.Connecting
         /// A connection request aims to add the requested node in LISTENNERS view
         /// </summary>
         /// <param name="peerInfo"></param>
-        public void SendConnectionRequestTo(PeerInfo peerInfo)
+        public void SendConnectionRequestTo(PeerInfo peerInfo, PeerInfo removeOnSuccss = null)
         {
+            if (_networkInfo.Connections.ContainsKey(peerInfo.peerID))
+                return;
+
             _packetRouter.SendRequest(peerInfo.peerAdress, new ConnectionRequestPacket((byte)_networkInfo.Connections.Count), (response) =>
             {
                 var connectionResponsePacket = (ConnectionRequestResponsePacket)response;
@@ -78,6 +88,9 @@ namespace Atom.Components.Connecting
                     peerInfo.ComputeScore(peerInfo.ping, context.NetworkViewsTargetCount);
                     peerInfo.SetScoreByDistance(context.transform.position);
                     _networkInfo.AddConnection(peerInfo);
+
+                    if (removeOnSuccss != null)
+                        DisconnectFromPeer(removeOnSuccss);
                 }
             });
         }
@@ -114,38 +127,6 @@ namespace Atom.Components.Connecting
                     return true;
                 }
         */
-        public bool TryConnectWith(PeerInfo peerInfo)
-        {
-            if (_networkInfo.Connections.Count == 0)
-            {
-                _networkInfo.AddConnection(peerInfo);
-                return true;
-            }
-
-            if (_networkInfo.Connections.Count >= context.NetworkViewsTargetCount)
-            {
-                // trying to replace an existing worst caller by the requesting one
-                foreach (var listenner in _networkInfo.Connections)
-                {
-                    if (peerInfo.score > listenner.Value.score)
-                    {
-                        // add random function
-                        // replacing the listenner by the new peer
-
-                        DisconnectFromPeer(listenner.Value);
-
-                        _networkInfo.AddConnection(peerInfo);
-
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-
-            _networkInfo.AddConnection(peerInfo);
-            return true;
-        }
 
         /// <summary>
         /// Is there any room for this new peer OR this new peers fits better (better score) ?
@@ -157,6 +138,9 @@ namespace Atom.Components.Connecting
             toDisconnect = null;
 
             if (peerInfo.peerAdress == _networkInfo.LocalPeerInfo.peerAdress)
+                return false;
+
+            if (_networkInfo.Connections.ContainsKey(peerInfo.peerID))
                 return false;
 
             if (_networkInfo.Connections.Count == 0)

@@ -18,11 +18,11 @@ public class WorldSimulationManager : MonoBehaviour
 
     [OnValueChanged("updateTransportInstantaneously")]
     public bool TransportInstantaneously = true;
-    public static bool transportInstantaneously = false;
+    public static bool transportInstantaneously = true;
     private void updateTransportInstantaneously() => transportInstantaneously = Instance.TransportInstantaneously;
 
     private void updateDisplayPackets() => displayPackets = Instance.DisplayPackets;
-    public static bool displayPackets = true;
+    public static bool displayPackets = false;
 
     [OnValueChanged("updatePacketSpeed")] public float PacketSpeed = 100;
     private void updatePacketSpeed() => packetSpeed = Instance.PacketSpeed; 

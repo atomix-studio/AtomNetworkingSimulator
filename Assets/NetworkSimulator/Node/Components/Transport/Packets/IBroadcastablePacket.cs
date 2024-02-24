@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Atom.CommunicationSystem
 {
-    public interface IBroadcastablePacket  : INetworkPacket
+    public interface IBroadcastablePacket  :INetworkPacket
     {
         public string broadcasterID { get; set; }   
 
