@@ -61,8 +61,23 @@ namespace Atom.Transport
 
         public void Send(string address, INetworkPacket packet)
         {
+            if (IsSleeping)
+                return;
+
             var destination = WorldSimulationManager.nodeAddresses[address];
-            _addPacket(destination, packet);
+            WorldSimulationManager._totalPacketSent++;
+            WorldSimulationManager._totalPacketSentPerSecondCount++;
+
+            if (WorldSimulationManager.transportInstantaneously)
+            {
+
+                destination.transportLayer.routerReceiveCallback.Invoke(packet);
+
+            }
+            else
+            {
+                _addPacket(destination, packet);
+            }
         }
 
         // add a packet to the collections that simulates the network travelling
@@ -101,11 +116,10 @@ namespace Atom.Transport
                         WorldSimulationManager._totalPacketReceived++;
                         WorldSimulationManager._totalPacketReceivedPerSecondCount++;
 
-                        if (!IsSleeping)
-                            currentTravellingPacketTarget[packet.Key].transportLayer.routerReceiveCallback.Invoke(packet.Key);
+                        currentTravellingPacketTarget[packet.Key].transportLayer.routerReceiveCallback.Invoke(packet.Key);
                     }
 
-                    
+
                     _removePacket(packet.Key);
                     packet.Key.DisposePacket();
                     i--;
@@ -129,8 +143,8 @@ namespace Atom.Transport
 
         private void Update()
         {
-           /* for (int i = 0; i < travellingPackets.Count; ++i)
-                travellingPackets[i].OnUpdate();*/
+            /* for (int i = 0; i < travellingPackets.Count; ++i)
+                 travellingPackets[i].OnUpdate();*/
 
 
             _updateTravellingPackets();

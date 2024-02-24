@@ -1,4 +1,5 @@
 ﻿using Atom.CommunicationSystem;
+using System.Collections.Generic;
 
 namespace Atom.ClusterConnectionService
 {
@@ -14,7 +15,7 @@ namespace Atom.ClusterConnectionService
 
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
-            return new ClusterConnectionRequestResponsePacket() { callerPacketUniqueId = answerPacket.packet.packetUniqueId };
+            return new ClusterConnectionRequestResponsePacket();
         }
     }
 
@@ -22,5 +23,7 @@ namespace Atom.ClusterConnectionService
     {
         public long callerPacketUniqueId { get; set ; }
         public INetworkPacket packet => this;
+        public List<PeerInfo> potentialPeerInfos { get; set; }
+
     }
 }

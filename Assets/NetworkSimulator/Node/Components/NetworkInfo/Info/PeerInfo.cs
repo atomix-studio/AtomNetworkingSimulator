@@ -51,18 +51,25 @@ namespace Atom.CommunicationSystem
         /// </summary>
         public DateTime last_updated { get => _last_updated; set => _last_updated = value; }
 
-        public float ComputeScore(float ping, int callersCount, int listennersCount)
+        public void SetScoreByDistance(Vector3 localPosition)
+        {
+            var dist = Vector3.Distance(WorldSimulationManager.nodeAddresses[peerAdress].transform.position, localPosition);
+            score = 1f / dist * 100f;
+        }
+
+        public float ComputeScore(float ping, int listennersCount)
         {
             // the more ping the less score
             float pingratio = ping;
             // the less connection the more score (balancing the pingratio) => new comers with low connections have more chances to get new connections
-            float connectivity = (1f / (callersCount + listennersCount + 1)) * 100f;
+            float connectivity = (1f / (listennersCount + 1)) * 100f;
 
             float score = connectivity / pingratio;
 
             this.ping = pingratio;
             //this.score = score;
-            this.score = 1 / ping * 100f;
+            //this.score = 1 / ping * 100f;
+
             this.last_updated = DateTime.UtcNow;
             return score;
         }

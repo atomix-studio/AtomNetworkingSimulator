@@ -12,10 +12,14 @@ public class WorldSimulationManager : MonoBehaviour
     public static WorldSimulationManager Instance;
 
     public bool DisplayGroupConnections;
-    public bool DisplayCallersConnections;
     public bool DisplayListennersConnections;
     public bool DisplaySelectedOnly;
     [OnValueChanged("updateDisplayPackets")] public bool DisplayPackets;
+
+    [OnValueChanged("updateTransportInstantaneously")]
+    public bool TransportInstantaneously = true;
+    public static bool transportInstantaneously = true;
+    private void updateTransportInstantaneously() => transportInstantaneously = Instance.TransportInstantaneously;
 
     private void updateDisplayPackets() => displayPackets = Instance.DisplayPackets;
     public static bool displayPackets;
@@ -190,7 +194,10 @@ public class WorldSimulationManager : MonoBehaviour
                 node.IsSleeping = true;
 
             if (transportlayer)
+            {
                 node.transportLayer.IsSleeping = true;
+                node.GetNodeComponent<PacketRouter>().IsSleeping = true;
+            }
         }
     }
 
@@ -203,7 +210,10 @@ public class WorldSimulationManager : MonoBehaviour
                 node.IsSleeping = false;
 
             if (transportlayer)
+            {
                 node.transportLayer.IsSleeping = false;
+                node.GetNodeComponent<PacketRouter>().IsSleeping = false;
+            }
         }
     }
 

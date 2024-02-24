@@ -185,19 +185,19 @@ public class NodeEntity : MonoBehaviour
             }
             else
             {
-                if (WorldSimulationManager.Instance.DisplayCallersConnections)
+                /*if (WorldSimulationManager.Instance.DisplayCallersConnections)
                 {
                     for (int i = 0; i < networkHandling.Callers.Count; ++i)
                     {
                         Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Callers.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.red);
                     }
-                }
+                }*/
 
                 if (WorldSimulationManager.Instance.DisplayListennersConnections)
                 {
-                    for (int i = 0; i < networkHandling.Listenners.Count; ++i)
+                    for (int i = 0; i < networkHandling.Connections.Count; ++i)
                     {
-                        Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Listenners.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.black);
+                        Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Connections.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.black);
                     }
                 }
             }

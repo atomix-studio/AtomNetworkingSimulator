@@ -23,9 +23,9 @@ namespace Atom.Components.Handshaking
             _packetRouter.RegisterPacketHandler(typeof(HandshakePacket), (packet) =>
             {
                 var respondable = packet as IRespondable;
-                var response = (HandshakeResponsePacket)respondable.GetResponsePacket(respondable);
-                response.networkInfoCallersCount = (byte)context.networkHandling.Callers.Count;
-                response.networkInfoListennersCount = (byte)context.networkHandling.Listenners.Count;
+                var response = (HandshakeResponsePacket)(respondable.GetResponsePacket(respondable).packet);
+                //response.networkInfoCallersCount = (byte)context.networkHandling.Callers.Count;
+                response.networkInfoListennersCount = (byte)context.networkHandling.Connections.Count;
 
                 _packetRouter.SendResponse(respondable, response);
             });

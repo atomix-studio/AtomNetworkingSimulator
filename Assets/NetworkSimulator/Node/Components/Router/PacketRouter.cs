@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -38,6 +39,8 @@ namespace Atom.CommunicationSystem
         }
 
         private short _packetIdentifierGenerator = 0;
+
+        public bool IsSleeping = false;
 
         public PacketRouter()
         {
@@ -98,7 +101,7 @@ namespace Atom.CommunicationSystem
 
         void Update()
         {
-            if (context.IsSleeping)
+            if (IsSleeping)
                 return;
 
             if (_packetResponseAwaitersBuffer.Count == 0)
@@ -109,13 +112,11 @@ namespace Atom.CommunicationSystem
             {
                 var awaiter = _packetResponseAwaitersBuffer.ElementAt(i);
 
-                if (awaiter.Value.createdTime.AddMilliseconds(awaiter.Value.timeout) > now)
+                if (awaiter.Value.expirationTime > now)
                 {
                     // on timed-out, we callback the resquest with NULL value so the service can 
                     // implement its logic on this assertion
                     awaiter.Value.responseCallback?.Invoke(null);
-
-                    awaiter.Value.Dispose();
                     _packetResponseAwaitersBuffer.Remove(awaiter.Key);
                     i--;
                 }
@@ -172,7 +173,7 @@ namespace Atom.CommunicationSystem
         {
             //transportLayer.SendPacket(target, networkPacket);
             onBeforeSendInternal(networkPacket);
-            _packetResponseAwaitersBuffer.Add(networkPacket.packetUniqueId, new INetworkPacketResponseAwaiter(responseCallback, timeout_ms));
+            _packetResponseAwaitersBuffer.Add(networkPacket.packetUniqueId, new INetworkPacketResponseAwaiter(DateTime.Now.AddMilliseconds(timeout_ms), responseCallback));
             transportLayer.Send(targetAddress, networkPacket);
 
 
@@ -188,13 +189,13 @@ namespace Atom.CommunicationSystem
 
             if (networkPacket is IRespondable)
                 (networkPacket as IRespondable).senderAdress = context.networkHandling.LocalPeerInfo.peerAdress;
-
-            WorldSimulationManager._totalPacketSent++;
-            WorldSimulationManager._totalPacketSentPerSecondCount++;
         }
 
         private void onReceivePacket(INetworkPacket networkPacket)
         {
+            if (IsSleeping)
+                return;
+
             for(int i = 0; i < _receivePacketMiddlewares.Count; ++i)
             {
                 if (!_receivePacketMiddlewares[i](networkPacket))
@@ -208,7 +209,6 @@ namespace Atom.CommunicationSystem
                 {
                     awaiter.responseCallback(networkPacket);
                     _packetResponseAwaitersBuffer.Remove(callerId);
-                    awaiter.Dispose();
                     //networkPacket.DisposePacket();
                     return;
                 }
@@ -221,7 +221,7 @@ namespace Atom.CommunicationSystem
                     return;
                 }
 
-                networkPacket.DisposePacket();
+               //networkPacket.DisposePacket();
                 // else timed out, or something wrong in the logic
             }
             else

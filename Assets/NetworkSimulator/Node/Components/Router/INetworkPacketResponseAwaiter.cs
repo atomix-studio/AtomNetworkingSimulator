@@ -8,20 +8,19 @@ using System.Threading.Tasks;
 
 namespace Atom.CommunicationSystem
 {
-    public class INetworkPacketResponseAwaiter : IDisposable
+    public struct INetworkPacketResponseAwaiter 
     {
-        public DateTime createdTime;
-        public int timeout;
+        public DateTime expirationTime;
         public Action<INetworkPacket> responseCallback;
 
-        private bool _disposed;
+        //private bool _disposed;
 
-        public INetworkPacketResponseAwaiter(Action<INetworkPacket> responseCallback, int timeout)
+        public INetworkPacketResponseAwaiter(DateTime expirationTime, Action<INetworkPacket> responseCallback)
         {
-            this.timeout = timeout;
+            this.expirationTime = expirationTime;
             this.responseCallback = responseCallback;
         }
-
+/*
         public void Dispose()
         {
             Dispose(disposing: true);
@@ -49,7 +48,7 @@ namespace Atom.CommunicationSystem
             // TODO: set large fields to null.
 
             _disposed = true;
-        }
+        }*/
 
     }
 }

@@ -73,9 +73,9 @@ namespace Atom.CommunicationSystem
             {
                 // the router checks for packet that are IBroadcastable and ensure they haven't been too much relayed
                 // if the packet as reached is maximum broadcast cycles on the node and the router receives it one more time
-                if (receivedPacket is IBroadcastablePacket && !UpdateAndCheckBroadcastIsForwardable((IBroadcastablePacket)receivedPacket))
+                if (receivedPacket is IBroadcastablePacket
+                    && !CheckBroadcastRelayCycles((IBroadcastablePacket)receivedPacket))
                 {
-                    receivedPacket.DisposePacket();
                     return;
                 }
 
@@ -121,17 +121,18 @@ namespace Atom.CommunicationSystem
         /// <param name="broadcastable"></param>
         public void SendBroadcast(IBroadcastablePacket broadcastable, int fanoutOverride = -1)
         {
-            if (_networkHandling.Listenners.Count <= 0)
+            if (_networkHandling.Connections.Count <= 0)
                 return;
 
+            broadcastable.broadcasterID = _networkHandling.LocalPeerInfo.peerID;
             broadcastable.broadcastID = Guid.NewGuid().ToString();
             var current = broadcastable;
 
             var calls_count = GetCurrentFanout(fanoutOverride);
             for (int i = 0; i < calls_count; ++i)
             {
-                var index = _random.Next(_networkHandling.Listenners.Count);
-                _router.Send(_networkHandling.Listenners.ElementAt(index).Value.peerAdress, current);
+                var index = _random.Next(_networkHandling.Connections.Count);
+                _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, current);
                 current = (IBroadcastablePacket)broadcastable.GetForwardablePacket(current);
             }
         }
@@ -142,8 +143,8 @@ namespace Atom.CommunicationSystem
         /// <param name="packet"></param>
         public void RelayBroadcast(IBroadcastablePacket broadcastable, int fanoutOverride = -1)
         {
-            if (!UpdateAndCheckBroadcastIsForwardable(broadcastable))
-                return;
+            /*if (!UpdateAndCheckBroadcastIsForwardable(broadcastable))
+                return;*/
 
             // allow other service to handle whatever they need when a broadcast is received and (accepted)
             BroadcasterEventHandler.BroadcastPacketRelayed(broadcastable);
@@ -155,7 +156,7 @@ namespace Atom.CommunicationSystem
               to remove TryRegisterPeer(packet.Sender);
  */
             // broadcast cannot be relayed if the node doesn't have any listenners to send it to
-            if (_networkHandling.Listenners.Count <= 0)
+            if (_networkHandling.Connections.Count <= 0)
                 return;
 
             var calls_count = GetCurrentFanout(fanoutOverride);
@@ -166,7 +167,7 @@ namespace Atom.CommunicationSystem
                 var index = 0;
                 do
                 {
-                    index = _random.Next(_networkHandling.Listenners.Count);
+                    index = _random.Next(_networkHandling.Connections.Count);
                     count_break++;
 
                     if (count_break > calls_count * 2)
@@ -175,11 +176,12 @@ namespace Atom.CommunicationSystem
 
                 // there is a probability that a node receive a broadcast from its callers that has been issued by a node contained in the callers view
                 // so we don't want to send it back its message 
-                while (_networkHandling.Listenners.ElementAt(index).Value.peerID == broadcastable.broadcasterID);
+                while (_networkHandling.Connections.ElementAt(index).Value.peerID == broadcastable.broadcasterID
+                || _networkHandling.Connections.ElementAt(index).Value.peerID == broadcastable.senderID);
 
                 // create a new packet from the received and forwards it to the router
                 var relayedPacket = broadcastable.GetForwardablePacket(broadcastable);
-                _router.Send(_networkHandling.Listenners.ElementAt(index).Value.peerAdress, relayedPacket);
+                _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, relayedPacket);
 
                 /* _nodeEntity.transportLayer.SendPacketBroadcast(
                                     packet.Broadcaster,
@@ -197,7 +199,7 @@ namespace Atom.CommunicationSystem
             if (fanoutOverride > 0)
                 return fanoutOverride;
 
-            return _fanout > _networkHandling.Listenners.Count ? _networkHandling.Listenners.Count : _fanout;
+            return _fanout > _networkHandling.Connections.Count ? _networkHandling.Connections.Count : _fanout;
         }
 
         /// <summary>
@@ -211,7 +213,7 @@ namespace Atom.CommunicationSystem
 
         }
 
-        private bool UpdateAndCheckBroadcastIsForwardable(IBroadcastablePacket packet)
+        private bool CheckBroadcastRelayCycles(IBroadcastablePacket packet)
         {
             if (_relayedBroadcastsBuffer.ContainsKey(packet.broadcastID))
             {

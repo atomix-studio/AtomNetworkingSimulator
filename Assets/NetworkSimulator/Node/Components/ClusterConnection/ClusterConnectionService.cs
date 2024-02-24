@@ -3,6 +3,7 @@ using Atom.ComponentProvider;
 using Sirenix.OdinInspector;
 using System;
 using System.Linq;
+using System.Net;
 using UnityEngine;
 
 namespace Atom.ClusterConnectionService
@@ -30,57 +31,48 @@ namespace Atom.ClusterConnectionService
             _packetRouter.RegisterPacketHandler(typeof(ClusterConnectionRequestPacket), (packet) =>
             {
                 var respondable = (packet as IRespondable);
-                _packetRouter.SendResponse(respondable, respondable.GetResponsePacket(respondable));
+                var response = (ClusterConnectionRequestResponsePacket)respondable.GetResponsePacket(respondable).packet;
+                response.potentialPeerInfos = new System.Collections.Generic.List<PeerInfo>();
+                response.potentialPeerInfos.Add(context.networkHandling.LocalPeerInfo);
+                response.potentialPeerInfos.AddRange(context.networkHandling.Connections.Values.ToList());
+                _packetRouter.SendResponse(respondable, response);
             });
 
             _packetRouter.RegisterPacketHandler(typeof(ClusterConnectionRequestResponsePacket), null);
-
-            // the response packet doesn't have to be registered if its called with a send response.
-            // it will be routed to the caller id
-            _packetRouter.RegisterPacketHandler(typeof(SubscriptionPacket), (subscriptionReceivedPacket) =>
-            {
-                var respondable = (subscriptionReceivedPacket as IRespondable);
-                var subResponse = (SubscriptionResponsePacket)respondable.GetResponsePacket(respondable);
-
-                // the boot sends all the node he knows to allow the newcomer to make a first selection of the best peers from this list
-                subResponse.potentialPeerInfos = context.networkHandling.Callers.Values.ToList();
-                subResponse.potentialPeerInfos.Add(context.networkHandling.LocalPeerInfo);
-                subResponse.potentialPeerInfos.AddRange(context.networkHandling.Listenners.Values.ToList());
-                // the new peer will eventually propagate a discovery request to these new nodes to really deeply connect to the network
-
-                _packetRouter.SendResponse(respondable, subResponse);
-            });
-
-            _packetRouter.RegisterPacketHandler(typeof(SubscriptionResponsePacket), null);
         }
 
         public void ConnectToCluster(ClusterInfo clusterInfo)
         {
             _clusterInfo = clusterInfo;
             _isConnecting = true;
+            var nodesList = clusterInfo.BootNodes.ToList();
 
             int _btNodeCalls = 0;
-            foreach (var bootNode in clusterInfo.BootNodes)
+            while(_btNodeCalls < _maximumBootNodeCalls || nodesList.Count == 0)
             {
-                if (bootNode == context)
+                int index = UnityEngine.Random.Range(0, nodesList.Count);
+
+                if (nodesList[index] == context)
                     continue;
 
                 _btNodeCalls++;
                 if (_btNodeCalls > _maximumBootNodeCalls)
                     break;
 
-                _broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
+                _broadcaster.SendRequest(nodesList[index].networkHandling.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
                 {
                     Debug.Log("Received cluster connection response. Sending new subscription request.");
+                    var clusterResponse = (ClusterConnectionRequestResponsePacket)response;
+                    // the datas goes to the peer sampling service at this moment.
+                    _samplingService.OnReceiveSubscriptionResponse(clusterResponse);
+                    _isConnecting = false;
 
-                    _broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
+                   /* _broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
                     {
                         var subscriptionResponse = (SubscriptionResponsePacket)response;
 
-                        // the datas goes to the peer sampling service at this moment.
-                        _samplingService.OnReceiveSubscriptionResponse(subscriptionResponse);
-                        _isConnecting = false;
-                    });
+                       
+                    });*/
                 });
             }
         }
@@ -95,7 +87,7 @@ namespace Atom.ClusterConnectionService
 
 
             // routine to check disconnctions
-            if (_networkHandling.Listenners.Count == 0)
+            if (_networkHandling.Connections.Count == 0)
             {
                 _disconnectedTimer += Time.deltaTime;
 

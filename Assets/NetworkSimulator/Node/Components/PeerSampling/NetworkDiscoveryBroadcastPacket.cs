@@ -7,12 +7,8 @@ using System.Threading.Tasks;
 
 namespace Atom.CommunicationSystem
 {
-    public class NetworkDiscoveryBroadcastPacket : AbstractNetworkPacket, IRespondable, IBroadcastablePacket
+    public class NetworkDiscoveryBroadcastPacket : AbstractBroadcastablePacket
     {
-        public string senderAdress { get; set; }
-        public string broadcasterID { get; set; }
-        public string broadcastID { get; set; }
-
         public INetworkPacket packet => this;
 
         // not all broadcast messages needs to hold the adress of the broadcaster
@@ -40,20 +36,14 @@ namespace Atom.CommunicationSystem
 
         }
 
-        public INetworkPacket GetForwardablePacket(INetworkPacket received)
+        public override INetworkPacket GetForwardablePacket(INetworkPacket received)
         {
             return new NetworkDiscoveryBroadcastPacket(received as NetworkDiscoveryBroadcastPacket);
         }
-
-        public IResponse GetResponsePacket(IRespondable answerPacket)
-        {
-            return new NetworkDiscoveryBroadcastResponsePacket();
-        }
     }
 
-    public class NetworkDiscoveryBroadcastResponsePacket : AbstractNetworkPacket, IResponse
+    public class NetworkDiscoveryPotentialConnectionNotificationPacket : AbstractNetworkPacket
     {     
-        public long callerPacketUniqueId { get; set; }
         public string listennerAdress { get; set; }
         public string listennerID { get; set; }
 

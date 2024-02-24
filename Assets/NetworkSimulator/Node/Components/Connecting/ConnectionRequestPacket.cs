@@ -13,23 +13,17 @@ namespace Atom.Components.Connecting
         {
         }
 
-        public ConnectionRequestPacket(byte networkInfoCallersCount, byte networkInfoListennersCount)
+        public ConnectionRequestPacket(byte networkInfoListennersCount)
         {
-            this.networkInfoCallersCount = networkInfoCallersCount;
-            this.networkInfoListennersCount = networkInfoListennersCount;
+            this.senderConnectionsCount = networkInfoListennersCount;
         }
 
         public string senderAdress { get ; set ; }
 
         /// <summary>
-        /// number of callers the node have
-        /// </summary>
-        public byte networkInfoCallersCount { get; set; }
-
-        /// <summary>
         /// number of listenners the node have
         /// </summary>
-        public byte networkInfoListennersCount { get; set; }
+        public byte senderConnectionsCount { get; set; }
 
         public INetworkPacket packet => this;
 
