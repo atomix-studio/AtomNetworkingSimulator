@@ -28,9 +28,10 @@ namespace Atom.CommunicationSystem
         [SerializeField] protected int peerConnectionLeaseTime = 5;
         [SerializeField] protected int peerConnectionLeaseRefreshTime = 3;
 
+        [SerializeField, ReadOnly] private float _averageScore = 0;
         // average score value from last update 
         // the component uses that data to detect changes (decrease) and will react to a network health going down by rebroadcasting discovery requets
-        private List<float> _networkScoreBuffer = new List<float>();
+        [SerializeField, ReadOnly] private List<float> _networkScoreBuffer = new List<float>();
 
         #region Peer Infos
         /// <summary>
@@ -133,6 +134,10 @@ namespace Atom.CommunicationSystem
             Connections.Add(peerInfo.peerID, peerInfo);
             _connectionsDebug.Add(peerInfo);
             peerInfo.last_updated = DateTime.Now;
+
+           
+            UpdateNetworkScore();
+
         }
 
         public void RemoveConnection(PeerInfo peerInfo)
@@ -222,6 +227,8 @@ namespace Atom.CommunicationSystem
 
         private void UpdateNetworkScore()
         {
+            var oldScroe = _averageScore;
+
             var current_peers_score = 0f;
             // the heartbeat should be able to maintain a score routine and see if a peer becomes too low in PeerScore (like latency is increasing)
             for (int i = 0; i < Connections.Count; ++i)
@@ -229,13 +236,19 @@ namespace Atom.CommunicationSystem
                 current_peers_score += Connections.ElementAt(i).Value.score;
             }
             current_peers_score /= Connections.Count;
+            _averageScore = current_peers_score;
+
+            if (oldScroe > _averageScore)
+            {
+                Debug.LogError("Network score going down");
+            }
 
             // abritrary value for now
             // the idea is to check if the score is decreasing from a previous high value
             // if so, the node will trigger a discovery request to recreate its network with better peers
 
             ///TODO analyzing the _networkScoreBuffer curve more in depth
-            
+
             if (current_peers_score * 1.33f < _networkScoreBuffer.Last())
             {
                 _peerSampling.BroadcastDiscoveryRequest();

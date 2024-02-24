@@ -59,7 +59,7 @@ namespace Atom.CommunicationSystem
 
         public float ComputeScore(float ping, int listennersCount)
         {
-            // the more ping the less score
+            /*// the more ping the less score
             float pingratio = ping;
             // the less connection the more score (balancing the pingratio) => new comers with low connections have more chances to get new connections
             float connectivity = (1f / (listennersCount + 1)) * 100f;
@@ -70,7 +70,7 @@ namespace Atom.CommunicationSystem
             //this.score = score;
             //this.score = 1 / ping * 100f;
 
-            this.last_updated = DateTime.UtcNow;
+            this.last_updated = DateTime.UtcNow;*/
             return score;
         }
 

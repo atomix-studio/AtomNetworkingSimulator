@@ -68,13 +68,12 @@ namespace Atom.Components.Connecting
         /// <param name="peerInfo"></param>
         public void SendConnectionRequestTo(PeerInfo peerInfo)
         {
-            var sentTime = DateTime.Now;
             _packetRouter.SendRequest(peerInfo.peerAdress, new ConnectionRequestPacket((byte)_networkInfo.Connections.Count), (response) =>
             {
                 var connectionResponsePacket = (ConnectionRequestResponsePacket)response;
                 if (connectionResponsePacket.isAccepted)
                 {
-                    peerInfo.ping = (DateTime.Now - sentTime).Milliseconds;
+                    peerInfo.ping = 2 * (DateTime.Now - response.sentTime).Milliseconds;
                     // we want to be sure that the sure is up to date here because if its 0 the new connection could be replaced by a worst one at any time
                     peerInfo.ComputeScore(peerInfo.ping, context.NetworkViewsTargetCount);
                     peerInfo.SetScoreByDistance(context.transform.position);
@@ -153,8 +152,10 @@ namespace Atom.Components.Connecting
         /// </summary>
         /// <param name="peerInfo"></param>
         /// <returns></returns>
-        public bool CanAcceptConnectionWith(PeerInfo peerInfo)
+        public bool CanAcceptConnectionWith(PeerInfo peerInfo, out PeerInfo toDisconnect)
         {
+            toDisconnect = null;
+
             if (peerInfo.peerAdress == _networkInfo.LocalPeerInfo.peerAdress)
                 return false;
 
@@ -170,6 +171,7 @@ namespace Atom.Components.Connecting
                 {
                     if (peerInfo.score > connection.Value.score)
                     {
+                        toDisconnect = connection.Value;
                         return true;
                     }
                 }

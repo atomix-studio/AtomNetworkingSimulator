@@ -28,7 +28,8 @@ namespace Atom.Transport
 
 
         private Dictionary<INetworkPacket, NodeEntity> currentTravellingPacketTarget = new Dictionary<INetworkPacket, NodeEntity>();
-        private Dictionary<INetworkPacket, Vector3> currentTravellingPacketsPosition = new Dictionary<INetworkPacket, Vector3>();
+        private Dictionary<INetworkPacket, float> currentTravellingPacketsElapsedTime = new Dictionary<INetworkPacket, float>();
+        private Dictionary<INetworkPacket, float> currentTravellingPacketsTime = new Dictionary<INetworkPacket, float>();
         private Dictionary<INetworkPacket, Vector3> currentTravellingPacketsDestination = new Dictionary<INetworkPacket, Vector3>();
 
         public NodeEntity context { get; set; }
@@ -85,14 +86,17 @@ namespace Atom.Transport
         {
             currentTravellingPacketTarget.Add(packet, target);
             currentTravellingPacketsDestination.Add(packet, target.transform.position);
-            currentTravellingPacketsPosition.Add(packet, transform.position);
+            float ttime = Vector3.Distance(target.transform.position, transform.position) / WorldSimulationManager.packetSpeed;
+            currentTravellingPacketsTime.Add(packet, ttime) ;
+            currentTravellingPacketsElapsedTime.Add(packet, 0);
         }
 
         private void _removePacket(INetworkPacket packet)
         {
             currentTravellingPacketTarget.Remove(packet);
             currentTravellingPacketsDestination.Remove(packet);
-            currentTravellingPacketsPosition.Remove(packet);
+            currentTravellingPacketsElapsedTime.Remove(packet);
+            currentTravellingPacketsTime.Remove(packet);
 
             // packets are disposed when their job is done 
             packet.DisposePacket();
@@ -100,16 +104,17 @@ namespace Atom.Transport
 
         private void _updateTravellingPackets()
         {
-            for (int i = 0; i < currentTravellingPacketsPosition.Count; ++i)
+            var pos = transform.position;
+            for (int i = 0; i < currentTravellingPacketsElapsedTime.Count; ++i)
             {
-                var packet = currentTravellingPacketsPosition.ElementAt(i);
-                var direction = currentTravellingPacketsDestination[packet.Key] - currentTravellingPacketsPosition[packet.Key];
-
+                var packet = currentTravellingPacketsElapsedTime.ElementAt(i);
+                var direction = currentTravellingPacketsDestination[packet.Key] - pos;
+                float ratio = currentTravellingPacketsElapsedTime[packet.Key] / currentTravellingPacketsTime[packet.Key];
                 // 
                 if (WorldSimulationManager.displayPackets)
-                    Debug.DrawLine(transform.position, currentTravellingPacketsPosition[packet.Key], Color.blue);
+                    Debug.DrawLine(transform.position, Vector3.Lerp(pos, currentTravellingPacketsDestination[packet.Key], ratio), Color.blue);
 
-                if (direction.magnitude < .1f)
+                if ( ratio >= 1f)
                 {
                     if (currentTravellingPacketTarget[packet.Key].gameObject.activeSelf)
                     {
@@ -119,15 +124,13 @@ namespace Atom.Transport
                         currentTravellingPacketTarget[packet.Key].transportLayer.routerReceiveCallback.Invoke(packet.Key);
                     }
 
-
                     _removePacket(packet.Key);
-                    packet.Key.DisposePacket();
                     i--;
                 }
                 else
                 {
                     direction.Normalize();
-                    currentTravellingPacketsPosition[packet.Key] += direction * Time.deltaTime * WorldSimulationManager.packetSpeed;
+                    currentTravellingPacketsElapsedTime[packet.Key] += Time.deltaTime * WorldSimulationManager.packetSpeed;
                 }
             }
         }

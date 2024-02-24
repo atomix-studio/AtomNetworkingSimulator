@@ -1,14 +1,8 @@
-﻿using Assets.NetworkSimulator.Node.CommunicationSystem.Components.Router;
-using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+﻿using Atom.ComponentProvider;
 using Atom.Transport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Atom.CommunicationSystem
@@ -112,11 +106,11 @@ namespace Atom.CommunicationSystem
             {
                 var awaiter = _packetResponseAwaitersBuffer.ElementAt(i);
 
-                if (awaiter.Value.expirationTime > now)
+                if (awaiter.Value.expirationTime < now)
                 {
                     // on timed-out, we callback the resquest with NULL value so the service can 
                     // implement its logic on this assertion
-                    awaiter.Value.responseCallback?.Invoke(null);
+                    //awaiter.Value.responseCallback?.Invoke(null);
                     _packetResponseAwaitersBuffer.Remove(awaiter.Key);
                     i--;
                 }
@@ -169,7 +163,7 @@ namespace Atom.CommunicationSystem
         /// <param name="targetAddress"></param>
         /// <param name="networkPacket"></param>
         /// <summary>      
-        public void SendRequest(string targetAddress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 1000)
+        public void SendRequest(string targetAddress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 50000)
         {
             //transportLayer.SendPacket(target, networkPacket);
             onBeforeSendInternal(networkPacket);
@@ -216,7 +210,8 @@ namespace Atom.CommunicationSystem
                 // responses might be sent outside of a request awaiter (if implemented), so we have to check for a potential handler for the message outside of the awaiters
                 if (_receivePacketHandlers.ContainsKey(networkPacket.packetTypeIdentifier))
                 {
-                    _receivePacketHandlers[networkPacket.packetTypeIdentifier].Invoke(networkPacket);
+                    Debug.Log($"{networkPacket.GetType()} has been received by {context} out of a request range.");
+                    _receivePacketHandlers[networkPacket.packetTypeIdentifier]?.Invoke(networkPacket);
                     //networkPacket.DisposePacket();
                     return;
                 }
