@@ -283,11 +283,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
         {
             _discoveryBroadcastCooldown += Time.deltaTime;
 
-            if (_discoveryBroadcastTimer > 0 && _discoveryBroadcastCooldown < 5)
-                return;
-
             BroadcastDiscoveryRequest();
-            _discoveryBroadcastCooldown = 0;
         }
     }
 
@@ -389,9 +385,13 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
 
     public void BroadcastDiscoveryRequest()
     {
+        if (_discoveryBroadcastTimer > 0 && _discoveryBroadcastCooldown < 5)
+            return;
+
         // the number of broadcasts sent by a node is limited to avoid congestionnning the network
         _discoveryBroadcastTimer += DelayBetweenDiscoveryRequests;
         _broadcaster.SendBroadcast(new NetworkDiscoveryBroadcastPacket(_networkInfo.LocalPeerInfo.peerAdress));
+        _discoveryBroadcastCooldown = 0;
     }
 
     // les méthodes du broadcasting

@@ -99,7 +99,7 @@ namespace Atom.CommunicationSystem
         {
             LocalPeerInfo = localPeerInfo;
             // ugly, will see later to optimize inits
-            context.GetNodeComponent<PacketRouter>().InitPeerAdress(localPeerInfo.peerAdress);
+            context.GetNodeComponent<PacketRouter>().InitPeerAdress(localPeerInfo.peerID);
         }
         /*
                 public void AddCaller(PeerInfo peerInfo)
