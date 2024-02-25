@@ -9,25 +9,21 @@ using System.Threading.Tasks;
 
 namespace Atom.Broadcasting.Consensus
 {
-    [Serializable] 
+    [Serializable]
     public class ColorVotingConsensusPacket : AbstractConsensusPacket
-    {        
+    {
         // the vote of the running packet
         public int ColorSelection { get; set; }
 
         // a class variable not used in packet but used to holds the aggregated datas
         [SerializerIgnore] public int[] AggregatedSelections = new int[4];
-        [SerializerIgnore] public int  LocalSelection = - 1;
+        [SerializerIgnore] public int LocalSelection = -1;
+        public HashSet<string> _alreadyVoted = new HashSet<string>();
 
-        public ColorVotingConsensusPacket() { } 
-
-        public ColorVotingConsensusPacket(int colorSelection)
-        {
-            ColorSelection = colorSelection;
-        }
+        public ColorVotingConsensusPacket() { }
 
         public override void Aggregate(IConsensusPacket packet)
-        {
+        {            
             var colorVote = (ColorVotingConsensusPacket)packet;
             AggregatedSelections[colorVote.ColorSelection]++;
         }
@@ -35,7 +31,6 @@ namespace Atom.Broadcasting.Consensus
         public override INetworkPacket GetForwardablePacket(INetworkPacket received)
         {
             var forwardable = new ColorVotingConsensusPacket(received as ColorVotingConsensusPacket);
-            forwardable.ColorSelection = LocalSelection;
             return forwardable;
         }
 
@@ -59,8 +54,8 @@ namespace Atom.Broadcasting.Consensus
 
         public override void SelectChoice()
         {
-            LocalSelection = NodeRandom.Range(0, 3);
-            //ColorSelection = LocalSelection;
+            LocalSelection = NodeRandom.Range(0, 4);
+            ColorSelection = LocalSelection;
         }
     }
 }

@@ -27,36 +27,41 @@ namespace Atom.Broadcasting.Consensus
 
                 if (_runningConsensuses.TryGetValue(colorVote.consensusId, out var consensusPacket))
                 {
-                    consensusPacket.consensusVersion++;
-                    consensusPacket.Aggregate(consensusPacket);
-
                     var colorConsensusOrigin = (ColorVotingConsensusPacket)consensusPacket;
-                    int max = 0;
-                    int maxIndex = -1;
 
-                    for(int i = 0; i <  colorConsensusOrigin.AggregatedSelections.Length; ++i)
+                    if (!colorConsensusOrigin._alreadyVoted.Contains(colorVote.broadcasterID))
                     {
-                        if (colorConsensusOrigin.AggregatedSelections[i] > max)
+                        colorConsensusOrigin.consensusVersion++;
+                        colorConsensusOrigin.Aggregate(colorVote);
+                        colorConsensusOrigin._alreadyVoted.Add(colorVote.broadcasterID);
+
+                        int max = 0;
+                        int maxIndex = -1;
+
+                        for (int i = 0; i < colorConsensusOrigin.AggregatedSelections.Length; ++i)
                         {
-                            max = colorConsensusOrigin.AggregatedSelections[i];
-                            maxIndex = i;
+                            if (colorConsensusOrigin.AggregatedSelections[i] > max)
+                            {
+                                max = colorConsensusOrigin.AggregatedSelections[i];
+                                maxIndex = i;
+                            }
                         }
-                    }
 
-                    switch (maxIndex)
-                    {
-                        case 0:
-                            context.material.color = Color.white;
-                            break;
-                        case 1:
-                            context.material.color = Color.green;
-                            break;
-                        case 2:
-                            context.material.color = Color.red;
-                            break;
-                        case 3:
-                            context.material.color = Color.blue;
-                            break;
+                        switch (maxIndex)
+                        {
+                            case 0:
+                                context.material.color = Color.white;
+                                break;
+                            case 1:
+                                context.material.color = Color.green;
+                                break;
+                            case 2:
+                                context.material.color = Color.red;
+                                break;
+                            case 3:
+                                context.material.color = Color.blue;
+                                break;
+                        }
                     }
 
                     // forwarding other votes
@@ -65,12 +70,13 @@ namespace Atom.Broadcasting.Consensus
                 else
                 {
                     // choosing a response here
-                    _colorConsensusBuffer = colorVote;
-                    _colorConsensusBuffer.SelectChoice();
-                    _runningConsensuses.Add(colorVote.consensusId, colorVote);
+                    _colorConsensusBuffer = new ColorVotingConsensusPacket(colorVote);
+                    _runningConsensuses.Add(_colorConsensusBuffer.consensusId, _colorConsensusBuffer);
+                    var newVote = new ColorVotingConsensusPacket(_colorConsensusBuffer);
+                    newVote.SelectChoice();
 
                     // broadcasting the local node vote first time we receive
-                    _broadcaster.RelayBroadcast(colorVote);
+                    _broadcaster.SendBroadcast(newVote);
                 }
             });
         }
