@@ -4,7 +4,7 @@ using Atom.Components.PeerCounting;
 using Sirenix.OdinInspector;
 using UnityEngine;
 
-namespace Atom.BroadcastingProtocol
+namespace Atom.Broadcasting
 {
     public class PeerCountingService : MonoBehaviour, INodeComponent
     {

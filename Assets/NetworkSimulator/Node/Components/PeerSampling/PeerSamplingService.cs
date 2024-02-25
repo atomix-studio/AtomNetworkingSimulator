@@ -1,6 +1,7 @@
 using Atom.CommunicationSystem;
 using Atom.ComponentProvider;
 using Atom.Components.Handshaking;
+using Atom.Broadcasting;
 using Atom.Transport;
 using Sirenix.OdinInspector;
 using System;
@@ -69,10 +70,9 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
     public Dictionary<int, int> relayedBroadcasts => _relayedBroadcasts;
 
 
-    private float _discoveryBroadcastTimer = 0;
-    private float _refreshTimer = 0;
+    private float _discoveryBroadcastCooldown = 0;
+    private float _discoveryBroadcastOverrideTimer = 0;
 
-    private float _peersScore = 1;
 
     private System.Random random = new System.Random((int)DateTime.Now.Ticks % int.MaxValue);
 
@@ -141,7 +141,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
                 {
                     _connecting.SendConnectionRequestTo(temp_broadcasterPeerInfo);
 
-                    _discoveryBroadcastTimer = DelayBetweenDiscoveryRequests;
+                    _discoveryBroadcastCooldown = DelayBetweenDiscoveryRequests;
                     return;
                 }
            
@@ -213,7 +213,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
             }
         }
 
-        BroadcastDiscoveryRequest();
+        TryBroadcastDiscoveryRequest();
     }
 
 
@@ -262,28 +262,19 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
         context.transportLayer.RegisterEndpoint("BROADCAST_DISCOVERY_RESPONSE", OnReceive_DiscoveryBroadcastReponse);
     }
 
-    private float _discoveryBroadcastCooldown = 0;
     public void OnUpdate()
     {
         if (context.IsSleeping)
             return;
-
-        // done by the networkHandlingComponent
-        /*_refreshTimer += Time.deltaTime;
-        if (_refreshTimer > RefreshingTime)
-        {
-            Heartbeat();
-            _refreshTimer = 0;
-        }*/
-
+                
         // broadcaster routine is to send requests in the network if its listenners view is not at the target count
-        _discoveryBroadcastTimer -= Time.deltaTime;                    
+        _discoveryBroadcastCooldown -= Time.deltaTime;                    
 
         if (_networkInfo.Connections.Count < context.NetworkViewsTargetCount)
         {
-            _discoveryBroadcastCooldown += Time.deltaTime;
+            _discoveryBroadcastOverrideTimer += Time.deltaTime;
 
-            BroadcastDiscoveryRequest();
+            TryBroadcastDiscoveryRequest();
         }
     }
 
@@ -380,18 +371,21 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
     [Button]
     private void BroadcastDiscoveryRequestTest()
     {
-        BroadcastDiscoveryRequest();
+        TryBroadcastDiscoveryRequest();
     }
 
-    public void BroadcastDiscoveryRequest()
+    public bool TryBroadcastDiscoveryRequest()
     {
-        if (_discoveryBroadcastTimer > 0 && _discoveryBroadcastCooldown < 5)
-            return;
+        if (_discoveryBroadcastCooldown > 0 
+            && _discoveryBroadcastOverrideTimer < 5) // this timer is incrementend when a node is under its optimal connections count
+            return false;
 
         // the number of broadcasts sent by a node is limited to avoid congestionnning the network
-        _discoveryBroadcastTimer += DelayBetweenDiscoveryRequests;
+        _discoveryBroadcastCooldown += DelayBetweenDiscoveryRequests;
+
         _broadcaster.SendBroadcast(new NetworkDiscoveryBroadcastPacket(_networkInfo.LocalPeerInfo.peerAdress));
-        _discoveryBroadcastCooldown = 0;
+        _discoveryBroadcastOverrideTimer = 0;
+        return true;
     }
 
     // les méthodes du broadcasting
@@ -428,7 +422,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
         if (AvalaiblePeers.Count <= 0)
             return;
 
-        _discoveryBroadcastTimer = DelayBetweenDiscoveryRequests;
+        _discoveryBroadcastCooldown = DelayBetweenDiscoveryRequests;
 
         // in this case we answer the broadcaster only if the local node decided this peer was a better option and keeps it data in avalaible peers
         if (AvalaiblePeers.Contains(packet.Broadcaster))

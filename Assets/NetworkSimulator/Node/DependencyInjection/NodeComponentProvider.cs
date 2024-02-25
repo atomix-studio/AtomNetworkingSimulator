@@ -9,6 +9,9 @@ namespace Atom.ComponentProvider
     /// <summary>
     /// Manager/factory for services in the Node system
     /// 
+    /// TO DO REFACTORING TO GENERIFY THIS CRAP
+    /// Needs to be extracted from monob madness and set as a context container somewhere in the system 
+    /// 
     /// </summary>
     public partial class NodeComponentProvider : MonoBehaviour
     {

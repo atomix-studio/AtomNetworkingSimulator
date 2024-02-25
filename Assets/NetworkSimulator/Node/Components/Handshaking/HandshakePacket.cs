@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Atom.Serialization;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -32,5 +33,6 @@ namespace Atom.CommunicationSystem
         public byte networkInfoListennersCount { get; set; }
 
         public INetworkPacket packet => this;
+        [SerializerIgnore] public int requestPing { get; set; }
     }
 }

@@ -10,13 +10,15 @@ namespace Atom.CommunicationSystem
 {
     public struct INetworkPacketResponseAwaiter 
     {
+        public DateTime creationTime;
         public DateTime expirationTime;
         public Action<INetworkPacket> responseCallback;
 
         //private bool _disposed;
 
-        public INetworkPacketResponseAwaiter(DateTime expirationTime, Action<INetworkPacket> responseCallback)
+        public INetworkPacketResponseAwaiter(DateTime creationTime, DateTime expirationTime, Action<INetworkPacket> responseCallback)
         {
+            this.creationTime = creationTime;
             this.expirationTime = expirationTime;
             this.responseCallback = responseCallback;
         }

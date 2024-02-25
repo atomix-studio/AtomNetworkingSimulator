@@ -1,6 +1,7 @@
 using Atom.Transport;
 using Atom.CommunicationSystem;
 using Atom.ComponentProvider;
+using Atom.Broadcasting;
 using System.Collections.Generic;
 using UnityEngine;
 using Sirenix.OdinInspector;
@@ -73,7 +74,7 @@ public class NodeEntity : MonoBehaviour
 
     public void OnStart(ClusterInfo clusterInfo, bool sleeping)
     {
-        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = System.Guid.NewGuid().ToString(), peerAdress = this.name, ping = 0, trust_coefficient = 0 });
+        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = System.Guid.NewGuid().ToString(), peerAdress = this.name, averagePing = 0, trust_coefficient = 0 });
 
         GetNodeComponent<ClusterConnectionService>().ConnectToCluster(clusterInfo);
         IsSleeping = sleeping;

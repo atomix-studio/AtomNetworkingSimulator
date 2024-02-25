@@ -7,6 +7,10 @@ using UnityEngine;
 
 namespace Atom.CommunicationSystem
 {
+    public static class PacketRouterEventHandler
+    {
+     
+    }
     public class PacketRouter : MonoBehaviour, INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }
@@ -15,13 +19,17 @@ namespace Atom.CommunicationSystem
 
         private string _peerId;
        
+        private Action<INetworkPacket> _onReceiveExternal;
         private Dictionary<Type, short> _packetIdentifiers = new Dictionary<Type, short>();
         private Dictionary<short, Action<INetworkPacket>> _receivePacketHandlers = new Dictionary<short, Action<INetworkPacket>>();
         private Dictionary<long, INetworkPacketResponseAwaiter> _packetResponseAwaitersBuffer = new Dictionary<long, INetworkPacketResponseAwaiter>();
 
-        private Action<INetworkPacket> _onReceiveExternal;
+
         private List<Func<INetworkPacket, bool>> _receivePacketMiddlewares = new List<Func<INetworkPacket, bool>>();
         private List<Func<INetworkPacket, bool>> _sendPacketMiddlewares = new List<Func<INetworkPacket, bool>>();
+
+        private event Action<IResponse> _onResponseReceived;
+        private event Action<INetworkPacket> _onPacketReceived;
 
         private long _packetIdGenerator;
         protected long packetIdGenerator
@@ -55,6 +63,7 @@ namespace Atom.CommunicationSystem
             _peerId = peerAdress;
         }
 
+        #region Middlewares and events registering
         public void RegisterPacketSendingMiddleware(Func<INetworkPacket, bool> routingMiddleware)
         {
             if (_sendPacketMiddlewares == null)
@@ -87,6 +96,12 @@ namespace Atom.CommunicationSystem
             _receivePacketMiddlewares.Add(routingMiddleware);
         }
 
+        public void RegisterOnResponseReceivedCallback(Action<IResponse> onResponseReceivedCallback) => _onResponseReceived += onResponseReceivedCallback;
+        public void UnregisterOnResponseReceivedCallback(Action<IResponse> onResponseReceivedCallback) => _onResponseReceived = onResponseReceivedCallback;
+        public void RegisterOnPacketReceivedCallback(Action<INetworkPacket> onPacketReceivedCallback) => _onPacketReceived += onPacketReceivedCallback;
+        public void UnregisterOnPacketReceivedCallback(Action<INetworkPacket> onPacketReceivedCallback) => _onPacketReceived -= onPacketReceivedCallback;
+
+        #endregion
         public async void OnUpdate()
         {
             
@@ -166,7 +181,7 @@ namespace Atom.CommunicationSystem
         {
             //transportLayer.SendPacket(target, networkPacket);
             onBeforeSendInternal(networkPacket);
-            _packetResponseAwaitersBuffer.Add(networkPacket.packetUniqueId, new INetworkPacketResponseAwaiter(DateTime.Now.AddMilliseconds(timeout_ms), responseCallback));
+            _packetResponseAwaitersBuffer.Add(networkPacket.packetUniqueId, new INetworkPacketResponseAwaiter(DateTime.Now, DateTime.Now.AddMilliseconds(timeout_ms), responseCallback));
             transportLayer.Send(targetAddress, networkPacket);
 
 
@@ -184,25 +199,32 @@ namespace Atom.CommunicationSystem
                 (networkPacket as IRespondable).senderAdress = context.networkHandling.LocalPeerInfo.peerAdress;
         }
 
-        private void onReceivePacket(INetworkPacket networkPacket)
+        private async void onReceivePacket(INetworkPacket networkPacket)
         {
             if (IsSleeping)
                 return;
 
+            // middlewares can block the reception
             for(int i = 0; i < _receivePacketMiddlewares.Count; ++i)
             {
                 if (!_receivePacketMiddlewares[i](networkPacket))
                     return;
             }
 
+            _onPacketReceived?.Invoke(networkPacket);
+
             if (networkPacket is IResponse)
             {
-                var callerId = (networkPacket as IResponse).callerPacketUniqueId;
+                var resp = (IResponse)networkPacket;
+
+                var callerId = resp.callerPacketUniqueId;
                 if (_packetResponseAwaitersBuffer.TryGetValue(callerId, out var awaiter))
                 {
+                    resp.requestPing = (DateTime.Now - awaiter.creationTime).Milliseconds;
+                    _onResponseReceived?.Invoke(resp);  
+
                     awaiter.responseCallback(networkPacket);
                     _packetResponseAwaitersBuffer.Remove(callerId);
-                    //networkPacket.DisposePacket();
                     return;
                 }
 
@@ -210,18 +232,15 @@ namespace Atom.CommunicationSystem
                 if (_receivePacketHandlers.ContainsKey(networkPacket.packetTypeIdentifier))
                 {
                     Debug.Log($"{networkPacket.GetType()} has been received by {context} out of a request range.");
+                    _onResponseReceived?.Invoke(resp);
+
                     _receivePacketHandlers[networkPacket.packetTypeIdentifier]?.Invoke(networkPacket);
-                    //networkPacket.DisposePacket();
                     return;
                 }
-
-               //networkPacket.DisposePacket();
-                // else timed out, or something wrong in the logic
             }
             else
             {
                 _receivePacketHandlers[networkPacket.packetTypeIdentifier].Invoke(networkPacket);
-                //networkPacket.DisposePacket();
             }
         }
     }

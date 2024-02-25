@@ -1,3 +1,4 @@
+using Atom.Broadcasting.Consensus;
 using Atom.ClusterConnectionService;
 using Atom.CommunicationSystem;
 using Sirenix.OdinInspector;
@@ -6,6 +7,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
+using static UnityEngine.EventSystems.EventTrigger;
 
 public class WorldSimulationManager : MonoBehaviour
 {
@@ -25,7 +27,7 @@ public class WorldSimulationManager : MonoBehaviour
     public static bool displayPackets = false;
 
     [OnValueChanged("updatePacketSpeed")] public float PacketSpeed = 100;
-    private void updatePacketSpeed() => packetSpeed = Instance.PacketSpeed; 
+    private void updatePacketSpeed() => packetSpeed = Instance.PacketSpeed;
 
     [SerializeField] private NodeEntity _pf_NodeEntity;
 
@@ -84,7 +86,7 @@ public class WorldSimulationManager : MonoBehaviour
         for (int i = 0; i < defaultCluster.BootNodes.Count; i++)
         {
             nodeAddresses.Add(defaultCluster.BootNodes[i].name, defaultCluster.BootNodes[i]);
-            defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = defaultCluster.BootNodes[i].name, peerAdress = defaultCluster.BootNodes[i].name, ping = 0, trust_coefficient = 0 });
+            defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = defaultCluster.BootNodes[i].name, peerAdress = defaultCluster.BootNodes[i].name, averagePing = 0, trust_coefficient = 0 });
         }
 
         GenerateEntities(_startNodeEntitiesCount, false);
@@ -170,7 +172,7 @@ public class WorldSimulationManager : MonoBehaviour
         newNodeEntity.name = "nodeEntity_" + _nodeEntityIdGenerator++;
         _currentAliveNodes.Add(newNodeEntity);
         nodeAddresses.Add(newNodeEntity.name, newNodeEntity);
-      
+
         newNodeEntity.transform.SetParent(this.transform);
         newNodeEntity.OnStart(_defaultCluster, startAsleep);
     }
@@ -186,35 +188,48 @@ public class WorldSimulationManager : MonoBehaviour
     }
 
     [Button]
-    private void SetAllSleeping(bool entity, bool transportlayer)
+    private void SleepAll()
     {
         foreach (var node in _currentAliveNodes)
         {
-            if (entity)
-                node.IsSleeping = true;
-
-            if (transportlayer)
-            {
-                node.transportLayer.IsSleeping = true;
-                node.GetNodeComponent<PacketRouter>().IsSleeping = true;
-            }
+            node.IsSleeping = true;
+            node.transportLayer.IsSleeping = true;
+            node.GetNodeComponent<PacketRouter>().IsSleeping = true;
         }
     }
 
     [Button]
-    private void SetAllAwaken(bool entity, bool transportlayer)
+    private void AwakeTransportLayerAll()
     {
         foreach (var node in _currentAliveNodes)
         {
-            if (entity)
-                node.IsSleeping = false;
-
-            if (transportlayer)
-            {
-                node.transportLayer.IsSleeping = false;
-                node.GetNodeComponent<PacketRouter>().IsSleeping = false;
-            }
+            node.transportLayer.IsSleeping = false;
+            node.GetNodeComponent<PacketRouter>().IsSleeping = false;
         }
+    }
+
+    [Button]
+    private void AwakeAll()
+    {
+        foreach (var node in _currentAliveNodes)
+        {
+            node.IsSleeping = false;
+            node.transportLayer.IsSleeping = false;
+            node.GetNodeComponent<PacketRouter>().IsSleeping = false;
+        }
+    }
+
+    [Button]
+    private void VotingTesting()
+    {
+        foreach (var node in _currentAliveNodes)
+        {
+            node.material.color = Color.black;
+        }
+
+        var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
+        startNode.GetNodeComponent<ConsensusRequestComponent>().StartColorVoting();
+        //startNode.peerSampling.BroadcastBenchmark();
     }
 
     [Button]
@@ -234,7 +249,7 @@ public class WorldSimulationManager : MonoBehaviour
     private void BroadcastDiscovery()
     {
         var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
-        startNode.peerSampling.BroadcastDiscoveryRequest();
+        startNode.peerSampling.TryBroadcastDiscoveryRequest();
     }
 
     [Button]

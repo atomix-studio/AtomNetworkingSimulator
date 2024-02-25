@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using static UnityEngine.GraphicsBuffer;
 using UnityEngine.UIElements;
+using System.Net;
 
 namespace Atom.Transport
 {
@@ -31,6 +32,10 @@ namespace Atom.Transport
         private Dictionary<INetworkPacket, float> currentTravellingPacketsElapsedTime = new Dictionary<INetworkPacket, float>();
         private Dictionary<INetworkPacket, float> currentTravellingPacketsTime = new Dictionary<INetworkPacket, float>();
         private Dictionary<INetworkPacket, Vector3> currentTravellingPacketsDestination = new Dictionary<INetworkPacket, Vector3>();
+
+        //debug only
+        private Dictionary<INetworkPacket, NodeEntity> _sendBuffer = new Dictionary<INetworkPacket, NodeEntity>();
+
 
         public NodeEntity context { get; set; }
         private WorldSimulationManager _simulationManager;
@@ -59,7 +64,6 @@ namespace Atom.Transport
             _simulationManager = WorldSimulationManager.Instance;
         }
 
-
         public void Send(string address, INetworkPacket packet)
         {
             if (IsSleeping)
@@ -71,9 +75,9 @@ namespace Atom.Transport
 
             if (WorldSimulationManager.transportInstantaneously)
             {
+                _sendBuffer.Add(packet, destination);
 
-                destination.transportLayer.routerReceiveCallback.Invoke(packet);
-
+                //destination.transportLayer.routerReceiveCallback.Invoke(packet);
             }
             else
             {
@@ -154,6 +158,14 @@ namespace Atom.Transport
 
         }
 
+        private void LateUpdate()
+        {
+            foreach(var packet in _sendBuffer)
+            {
+                packet.Value.transportLayer.routerReceiveCallback.Invoke(packet.Key);
+            }
+            _sendBuffer.Clear();
+        }
         public void SendPacket(NodeEntity target, string payload, List<NodeEntity> potentialPeers = null)
         {
             var packet = new NetworkPacket(this);

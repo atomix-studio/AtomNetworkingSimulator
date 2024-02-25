@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 namespace Atom.ComponentProvider
 {
     [InjectionContext]
-    public interface INodeComponent
+    public interface INodeComponent : IComponentWithContext<NodeEntity>
     {
-        [InjectComponent] public NodeEntity context { get; set; }
+        //[InjectComponent] public NodeEntity context { get; set; }
         public void OnInitialize();
     }
 }

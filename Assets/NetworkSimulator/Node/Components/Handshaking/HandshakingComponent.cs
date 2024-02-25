@@ -34,14 +34,16 @@ namespace Atom.Components.Handshaking
 
         public async Task<HandshakeResponsePacket> GetHandshakeAsync(PeerInfo peer)
         {
-            var taskCompletionSource = new TaskCompletionSource<HandshakeResponsePacket>();
+            var taskCompletionSource = new TaskCompletionSource<HandshakeResponsePacket>(TaskCreationOptions.RunContinuationsAsynchronously);
             //var cts = new CancellationTokenSource(99999);
 
-            var sentTime = DateTime.Now;
             _packetRouter.SendRequest(peer.peerAdress, new HandshakePacket(), (response) =>
             {
+                if (response == null)
+                    return;
+
                 var handshakeResponse = (HandshakeResponsePacket)response;
-                peer.ping = (DateTime.Now - sentTime).Milliseconds;
+                peer.UpdateAveragePing(handshakeResponse.requestPing);
 
                 if (taskCompletionSource.Task.IsCanceled)
                     return;
@@ -81,6 +83,9 @@ namespace Atom.Components.Handshaking
             var sentTime = DateTime.Now;
             _packetRouter.SendRequest(nodeEntity.name, new HandshakePacket(), (response) =>
             {
+                if (response == null)
+                    return;
+
                 float ping = (DateTime.Now - sentTime).Milliseconds;
                 taskCompletionSource.SetResult(ping);
             });

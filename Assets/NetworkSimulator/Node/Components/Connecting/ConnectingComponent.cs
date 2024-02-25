@@ -33,11 +33,9 @@ namespace Atom.Components.Connecting
 
                 // is this node avalaible ?
                 // multiplying ping per 2 in this case to simulate the return as we dont want to ping the node now
-                var ping = (DateTime.Now - received.sentTime).Milliseconds * 2f;
                 PeerInfo peerInfo = new PeerInfo(received.senderID, respondable.senderAdress);
-                peerInfo.ComputeScore(ping, connectionRequest.senderConnectionsCount);
-
                 peerInfo.SetScoreByDistance(context.transform.position);
+                peerInfo.UpdateAveragePing(2 * received.GetReceptionDelayMs());
 
                 if (CanAcceptConnectionWith(peerInfo, out var toRemove))
                 {
@@ -90,10 +88,12 @@ namespace Atom.Components.Connecting
                 var connectionResponsePacket = (ConnectionRequestResponsePacket)response;
                 if (connectionResponsePacket.isAccepted)
                 {
-                    peerInfo.ping = 2 * (DateTime.Now - response.sentTime).Milliseconds;
+                    peerInfo.UpdateAveragePing(2 * response.GetReceptionDelayMs());
                     // we want to be sure that the sure is up to date here because if its 0 the new connection could be replaced by a worst one at any time
-                    peerInfo.ComputeScore(peerInfo.ping, context.NetworkViewsTargetCount);
                     peerInfo.SetScoreByDistance(context.transform.position);
+                    peerInfo.UpdateAveragePing(connectionResponsePacket.requestPing);
+
+                    peerInfo.requestedByLocal = true;
                     _networkInfo.AddConnection(peerInfo);
 
 

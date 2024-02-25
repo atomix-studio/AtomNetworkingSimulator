@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Sirenix.OdinInspector;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -24,6 +25,7 @@ namespace Atom.CommunicationSystem
 
         [SerializeField] private string _peerID;
         [SerializeField] private string _peerAdress;
+        [SerializeField] private bool _requestedByLocal;
         [SerializeField] private float _ping;
         [SerializeField] private float _score;
         [SerializeField] private float _trust_coefficient;
@@ -33,10 +35,16 @@ namespace Atom.CommunicationSystem
         public string peerAdress { get => _peerAdress; set => _peerAdress = value; }
 
         /// <summary>
-        /// last avalaible ping data with the peer
+        /// true when the local node is the one who requested the connection with the peer represennted by the instance of peerinfo
+        /// only requesters handle the heartbeat of the connection
         /// </summary>
-        public float ping { get => _ping; set => _ping = value; }
+        public bool requestedByLocal { get => _requestedByLocal; set => _requestedByLocal = value; }
 
+        /// <summary>
+        /// average ping
+        /// </summary>
+        public float averagePing { get => _ping; set => _ping = value; }
+        [ReadOnly] private int _pingCompoung = 0;
         public float score { get => _score; set => _score = value; }
 
         /// <summary>
@@ -50,11 +58,19 @@ namespace Atom.CommunicationSystem
         /// For Listenners (locally), the last time local node sent a heartbeat
         /// </summary>
         public DateTime last_updated { get => _last_updated; set => _last_updated = value; }
+        public DateTime last_received { get => _last_updated; set => _last_updated = value; }
 
         public void SetScoreByDistance(Vector3 localPosition)
         {
             var dist = Vector3.Distance(WorldSimulationManager.nodeAddresses[peerAdress].transform.position, localPosition);
             score = 1f / dist * 100f;
+        }
+
+        public void UpdateAveragePing(int requestping)
+        {
+            var deaggregateVal = averagePing * _pingCompoung;
+            _pingCompoung++;
+            averagePing = (deaggregateVal + requestping) * _pingCompoung;
         }
 
         public float ComputeScore(float ping, int listennersCount)

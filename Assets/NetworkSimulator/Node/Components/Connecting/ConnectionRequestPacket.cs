@@ -1,4 +1,5 @@
 ﻿using Atom.CommunicationSystem;
+using Atom.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,5 +45,6 @@ namespace Atom.Components.Connecting
         public bool isAccepted { get; set; }
 
         public INetworkPacket packet => this;
+        [SerializerIgnore] public int requestPing { get; set; }
     }
 }

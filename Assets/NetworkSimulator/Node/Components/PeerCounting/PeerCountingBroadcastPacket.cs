@@ -1,4 +1,5 @@
 ﻿using Atom.CommunicationSystem;
+using Atom.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -49,6 +50,7 @@ namespace Atom.Components.PeerCounting
         public long callerPacketUniqueId { get; set; }
 
         public INetworkPacket packet => this;
+        [SerializerIgnore] public int requestPing { get; set; }
 
         public PeerCountingBroadcastResponsePacket() { }
     }

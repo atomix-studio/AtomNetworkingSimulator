@@ -1,6 +1,7 @@
-﻿using Atom.CommunicationSystem;
+﻿using Atom.Broadcasting;
 using Atom.CommunicationSystem;
 using Atom.ComponentProvider;
+using Atom.Helpers;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Atom.CommunicationSystem
+namespace Atom.Broadcasting
 {
     public static class BroadcasterEventHandler
     {
@@ -125,9 +126,9 @@ namespace Atom.CommunicationSystem
         /// <param name="target"></param>
         /// <param name="networkPacket"></param>
         /// <param name="responseCallback"></param>
-        public void SendRequest(string listennerAddrss, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 1000)
+        public void SendRequest(string listennerAdress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 1000)
         {
-            _router.SendRequest(listennerAddrss, networkPacket, responseCallback, timeout_ms);
+            _router.SendRequest(listennerAdress, networkPacket, responseCallback, timeout_ms);
         }
 
         /// <summary>
@@ -168,9 +169,6 @@ namespace Atom.CommunicationSystem
         /// <param name="packet"></param>
         public void RelayBroadcast(IBroadcastablePacket broadcastable, int fanoutOverride = -1)
         {
-            /*if (!UpdateAndCheckBroadcastIsForwardable(broadcastable))
-                return;*/
-
             // allow other service to handle whatever they need when a broadcast is received and (accepted)
             BroadcasterEventHandler.BroadcastPacketRelayed(broadcastable);
 
@@ -188,34 +186,11 @@ namespace Atom.CommunicationSystem
 
             for (int i = 0; i < calls_count; ++i)
             {
-                var count_break = 0;
-                var index = 0;
-                do
-                {
-                    index = _random.Next(_networkHandling.Connections.Count);
-                    count_break++;
-
-                    if (count_break > calls_count * 2)
-                        break;
-                }
-
-                // there is a probability that a node receive a broadcast from its callers that has been issued by a node contained in the callers view
-                // so we don't want to send it back its message 
-                while (_networkHandling.Connections.ElementAt(index).Value.peerID == broadcastable.broadcasterID
-                || _networkHandling.Connections.ElementAt(index).Value.peerID == broadcastable.senderID);
+                var index = BroadcastingHelpers.GetRandomConnectionIndexForBroadcast(_networkHandling.Connections, broadcastable.broadcasterID, broadcastable.senderID, calls_count * 2);
 
                 // create a new packet from the received and forwards it to the router
                 var relayedPacket = broadcastable.GetForwardablePacket(broadcastable);
                 _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, relayedPacket);
-
-                /* _nodeEntity.transportLayer.SendPacketBroadcast(
-                                    packet.Broadcaster,
-                                    AvalaiblePeers[index],
-                                    Protocol.HTTP,
-                                    packet.Payload,
-                                    // ICI on relaye bien l'identifiant unique du broadcast (ne pas confondre avec l'identifiant unique du message)
-                                    // cela permet d'éviter de relayer en boucle un broadcast
-                                    packet.BroadcastID);*/
             }
         }
 
@@ -235,7 +210,9 @@ namespace Atom.CommunicationSystem
         /// </summary>
         public void ClearRelayedBroadcastsBuffer()
         {
-
+            // we could imagine keeping the last broadcasts as they can be still alive at the time we delete it
+            // but that's not a big deal if broadcasts are relayed twice their cycles on a random node sometime
+            _relayedBroadcastsBuffer.Clear();
         }
 
         private bool CheckBroadcastRelayCycles(IBroadcastablePacket packet)
