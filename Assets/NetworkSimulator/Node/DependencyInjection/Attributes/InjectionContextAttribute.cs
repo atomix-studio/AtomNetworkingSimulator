@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Atom.ComponentProvider
+namespace Atom.DependencyProvider
 {
     /// <summary>
     /// Mark a class or an interface to allow it to be detected by the dependency injection system

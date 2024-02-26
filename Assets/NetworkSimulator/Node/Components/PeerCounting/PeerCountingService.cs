@@ -1,5 +1,5 @@
 ﻿using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
 using Atom.Components.PeerCounting;
 using Sirenix.OdinInspector;
 using UnityEngine;

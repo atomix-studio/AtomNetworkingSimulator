@@ -1,6 +1,6 @@
 ﻿using Atom.Components.Connecting;
 using Atom.Components.Handshaking;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;

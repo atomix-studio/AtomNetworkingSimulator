@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Reflection;
 
-namespace Atom.ComponentProvider
+namespace Atom.DependencyProvider
 {
     public partial class NodeComponentProvider
     {
@@ -27,6 +27,11 @@ namespace Atom.ComponentProvider
             public void Inject(NodeComponentProvider provider, object instance)
             {
                 _binder.setValueGeneric(instance, provider.Get(_fieldType, false));
+            }
+
+            public void Inject(object instance)
+            {
+                _binder.setValueGeneric(instance, DependencyProvider._getOrCreate(_fieldType, false));
             }
         }
     }

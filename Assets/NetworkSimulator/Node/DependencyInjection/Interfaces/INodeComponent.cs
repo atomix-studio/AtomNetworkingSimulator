@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Atom.ComponentProvider
+namespace Atom.DependencyProvider
 {
     [InjectionContext]
     public interface INodeComponent : IComponentWithContext<NodeEntity>

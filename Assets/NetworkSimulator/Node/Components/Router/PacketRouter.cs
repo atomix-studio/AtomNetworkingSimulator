@@ -1,4 +1,4 @@
-﻿using Atom.ComponentProvider;
+﻿using Atom.DependencyProvider;
 using Atom.Transport;
 using System;
 using System.Collections.Generic;

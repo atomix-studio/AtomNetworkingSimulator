@@ -1,6 +1,6 @@
 ﻿using Atom.CommunicationSystem;
 using Atom.Components.Handshaking;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
 using System;
 using System.Collections.Generic;
 using System.Linq;

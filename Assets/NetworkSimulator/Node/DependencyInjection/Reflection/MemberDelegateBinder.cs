@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Reflection;
 
-namespace Atom.ComponentProvider
+namespace Atom.DependencyProvider
 {
     public enum ReflectedMemberDelegateAttributeType
     {

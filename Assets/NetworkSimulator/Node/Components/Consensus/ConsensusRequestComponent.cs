@@ -1,4 +1,4 @@
-﻿using Atom.ComponentProvider;
+﻿using Atom.DependencyProvider;
 using Atom.Helpers;
 using Sirenix.OdinInspector;
 using System;

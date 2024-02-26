@@ -1,5 +1,5 @@
 ﻿using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +9,7 @@ using UnityEngine;
 using static UnityEngine.GraphicsBuffer;
 using UnityEngine.UIElements;
 using System.Net;
+using System.Threading;
 
 namespace Atom.Transport
 {
@@ -160,12 +161,14 @@ namespace Atom.Transport
 
         private void LateUpdate()
         {
-            foreach(var packet in _sendBuffer)
+            foreach (var packet in _sendBuffer)
             {
                 packet.Value.transportLayer.routerReceiveCallback.Invoke(packet.Key);
             }
+
             _sendBuffer.Clear();
         }
+
         public void SendPacket(NodeEntity target, string payload, List<NodeEntity> potentialPeers = null)
         {
             var packet = new NetworkPacket(this);

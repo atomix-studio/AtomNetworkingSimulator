@@ -1,5 +1,5 @@
 ﻿using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
 using Atom.Broadcasting;
 using Sirenix.OdinInspector;
 using System;

@@ -4,7 +4,7 @@ using System.Linq;
 using Unity.VisualScripting;
 using UnityEngine;
 
-namespace Atom.ComponentProvider
+namespace Atom.DependencyProvider
 {
     /// <summary>
     /// Manager/factory for services in the Node system
@@ -19,13 +19,11 @@ namespace Atom.ComponentProvider
         private Dictionary<Type, INodeComponent> _components;
         private Dictionary<Type, INodeUpdatableComponent> _updatableComponents;
 
-        private static Dictionary<Type, List<TypeInjectorHandler>> _injectorHandlers;
 
         private static Dictionary<Type, TypeInjectorHandler> _injectors;
 
         public void Initialize()
         {
-            _injectorHandlers = new Dictionary<Type, List<TypeInjectorHandler>>();
             _components = new Dictionary<Type, INodeComponent>();
             _updatableComponents = new Dictionary<Type, INodeUpdatableComponent>();
             _context = gameObject.GetComponent<NodeEntity>();
@@ -37,57 +35,17 @@ namespace Atom.ComponentProvider
         {
             /*var iNodeComponentType = typeof(INodeComponent);
             var types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(s => s.GetTypes()).Where(p => iNodeComponentType.IsAssignableFrom(p) && !p.IsAbstract);*/
-            foreach (var type in ComponentProvider.InjectableTypes)
-            {
-                // creating a delegate to handle the injection of components in a given type
-                // by doing this we do the reflection call one time per type only
-                if (!_injectorHandlers.ContainsKey(type))
-                {
-                    _injectorHandlers.Add(type, new List<TypeInjectorHandler>());
-
-                    // TODO buffering the reflection datas to be reusable for other instances in a static class with member delegate binder
-                    var fields = type.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                    foreach (var field in fields)
-                    {
-                        var attributes = field.CustomAttributes;
-                        foreach (var attribute in attributes)
-                        {
-                            if (attribute.AttributeType == typeof(InjectComponentAttribute))
-                            {
-                                /*var dependency = Get(field.FieldType);
-                                field.SetValue(inst, dependency);*/
-                                _injectorHandlers[type].Add(new TypeInjectorHandler(field));
-                                break;
-                            }
-                        }
-                    }
-
-                    var properties = type.GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                    foreach (var property in properties)
-                    {
-                        var attributes = property.CustomAttributes;
-                        foreach (var attribute in attributes)
-                        {
-                            if (attribute.AttributeType == typeof(InjectComponentAttribute))
-                            {
-                                /* var dependency = Get(property.PropertyType);
-                                 property.SetValue(inst, dependency);*/
-                                _injectorHandlers[type].Add(new TypeInjectorHandler(property));
-                                break;
-                            }
-                        }
-                    }
-                }
-
+            foreach (var type in DependencyProvider.InjectionContextTypes)
+            {             
                 var inst = Get(type, false);
-                for (int j = 0; j < _injectorHandlers[type].Count; ++j)
+                for (int j = 0; j < DependencyProvider.injectorHandlers[type].Count; ++j)
                 {
-                    _injectorHandlers[type][j].Inject(this, inst);
+                    DependencyProvider.injectorHandlers[type][j].Inject(this, inst);
                 }
             }
 
             // 
-            foreach (var type in ComponentProvider.InjectableTypes)
+            foreach (var type in DependencyProvider.InjectionContextTypes)
             {
                 var inst = Get(type, false);
                 inst.OnInitialize();

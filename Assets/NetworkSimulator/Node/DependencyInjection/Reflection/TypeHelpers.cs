@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Unity.VisualScripting;
 
-namespace Atom.ComponentProvider
+namespace Atom.DependencyProvider
 {
     public static class TypeHelpers
     {

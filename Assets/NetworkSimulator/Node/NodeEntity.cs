@@ -1,6 +1,6 @@
 using Atom.Transport;
 using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
 using Atom.Broadcasting;
 using System.Collections.Generic;
 using UnityEngine;

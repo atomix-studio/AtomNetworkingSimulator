@@ -1,6 +1,6 @@
 ﻿using Atom.Broadcasting;
 using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
 using Atom.Helpers;
 using System;
 using System.Collections.Generic;

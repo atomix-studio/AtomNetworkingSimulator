@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Atom.ComponentProvider
+namespace Atom.DependencyProvider
 {
     /// <summary>
     /// Base attribute to allow the provider to inject the dependency in the field or property

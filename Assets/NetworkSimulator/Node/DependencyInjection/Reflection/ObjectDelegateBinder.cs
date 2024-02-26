@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace Atom.ComponentProvider
+namespace Atom.DependencyProvider
 {
     /// <summary>
     /// Permet de créer un ensemble de délégué par reflection sur une classe afin de réinitialiser les valeurs par défaut au runtime.
