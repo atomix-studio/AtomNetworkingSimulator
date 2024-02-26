@@ -10,7 +10,7 @@ namespace Atom.DependencyProvider
     {
         public Type InjectionContextType;
         public object InjectionContextInstance;
-        public Dictionary<Type, object> injectedComponents = new Dictionary<Type, object>();
+        public Dictionary<Type, object> injectedDependencies = new Dictionary<Type, object>();
 
         public InjectionContextContainer(object injectionContextInstance)
         {

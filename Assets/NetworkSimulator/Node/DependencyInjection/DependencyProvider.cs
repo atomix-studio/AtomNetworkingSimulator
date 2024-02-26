@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Assets.NetworkSimulator.Node.DependencyInjection.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -21,13 +22,22 @@ namespace Atom.DependencyProvider
         private static Dictionary<Type, object> _singletons;
         public static Dictionary<Type, object> Singletons => _singletons;
 
+        private static Dictionary<Type, IAbstractDependencyProviderInjectionContextMiddleware> _dependencyInjectionOnInjectionEndedMiddlewares;
+        private static List<object> _dependenciesInjectionBuffer;
+
         static DependencyProvider()
         {
             Debug.Log("Initialize component provider.");
+            _dependencyInjectionOnInjectionEndedMiddlewares = new Dictionary<Type, IAbstractDependencyProviderInjectionContextMiddleware>();
+            _dependenciesInjectionBuffer = new List<object>();
+
+            // to be refactored in the container ?
+            // keeping injectionContext type could be good 
+            _injectionContextTypes = new List<Type>();
+            _injectionContextContainers = new Dictionary<object, InjectionContextContainer>();
+            _injectorHandlers = new Dictionary<Type, List<TypeInjectorHandler>>();
 
             var all_types = typeof(DependencyProvider).Assembly.GetTypes().ToList();
-            _injectionContextTypes = new List<Type>();
-            _injectorHandlers = new Dictionary<Type, List<TypeInjectorHandler>>();
 
             var injectableAbstractTypes = new List<Type>();
             for (int i = 0; i < all_types.Count; ++i)
@@ -81,6 +91,70 @@ namespace Atom.DependencyProvider
             }
         }
 
+        // get a component for the instance of injectionContext represented by the context object
+        public static T getOrCreate<T>(object context) where T : class
+        {
+            return (T)getOrCreate(typeof(T), context);
+
+            /*InjectionContextContainer container = null;
+            if (!_injectionContextContainers.TryGetValue(context, out container))
+            {
+                _injectionContextContainers.Add(context, new InjectionContextContainer(context.GetType()));
+            }
+
+            if (container.injectedDependencies.TryGetValue(typeof(T), out var comp)) return (T)comp;
+
+            if (typeof(T).IsSubclassOf(typeof(Component)))
+            {
+                var newServiceInstance = (context as Component).gameObject.GetComponent<T>();
+
+                if (newServiceInstance == null)
+                    throw new Exception("Components of type Monobehaviour should be placed on the gameobject before intialisation as the provider can't add dynamic components");
+
+                container.injectedDependencies.Add(typeof(T), newServiceInstance);
+                             
+
+                *//*if (newServiceInstance is INodeUpdatableComponent)
+                    _updatableComponents.Add(typeof(T), newServiceInstance as INodeUpdatableComponent);
+
+                newServiceInstance.OnInitialize();*//*
+                return newServiceInstance;
+            }
+            else
+            {
+                var newServiceInstance = (T)Activator.CreateInstance(typeof(T));
+                container.injectedDependencies.Add(typeof(T), newServiceInstance);
+
+               
+                *//*   if (newServiceInstance is INodeUpdatableComponent)
+                       _updatableComponents.Add(typeof(T), newServiceInstance as INodeUpdatableComponent);
+
+                   newServiceInstance.OnInitialize();*//*
+                return newServiceInstance;
+            }*/
+
+        }
+
+        public static object getOrCreate(Type componentType, object context)
+        {
+            InjectionContextContainer container = null;
+            if (!_injectionContextContainers.TryGetValue(context, out container))
+            {
+                _injectionContextContainers.Add(context, new InjectionContextContainer(context.GetType()));
+            }
+
+            if (container.injectedDependencies.TryGetValue(componentType, out var comp)) return comp;
+
+            if (componentType.IsSubclassOf(typeof(Component)))
+            {
+                return _createComponent(componentType, context, container);
+            }
+            else
+            {
+                return _createInstance(componentType, container);
+            }
+        }
+
         private static void generateInjectorHandler(Type type)
         {
             // creating a delegate to handle the injection of components in a given type
@@ -96,7 +170,7 @@ namespace Atom.DependencyProvider
                 {
                     if (attribute.AttributeType == typeof(InjectComponentAttribute))
                     {
-                        _injectorHandlers[type].Add(new TypeInjectorHandler(field));
+                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, field));
                         break;
                     }
                 }
@@ -110,10 +184,41 @@ namespace Atom.DependencyProvider
                 {
                     if (attribute.AttributeType == typeof(InjectComponentAttribute))
                     {
-                        _injectorHandlers[type].Add(new TypeInjectorHandler(property));
+                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, property));
                         break;
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Should be called at instanciation of an InjectionContext object
+        /// </summary>
+        /// <param name="injectionContextInstance"></param>
+        /// <exception cref="Exception"></exception>
+        public static void injectDependencies(object injectionContextInstance)
+        {
+            var ctxtType = injectionContextInstance.GetType();
+            if (injectorHandlers.TryGetValue(ctxtType, out var injectors))
+            {
+                _dependenciesInjectionBuffer.Clear();
+                foreach (var injector in injectors)
+                {
+                    _dependenciesInjectionBuffer.Add(injector.Inject(injectionContextInstance));
+                }
+
+                // very very work in progress
+                for (int i = 0; i < _dependenciesInjectionBuffer.Count; ++i)
+                {
+                    if (_dependencyInjectionOnInjectionEndedMiddlewares.TryGetValue(ctxtType, out var midd))
+                    {
+                        midd.OnInjectedInContext(injectionContextInstance);
+                    }
+                }                
+            }
+            else
+            {
+                throw new Exception($"No injectors found for the type {injectionContextInstance.GetType()}");
             }
         }
 
@@ -132,69 +237,6 @@ namespace Atom.DependencyProvider
             return false;
         }
 
-        // get a component for the instance of injectionContext represented by the context object
-        public static T _getOrCreate<T>(object context) where T : class
-        {
-            InjectionContextContainer container = null;
-            if (!_injectionContextContainers.TryGetValue(context, out container))
-            {
-                _injectionContextContainers.Add(context, new InjectionContextContainer(context.GetType()));
-            }
-
-            if (container.injectedComponents.TryGetValue(typeof(T), out var comp)) return (T)comp;
-
-            if (typeof(T).IsSubclassOf(typeof(Component)))
-            {
-                var newServiceInstance = (context as Component).gameObject.GetComponent<T>();
-
-                if (newServiceInstance == null)
-                    throw new Exception("Components of type Monobehaviour should be placed on the gameobject before intialisation as the provider can't add dynamic components");
-
-                container.injectedComponents.Add(typeof(T), newServiceInstance);
-
-                // middleware
-
-                /*if (newServiceInstance is INodeUpdatableComponent)
-                    _updatableComponents.Add(typeof(T), newServiceInstance as INodeUpdatableComponent);
-
-                newServiceInstance.OnInitialize();*/
-                return newServiceInstance;
-            }
-            else
-            {
-                var newServiceInstance = (T)Activator.CreateInstance(typeof(T));
-                container.injectedComponents.Add(typeof(T), newServiceInstance);
-
-                // middleware
-
-             /*   if (newServiceInstance is INodeUpdatableComponent)
-                    _updatableComponents.Add(typeof(T), newServiceInstance as INodeUpdatableComponent);
-
-                newServiceInstance.OnInitialize();*/
-                return newServiceInstance;
-            }
-        }
-
-        public static object _getOrCreate(Type componentType, object context)
-        {
-            InjectionContextContainer container = null;
-            if (!_injectionContextContainers.TryGetValue(context, out container))
-            {
-                _injectionContextContainers.Add(context, new InjectionContextContainer(context.GetType()));
-            }
-
-            if (container.injectedComponents.TryGetValue(componentType, out var comp)) return comp;
-
-            if (componentType.IsSubclassOf(typeof(Component)))
-            {
-                return _createComponent(componentType, context, container);
-            }
-            else
-            {
-                return _createInstance(componentType, container);
-            }
-        }
-
         /// <summary>
         /// create pure c# class instance
         /// </summary>
@@ -203,8 +245,8 @@ namespace Atom.DependencyProvider
         /// <returns></returns>
         private static object _createInstance(Type componentType, InjectionContextContainer container)
         {
-            var newServiceInstance = Activator.CreateInstance(componentType);
-            container.injectedComponents.Add(componentType, newServiceInstance);
+            var newServiceInstance = Activator.CreateInstance(componentType);            
+            container.injectedDependencies.Add(componentType, newServiceInstance);
 
             /*   if (newServiceInstance is INodeUpdatableComponent)
                    _updatableComponents.Add(typeof(T), newServiceInstance as INodeUpdatableComponent);
@@ -224,14 +266,14 @@ namespace Atom.DependencyProvider
         private static object _createComponent(Type componentType, object context, InjectionContextContainer container)
         {
             var newServiceInstance = (context as Component).gameObject.GetComponent(componentType);
+
             if (newServiceInstance == null)
                 newServiceInstance = (context as Component).gameObject.AddComponent(componentType);
-
 
             if (newServiceInstance == null)
                 throw new Exception("Components of type Monobehaviour should be placed on the gameobject before intialisation as the provider can't add dynamic components");
 
-            container.injectedComponents.Add(componentType, newServiceInstance);
+            container.injectedDependencies.Add(componentType, newServiceInstance);
 
             /*if (newServiceInstance is INodeUpdatableComponent)
                 _updatableComponents.Add(typeof(T), newServiceInstance as INodeUpdatableComponent);
@@ -248,13 +290,12 @@ namespace Atom.DependencyProvider
 
             if (componentType.IsSubclassOf(typeof(Component)))
             {
-
-                return _createComponent(componentType, holdergo, container);    
+                return _createComponent(componentType, holdergo, container);
             }
             else
             {
                 var newServiceInstance = Activator.CreateInstance(componentType);
-                container.injectedComponents.Add(componentType, newServiceInstance);
+                container.injectedDependencies.Add(componentType, newServiceInstance);
 
                 return newServiceInstance;
             }

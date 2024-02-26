@@ -1,4 +1,5 @@
-﻿using Atom.CommunicationSystem;
+﻿using Atom.Broadcasting;
+using Atom.CommunicationSystem;
 using Atom.DependencyProvider;
 using System;
 using System.Collections.Generic;
@@ -24,10 +25,11 @@ namespace Atom.Components.GraphNetwork
     public class GraphEntityComponent : INodeComponent
     {
         public NodeEntity context { get ; set ; }
-
+        [InjectComponent] private BroadcasterComponent _broadcaster;
 
         public void OnInitialize()
         {
+
         }
     }
 }
