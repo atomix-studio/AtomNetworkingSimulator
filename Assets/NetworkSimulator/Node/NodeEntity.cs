@@ -38,7 +38,7 @@ public class NodeEntity : MonoBehaviour
     public int NetworkViewsTargetCount => _networkViewsTargetCount;
 
     [Header("Variables")]
-    public bool IsConnected = false;
+    public bool IsConnectedAndReady = false;
     public bool IsInGroup = false;
     public bool IsSleeping = false;
 
@@ -104,7 +104,7 @@ public class NodeEntity : MonoBehaviour
     void OnDisable()
     {
 
-        IsConnected = false;
+        IsConnectedAndReady = false;
         IsInGroup = false;
         _material.color = Color.gray;
     }

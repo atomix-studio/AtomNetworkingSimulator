@@ -23,6 +23,9 @@ namespace Atom.Components.Connecting
 
         public void OnInitialize()
         {
+            if (!context.IsBoot)
+                return;
+
             _broadcaster.RegisterBroadcastReceptionMiddleware(BootNodeBroadcastMiddleware);
         }
 

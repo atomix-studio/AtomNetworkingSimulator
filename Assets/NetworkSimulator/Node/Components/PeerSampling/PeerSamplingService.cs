@@ -280,7 +280,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
     private float GetPeerScore(NodeEntity peer)
     {
         // in a real network situation we would have ping-probed these datas
-        if (!peer.IsConnected)
+        if (!peer.IsConnectedAndReady)
             return 0;
 
         if (!peer.gameObject.activeSelf)
