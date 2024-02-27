@@ -565,14 +565,14 @@ public static class DelegateHelper
     /// <returns></returns>
     public static Action<S, T> CreatePropertySetterDelegate<S, T>(PropertyInfo propertyInfo)
     {
-        var getMethodInfo = propertyInfo.GetSetMethod();
+        var getMethodInfo = _forceGetPropertySetMethod(propertyInfo);
 
         return (Action<S, T>)Delegate.CreateDelegate(typeof(Action<S, T>), null, getMethodInfo);
     }
 
     public static Action<T> CreateInstancePropertySetterDelegate<T>(object instance, PropertyInfo propertyInfo)
     {
-        var getMethodInfo = propertyInfo.GetSetMethod();
+        var getMethodInfo = _forceGetPropertySetMethod(propertyInfo);
 
         return (Action<T>)Delegate.CreateDelegate(typeof(Action<T>), instance, getMethodInfo.Name, true);
     }
@@ -628,8 +628,10 @@ public static class DelegateHelper
         var instanceExpr = Expression.TypeAs(objParameterExpr, propertyInfo.DeclaringType);
 
         var setObject = Expression.Parameter(typeof(object), "setVal");
-        var convertReturnObject = Expression.Convert(setObject, propertyInfo.GetSetMethod().GetParameters().First().ParameterType);
-        var call = Expression.Call(instanceExpr, propertyInfo.GetSetMethod(), convertReturnObject);
+        MethodInfo setMethod = _forceGetPropertySetMethod(propertyInfo);
+
+        var convertReturnObject = Expression.Convert(setObject, setMethod.GetParameters().First().ParameterType);
+        var call = Expression.Call(instanceExpr, setMethod, convertReturnObject);
 
         // Create a lambda expression of the latest call & compile it
         return Expression.Lambda<Action<object, object>>(call, objParameterExpr, setObject).Compile();
@@ -644,7 +646,8 @@ public static class DelegateHelper
         var valueExpr = Expression.Parameter(typeof(TValue), "value");
 
         // Create the property setter call
-        var call = Expression.Call(instanceExpr, propertyInfo.GetSetMethod(), valueExpr);
+        var setMethod = _forceGetPropertySetMethod(propertyInfo);
+        var call = Expression.Call(instanceExpr, setMethod, valueExpr);
 
         // Compile the lambda expression
         return Expression.Lambda<Action<object, TValue>>(call, objParameterExpr, valueExpr).Compile();
@@ -664,9 +667,18 @@ public static class DelegateHelper
         var valueExpr = Expression.Parameter(typeof(TValue), "value");
 
         // Create the property setter call
-        var call = Expression.Call(instanceExpr, propertyInfo.GetSetMethod(), valueExpr);
+        var setMethod = _forceGetPropertySetMethod(propertyInfo);
+        var call = Expression.Call(instanceExpr, setMethod, valueExpr);
 
         // Compile the lambda expression
         return Expression.Lambda<Action<TInstance, TValue>>(call, instanceExpr, valueExpr).Compile();
+    }
+
+    private static MethodInfo _forceGetPropertySetMethod(PropertyInfo propertyInfo)
+    {
+        var setMethod = propertyInfo.GetSetMethod();
+        if (setMethod == null)
+            setMethod = propertyInfo.GetSetMethod(true);
+        return setMethod;
     }
 }

@@ -12,12 +12,26 @@ namespace Atom.DependencyProvider
     [AttributeUsage(AttributeTargets.Class)]
     public class SingletonAttribute : Attribute
     {
-        // load on demand only. if false, singleton types will be instanced on intialization of the ComponentProvider
+        /// <summary>
+        /// The singleton instance will be created when an InjectionContext requires its creation by marked a field of type of the singleton in its members.
+        /// </summary>
         public bool LazyLoad { get; set; } = false;
+        
+        /// <summary>
+        /// Allow the dependency provider to destroy existing instances of the singleton if more than one instance is found at initialization.
+        /// </summary>
+        public bool AllowSingletonOverride { get; set; } = false;
 
-        public SingletonAttribute(bool lazyLoad = false)
+        /// <summary>
+        /// (WIP) Instance of the singleton will be kept between scene changes
+        /// </summary>
+        public bool DontDestroyOnLoad { get; set; } = false;
+
+        public SingletonAttribute(bool lazyLoad = false, bool allowSingletonOverride = false, bool dontDestroyOnLoad = false)
         {
             LazyLoad = lazyLoad;
+            AllowSingletonOverride = allowSingletonOverride;
+            DontDestroyOnLoad = dontDestroyOnLoad;
         }
     }
 }
