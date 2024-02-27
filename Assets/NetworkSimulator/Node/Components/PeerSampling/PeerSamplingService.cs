@@ -31,7 +31,6 @@ using Atom.Helpers;
 
 
 
-[Singleton]
 /// <summary>
 /// Responsible of managing the peer network of the local node
 /// Subscribing on connection

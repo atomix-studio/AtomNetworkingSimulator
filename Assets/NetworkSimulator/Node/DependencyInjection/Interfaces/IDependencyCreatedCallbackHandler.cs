@@ -10,8 +10,8 @@ namespace Atom.DependencyProvider
     /// An interface to allow injected instances to receive a callback when their context has been fully initialized
     /// This callback is the moment from where any other injected compnent within an injection context instance can be accessed 
     /// </summary>
-    public interface IDependencyInjectionContextInitializedCallback
+    public interface IDependencyCreatedCallbackHandler
     {
-        public void OnInjectionContextInitialized(dynamic context);
+        public void OnDependencyInjected(object context);
     }
 }

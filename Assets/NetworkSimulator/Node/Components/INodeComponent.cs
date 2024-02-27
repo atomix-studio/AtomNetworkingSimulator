@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Atom.DependencyProvider
 {
     [InjectionContext]
-    public interface INodeComponent : IComponentWithContext<NodeEntity>
+    public interface INodeComponent : IDependencyWithContext<NodeEntity>
     {
         //[InjectComponent] public NodeEntity context { get; set; }
         public void OnInitialize();

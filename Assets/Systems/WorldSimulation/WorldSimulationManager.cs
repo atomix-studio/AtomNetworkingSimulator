@@ -1,6 +1,7 @@
 using Atom.Broadcasting.Consensus;
 using Atom.ClusterConnectionService;
 using Atom.CommunicationSystem;
+using Atom.DependencyProvider;
 using Sirenix.OdinInspector;
 using System.Collections;
 using System.Collections.Generic;

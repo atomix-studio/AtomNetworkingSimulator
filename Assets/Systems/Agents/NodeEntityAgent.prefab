@@ -63,7 +63,6 @@ MonoBehaviour:
   IsInGroup: 0
   IsSleeping: 0
   CurrentPingSimulatorMultiplier: 1
-  Connections: []
 --- !u!114 &5308062706113184368
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -71,7 +70,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5533586626479675272}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 08d6be3c420ffa24f9f4183ebe587e61, type: 3}
   m_Name: 
@@ -227,9 +226,11 @@ MonoBehaviour:
   peerConnectionLeaseRefreshTime: 3
   _averageScore: 0
   _networkScoreBuffer: []
+  _averageNetworkScore: 0
   _localPeerInfo:
     _peerID: 
     _peerAdress: 
+    _requestedByLocal: 0
     _ping: 0
     _score: 0
     _trust_coefficient: 0

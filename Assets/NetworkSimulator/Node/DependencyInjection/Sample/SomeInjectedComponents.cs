@@ -1,14 +1,20 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace Atom.DependencyProvider.Samples
 {
+    [Serializable]
     public class SomeInjectedComponentA
     {
+        public string SomeString;
     }
 
-    public class SomeInjectedComponentB : IDependencyInjectionContextInitializedCallback
+    [Serializable]
+    public class SomeInjectedComponentB : IDependencyCreatedCallbackHandler
     {
-        public void OnInjectionContextInitialized(dynamic context)
+        public string SomeInt;
+
+        public void OnDependencyInjected(dynamic context)
         {
             Debug.Log($"{nameof(SomeInjectedComponentB)} has been injected in the context {context}");
         }

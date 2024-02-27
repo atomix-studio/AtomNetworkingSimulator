@@ -11,9 +11,9 @@ namespace Atom.DependencyProvider
     /// </summary>
     public class InjectionContextInstanceContainer
     {
-        public Type InjectionContextType;
-        public object InjectionContextInstance;
-        public Dictionary<Type, object> injectedDependencies = new Dictionary<Type, object>();
+        public Type InjectionContextType { get; set; }
+        public object InjectionContextInstance { get; set; }
+        public Dictionary<Type, object> InjectedDependencies { get; set; } = new Dictionary<Type, object>();
 
         public InjectionContextInstanceContainer(object injectionContextInstance)
         {

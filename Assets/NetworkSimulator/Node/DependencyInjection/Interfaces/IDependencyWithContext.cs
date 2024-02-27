@@ -15,7 +15,7 @@ namespace Atom.DependencyProvider
     /// </summary>
     /// <typeparam name="T"></typeparam>
     [InjectionContext]
-    public interface IComponentWithContext<T> : IComponent
+    public interface IDependencyWithContext<T> : IDependency
     {
         // context of type will be injected by default in any class inherinting from this interface implemenation
         [InjectComponent] public T context { get; set; }

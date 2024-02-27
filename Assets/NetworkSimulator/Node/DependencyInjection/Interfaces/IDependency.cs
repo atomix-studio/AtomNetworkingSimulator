@@ -1,7 +1,7 @@
 ﻿namespace Atom.DependencyProvider
 {
     [InjectionContext]
-    public interface IComponent
+    public interface IDependency
     {
 
     }
