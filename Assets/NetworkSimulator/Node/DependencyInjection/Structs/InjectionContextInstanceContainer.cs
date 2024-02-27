@@ -6,13 +6,16 @@ using System.Threading.Tasks;
 
 namespace Atom.DependencyProvider
 {
-    public class InjectionContextContainer
+    /// <summary>
+    /// An object that holds the datas about the context of injection and its dependencies
+    /// </summary>
+    public class InjectionContextInstanceContainer
     {
         public Type InjectionContextType;
         public object InjectionContextInstance;
         public Dictionary<Type, object> injectedDependencies = new Dictionary<Type, object>();
 
-        public InjectionContextContainer(object injectionContextInstance)
+        public InjectionContextInstanceContainer(object injectionContextInstance)
         {
             InjectionContextType = injectionContextInstance.GetType();
             InjectionContextInstance = injectionContextInstance;

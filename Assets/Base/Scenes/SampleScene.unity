@@ -733,11 +733,11 @@ MonoBehaviour:
   PacketSpeed: 100
   _pf_NodeEntity: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
     type: 3}
-  _startNodeEntitiesCount: 150
+  _startNodeEntitiesCount: 15
   _maxNodeEntitiesCount: 100
   _incomingConnectionsPerMinute: 100
   _incomingDisconnectionsPerMinute: 0
-  _autoSpawn: 0
+  _autoSpawn: 1
   _defaultCluster:
     ClusterName: CLUSTER 1
     BootNodes:
