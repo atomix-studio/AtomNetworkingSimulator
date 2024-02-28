@@ -41,12 +41,12 @@ using Atom.Helpers;
 public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
 {
     public NodeEntity context { get; set; }
-    [InjectComponent] private TransportLayerComponent _transportLayer;
-    [InjectComponent] private NetworkHandlingComponent _networkInfo;
-    [InjectComponent] private BroadcasterComponent _broadcaster;
-    [InjectComponent] private HandshakingComponent _handshaking;
-    [InjectComponent] private ConnectingComponent _connecting;
-    [InjectComponent] private PacketRouter _packetRouter;
+    [Inject] private TransportLayerComponent _transportLayer;
+    [Inject] private NetworkHandlingComponent _networkInfo;
+    [Inject] private BroadcasterComponent _broadcaster;
+    [Inject] private HandshakingComponent _handshaking;
+    [Inject] private ConnectingComponent _connecting;
+    [Inject] private PacketRouter _packetRouter;
 
     /// <summary>
     /// Known connections that can be 

@@ -11,7 +11,7 @@ namespace Atom.DependencyProvider
     /// If members in class are marked with InjectComponent but the class is not inheriting from InjectionContext, DI won't work
     /// </summary>
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
-    internal class InjectionContextAttribute : Attribute
+    public class InjectionContextAttribute : Attribute
     {
         /// <summary>
         /// Forcing all inherited types from ForceInheritedTypesInjectionInContext to be injected whereever they can be in the InjectionContext.

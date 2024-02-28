@@ -10,25 +10,15 @@ using UnityEngine;
 using UnityEngine.AI;
 using static UnityEngine.EventSystems.EventTrigger;
 
+[Singleton]
 public class WorldSimulationManager : MonoBehaviour
 {
-    public static WorldSimulationManager Instance;
-
     public bool DisplayGroupConnections;
     public bool DisplayListennersConnections;
     public bool DisplaySelectedOnly;
-    [OnValueChanged("updateDisplayPackets")] public bool DisplayPackets;
-
-    [OnValueChanged("updateTransportInstantaneously")]
+    public bool DisplayPackets;
     public bool TransportInstantaneously = true;
-    public static bool transportInstantaneously = true;
-    private void updateTransportInstantaneously() => transportInstantaneously = Instance.TransportInstantaneously;
-
-    private void updateDisplayPackets() => displayPackets = Instance.DisplayPackets;
-    public static bool displayPackets = false;
-
-    [OnValueChanged("updatePacketSpeed")] public float PacketSpeed = 100;
-    private void updatePacketSpeed() => packetSpeed = Instance.PacketSpeed;
+    public float PacketSpeed = 25;
 
     [SerializeField] private NodeEntity _pf_NodeEntity;
 
@@ -49,8 +39,6 @@ public class WorldSimulationManager : MonoBehaviour
 
     // as we are simulating the network, the address (IP) is faked and saved in the world manager
     public static Dictionary<string, NodeEntity> nodeAddresses { get; private set; }
-    public static float packetSpeed { get; private set; } = 75;
-    public static ClusterInfo defaultCluster => Instance._defaultCluster;
 
     private int _nodeEntityIdGenerator = 0;
 
@@ -68,10 +56,7 @@ public class WorldSimulationManager : MonoBehaviour
 
     private void Awake()
     {
-        // cheap singleton for prototyping is goodenough
-        Instance = this;
         nodeAddresses = new Dictionary<string, NodeEntity>();
-
     }
 
     [Button]
@@ -84,10 +69,10 @@ public class WorldSimulationManager : MonoBehaviour
 
     private void Start()
     {
-        for (int i = 0; i < defaultCluster.BootNodes.Count; i++)
+        for (int i = 0; i < _defaultCluster.BootNodes.Count; i++)
         {
-            nodeAddresses.Add(defaultCluster.BootNodes[i].name, defaultCluster.BootNodes[i]);
-            defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = defaultCluster.BootNodes[i].name, peerAdress = defaultCluster.BootNodes[i].name, averagePing = 0, trust_coefficient = 0 });
+            nodeAddresses.Add(_defaultCluster.BootNodes[i].name, _defaultCluster.BootNodes[i]);
+            _defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = _defaultCluster.BootNodes[i].name, peerAdress = _defaultCluster.BootNodes[i].name, averagePing = 0, trust_coefficient = 0 });
         }
 
         GenerateEntities(_startNodeEntitiesCount, false);

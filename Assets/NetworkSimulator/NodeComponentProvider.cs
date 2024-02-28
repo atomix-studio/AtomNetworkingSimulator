@@ -1,4 +1,4 @@
-﻿using System;
+﻿/*using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.VisualScripting;
@@ -33,8 +33,8 @@ namespace Atom.DependencyProvider
 
         private void InitializeServices()
         {
-            /*var iNodeComponentType = typeof(INodeComponent);
-            var types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(s => s.GetTypes()).Where(p => iNodeComponentType.IsAssignableFrom(p) && !p.IsAbstract);*/
+            *//*var iNodeComponentType = typeof(INodeComponent);
+            var types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(s => s.GetTypes()).Where(p => iNodeComponentType.IsAssignableFrom(p) && !p.IsAbstract);*//*
             foreach (var type in DependencyProvider.InjectionContextTypes)
             {             
                 var inst = Get(type, false);
@@ -138,3 +138,4 @@ namespace Atom.DependencyProvider
         }
     }
 }
+*/

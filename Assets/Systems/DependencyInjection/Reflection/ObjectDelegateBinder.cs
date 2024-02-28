@@ -59,7 +59,7 @@ namespace Atom.DependencyProvider
         {
             for (int i = 0; i < customAttributes.Count(); ++i)
             {
-                if (customAttributes.ElementAt(i).AttributeType == typeof(InjectComponentAttribute))
+                if (customAttributes.ElementAt(i).AttributeType == typeof(InjectAttribute))
                 {
                     return true;
                 }

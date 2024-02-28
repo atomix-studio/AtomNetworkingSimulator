@@ -13,7 +13,7 @@ namespace Atom.Broadcasting.Consensus
     public class ConsensusRequestComponent : MonoBehaviour, INodeComponent
     {
         public NodeEntity context { get; set; }
-        [InjectComponent] private BroadcasterComponent _broadcaster;
+        [Inject] private BroadcasterComponent _broadcaster;
 
         private Dictionary<string, IConsensusPacket> _runningConsensuses = new Dictionary<string, IConsensusPacket>();
         [SerializeField, ReadOnly] private ColorVotingConsensusPacket _colorConsensusBuffer;

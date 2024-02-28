@@ -16,8 +16,8 @@ namespace Atom.Broadcasting.SelectiveForwarding
     public class SelectiveForwardingComponent : MonoBehaviour  //, INodeComponent
     {
         public NodeEntity context { get; set; }
-        [InjectComponent] private PacketRouter _packetRouter;
-        [InjectComponent] private NetworkHandlingComponent _networkHandling;
+        [Inject] private PacketRouter _packetRouter;
+        [Inject] private NetworkHandlingComponent _networkHandling;
 
         public void OnInitialize()
         {

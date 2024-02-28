@@ -12,10 +12,10 @@ namespace Atom.ClusterConnectionService
     public class ClusterConnectionService : INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }
-        [InjectComponent] private PeerSamplingService _samplingService;
-        [InjectComponent] private PacketRouter _packetRouter;
-        [InjectComponent] private BroadcasterComponent _broadcaster;
-        [InjectComponent] private NetworkHandlingComponent _networkHandling;
+        [Inject] private PeerSamplingService _samplingService;
+        [Inject] private PacketRouter _packetRouter;
+        [Inject] private BroadcasterComponent _broadcaster;
+        [Inject] private NetworkHandlingComponent _networkHandling;
 
         /// <summary>
         /// the maximum number of boot nodes a node can reach while joining the network
@@ -79,7 +79,7 @@ namespace Atom.ClusterConnectionService
                     // the datas goes to the peer sampling service at this moment.
                     _samplingService.OnReceiveSubscriptionResponse(clusterResponse);
                     _isConnecting = false;
-
+                    context.IsConnectedAndReady = true;
                    /* _broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
                     {
                         var subscriptionResponse = (SubscriptionResponsePacket)response;

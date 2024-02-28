@@ -14,8 +14,8 @@ namespace Atom.CommunicationSystem
     public class PacketRouter : MonoBehaviour, INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }
-        [InjectComponent] public TransportLayerComponent transportLayer { get; set; }
-        [InjectComponent] public NetworkHandlingComponent networkHandling { get; set; }
+        [Inject] public TransportLayerComponent transportLayer { get; set; }
+        [Inject] public NetworkHandlingComponent networkHandling { get; set; }
 
         private string _peerId;
        

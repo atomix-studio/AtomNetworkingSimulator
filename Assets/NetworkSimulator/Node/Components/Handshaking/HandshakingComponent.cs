@@ -16,7 +16,7 @@ namespace Atom.Components.Handshaking
     public class HandshakingComponent : INodeComponent
     {
         public NodeEntity context { get; set; }
-        [InjectComponent] private PacketRouter _packetRouter;
+        [Inject] private PacketRouter _packetRouter;
 
         public void OnInitialize()
         {

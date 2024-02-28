@@ -22,8 +22,8 @@ namespace Atom.Broadcasting
 
     public class BroadcasterComponent : MonoBehaviour, INodeComponent
     {
-        [InjectComponent] private PacketRouter _router;
-        [InjectComponent] private NetworkHandlingComponent _networkHandling;
+        [Inject] private PacketRouter _router;
+        [Inject] private NetworkHandlingComponent _networkHandling;
 
         [Header("Broadcasting Properties")]
         // number of calls for a broadcast

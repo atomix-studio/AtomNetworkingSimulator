@@ -18,6 +18,6 @@ namespace Atom.DependencyProvider
     public interface IDependencyWithContext<T> : IDependency
     {
         // context of type will be injected by default in any class inherinting from this interface implemenation
-        [InjectComponent] public T context { get; set; }
+        [Inject] public T context { get; set; }
     }
 }

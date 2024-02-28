@@ -8,8 +8,8 @@ namespace Atom.Broadcasting
 {
     public class PeerCountingService : MonoBehaviour, INodeComponent
     {
-        [InjectComponent] private BroadcasterComponent _broadcaster;
-        [InjectComponent] private PacketRouter _router;
+        [Inject] private BroadcasterComponent _broadcaster;
+        [Inject] private PacketRouter _router;
         [SerializeField, ShowInInspector, ReadOnly] private int _responsesCount = 0;
 
         public NodeEntity context { get; set; }

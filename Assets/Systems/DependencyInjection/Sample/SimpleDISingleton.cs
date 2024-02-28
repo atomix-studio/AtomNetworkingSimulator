@@ -7,15 +7,15 @@ using UnityEngine;
 
 namespace Atom.DependencyProvider.Samples
 {
-    [Singleton, InjectionContext]
+    //[Singleton, InjectionContext]
     public class SimpleDISingleton : MonoBehaviour
     {
-        [InjectComponent] SimpleInjectionContext _context;
+        //[Inject] SimpleInjectionContext _context;
 
         private void Awake()
         {
-            Debug.Log($"{nameof(SimpleDISingleton)} has been created !");
-            
+            Debug.Log($"{nameof(SimpleDISingleton)} has been created !");            
         }
+
     }
 }

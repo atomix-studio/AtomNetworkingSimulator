@@ -11,11 +11,11 @@ using System.Linq;
 using Atom.Components.Connecting;
 using Sirenix.Utilities;
 using UnityEditor.Rendering.LookDev;
+using Atom.DependencyProvider.Samples;
 
 [InjectionContext(ForceInheritedTypesInjectionInContext = typeof(INodeComponent))]
-public class NodeEntity : MonoBehaviour
+public class NodeEntity : MonoBehaviour, IDependenciesInjectionCallback
 {
-    public NodeComponentProvider componentProvider { get; private set; }
     public BroadcasterComponent broadcaster { get; set; }
     public TransportLayerComponent transportLayer { get; set; }
     public PeerSamplingService peerSampling { get; set; }
@@ -23,6 +23,8 @@ public class NodeEntity : MonoBehaviour
 
     [SerializeField] private NetworkHandlingComponent _networkInfo;
     private BootNodeHandling _bootNodeHandling;
+
+    [Inject] private WorldSimulationManager _worldSimulationManager;
 
     [Header("Params")]
     [SerializeField] private bool _isBoot;
@@ -53,38 +55,38 @@ public class NodeEntity : MonoBehaviour
 
     private void Awake()
     {
+        DependencyProvider.registerInjectionContextDependenciesAwakeCallback(typeof(NodeEntity), this);
+
         // creating the instances of all components
-        DependencyProvider.injectDependencies(this);
-
-        foreach (var dependency in DependencyProvider.injectionContextContainers[this].InjectedDependencies)
-        {
-            // injecting dependencies in components from this context container as they are shared
-            // components with take references to instances created by the injection of dependencies in the nodeEntity
-            DependencyProvider.injectDependencies(dependency.Value, this);
-
-            // ***************
-            // WIP should be done automatically as the context is an interface property marked witj InjectComponent
-            (dependency.Value as INodeComponent).context = this;
-        }
+        DependencyProvider.InjectDependencies(this);
+/*
         foreach (var dependency in DependencyProvider.injectionContextContainers[this].InjectedDependencies)
         {
             // initializing everyone when everyone is ready
-            (dependency.Value as INodeComponent).OnInitialize();
-        }
+            var nComponent = dependency.Value as INodeComponent;
+            nComponent.context = this;
+            nComponent.OnInitialize();
+        }*/
 
-        /*        componentProvider = GetComponent<NodeComponentProvider>();
-                componentProvider.Initialize();
-        *//*
-        broadcaster = GetNodeComponent<BroadcasterComponent>();
-        transportLayer = GetNodeComponent<TransportLayerComponent>();
-        networkHandling = GetNodeComponent<NetworkHandlingComponent>();
-        peerSampling = GetNodeComponent<PeerSamplingService>();
-*/
         _material = GetComponent<MeshRenderer>().material;
 
         if (IsBoot)
         {
             _bootNodeHandling = GetNodeComponent<BootNodeHandling>();
+        }
+    }
+
+    public void OnDependencyInjected(List<object> dependencies)
+    {
+        foreach (var dependency in dependencies)
+        {
+            // initializing everyone when everyone is ready
+            var nComponent = dependency as INodeComponent;
+            if(nComponent != null)
+            {
+                nComponent.context = this;
+                nComponent.OnInitialize();
+            }
         }
     }
 
@@ -112,15 +114,15 @@ public class NodeEntity : MonoBehaviour
     [Button]
     public void TestConnectToCluster()
     {
-        var clusterConnectionService = componentProvider.Get<ClusterConnectionService>();
-        clusterConnectionService.ConnectToCluster(WorldSimulationManager.defaultCluster);
+        /*var clusterConnectionService = componentProvider.Get<ClusterConnectionService>();
+        clusterConnectionService.ConnectToCluster(WorldSimulationManager.defaultCluster);*/
     }
 
     [Button]
 
     public async void TestAwaitableGetPingWithPeer(NodeEntity nodeEntity)
     {
-        var handshakingService = componentProvider.Get<HandshakingComponent>();
+        var handshakingService = this.GetDependency<HandshakingComponent>();
         var ping = await handshakingService.GetPingAsync(nodeEntity);
         Debug.LogError("Ping" + ping);
     }
@@ -177,7 +179,7 @@ public class NodeEntity : MonoBehaviour
 
     private void Update()
     {
-        if (!WorldSimulationManager.Instance.DisplaySelectedOnly || this == WorldSimulationManager.Instance.DebugSelectedNodeEntity)
+        if (!_worldSimulationManager.DisplaySelectedOnly || this == _worldSimulationManager.DebugSelectedNodeEntity)
         {
 
             /*if (WorldSimulationManager.Instance.DisplayCallersConnections)
@@ -188,11 +190,11 @@ public class NodeEntity : MonoBehaviour
                 }
             }*/
 
-            if (WorldSimulationManager.Instance.DisplayListennersConnections)
+            if (_worldSimulationManager.DisplayListennersConnections)
             {
                 for (int i = 0; i < networkHandling.Connections.Count; ++i)
                 {
-                    Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Connections.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.black);
+                    Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Connections.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, _worldSimulationManager.DebugSelectedNodeEntity == this ? Color.green : Color.black);
                 }
             }
 

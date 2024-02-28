@@ -14,8 +14,8 @@ namespace Atom.Components.Connecting
     public class BootNodeHandling : INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }
-        [InjectComponent] private BroadcasterComponent _broadcaster;
-        [InjectComponent] private NetworkHandlingComponent _networkHandling;
+        [Inject] private BroadcasterComponent _broadcaster;
+        [Inject] private NetworkHandlingComponent _networkHandling;
 
         protected float broadcastChances = 3;
         protected float refreshCooldown = 5;

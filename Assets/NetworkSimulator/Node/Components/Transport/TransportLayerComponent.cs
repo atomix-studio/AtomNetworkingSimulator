@@ -39,12 +39,8 @@ namespace Atom.Transport
 
 
         public NodeEntity context { get; set; }
-        private WorldSimulationManager _simulationManager;
+        [Inject] private WorldSimulationManager _simulationManager;
 
-        void Awake()
-        {
-            _simulationManager = WorldSimulationManager.Instance;
-        }
         /// <summary>
         /// Initialize the routing of the packets received by the transport layer to a delegate routing service
         /// </summary>
@@ -62,7 +58,6 @@ namespace Atom.Transport
         public void OnInitialize()
         {
             _nodeEntity = context;
-            _simulationManager = WorldSimulationManager.Instance;
         }
 
         public void Send(string address, INetworkPacket packet)
@@ -74,7 +69,7 @@ namespace Atom.Transport
             WorldSimulationManager._totalPacketSent++;
             WorldSimulationManager._totalPacketSentPerSecondCount++;
 
-            if (WorldSimulationManager.transportInstantaneously)
+            if (_simulationManager.TransportInstantaneously)
             {
                 _sendBuffer.Add(packet, destination);
 
@@ -91,7 +86,7 @@ namespace Atom.Transport
         {
             currentTravellingPacketTarget.Add(packet, target);
             currentTravellingPacketsDestination.Add(packet, target.transform.position);
-            float ttime = Vector3.Distance(target.transform.position, transform.position) / WorldSimulationManager.packetSpeed;
+            float ttime = Vector3.Distance(target.transform.position, transform.position) / _simulationManager.PacketSpeed;
             currentTravellingPacketsTime.Add(packet, ttime) ;
             currentTravellingPacketsElapsedTime.Add(packet, 0);
         }
@@ -116,7 +111,7 @@ namespace Atom.Transport
                 var direction = currentTravellingPacketsDestination[packet.Key] - pos;
                 float ratio = currentTravellingPacketsElapsedTime[packet.Key] / currentTravellingPacketsTime[packet.Key];
                 // 
-                if (WorldSimulationManager.displayPackets)
+                if (_simulationManager.DisplayPackets)
                     Debug.DrawLine(transform.position, Vector3.Lerp(pos, currentTravellingPacketsDestination[packet.Key], ratio), Color.blue);
 
                 if ( ratio >= 1f)
@@ -135,7 +130,7 @@ namespace Atom.Transport
                 else
                 {
                     direction.Normalize();
-                    currentTravellingPacketsElapsedTime[packet.Key] += Time.deltaTime * WorldSimulationManager.packetSpeed;
+                    currentTravellingPacketsElapsedTime[packet.Key] += Time.deltaTime * _simulationManager.PacketSpeed;
                 }
             }
         }

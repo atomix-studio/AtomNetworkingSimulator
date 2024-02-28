@@ -12,13 +12,13 @@ namespace Atom.DependencyProvider
     public class InjectionContextInstanceContainer
     {
         public Type InjectionContextType { get; set; }
-        public object InjectionContextInstance { get; set; }
+        public object BindedInstance { get; set; }
         public Dictionary<Type, object> InjectedDependencies { get; set; } = new Dictionary<Type, object>();
 
         public InjectionContextInstanceContainer(object injectionContextInstance)
         {
             InjectionContextType = injectionContextInstance.GetType();
-            InjectionContextInstance = injectionContextInstance;
+            BindedInstance = injectionContextInstance;
         }
     }
 }

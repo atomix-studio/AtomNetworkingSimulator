@@ -28,12 +28,17 @@ namespace Atom.DependencyProvider
                 _binder = new DynamicMemberDelegateBinder();
                 _binder.createPropertyDelegatesAuto(propertyInfo);
             }
-
+/*
             public void Inject(NodeComponentProvider provider, object instance)
             {
                 _binder.setValueGeneric(instance, provider.Get(_reflectingType, false));
             }
-
+*/
+            /// <summary>
+            /// container binded on the same instance as the injected
+            /// </summary>
+            /// <param name="instance"></param>
+            /// <returns></returns>
             public object Inject(object instance)
             {
                 var dependency = DependencyProvider.getOrCreate(_reflectingType, instance);
@@ -41,9 +46,18 @@ namespace Atom.DependencyProvider
                 return dependency;
             }
 
-            public object Inject(object instance, object masterContext)
+            /// <summary>
+            /// injected instance binded to an external/existing container
+            /// </summary>
+            /// <param name="instance"> The instance that the injection targets </param>
+            /// <param name="container"> Where the dependencies have been instantiated and are kept. </param>
+            /// <returns></returns>
+            public object Inject(object instance, object container)
             {
-                var dependency = DependencyProvider.getOrCreate(_reflectingType, masterContext);
+                if(container == null)
+                    return Inject(instance);
+
+                var dependency = DependencyProvider.getOrCreate(_reflectingType, container);
                 _binder.setValueGeneric(instance, dependency);
                 return dependency;
             }

@@ -20,10 +20,10 @@ namespace Atom.CommunicationSystem
     public class NetworkHandlingComponent : MonoBehaviour, INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }
-        [InjectComponent] private HandshakingComponent _handshaking;
-        [InjectComponent] private ConnectingComponent _connecting;
-        [InjectComponent] private PeerSamplingService _peerSampling;
-        [InjectComponent] private PacketRouter _packetRouter;
+        [Inject] private HandshakingComponent _handshaking;
+        [Inject] private ConnectingComponent _connecting;
+        [Inject] private PeerSamplingService _peerSampling;
+        [Inject] private PacketRouter _packetRouter;
 
         [SerializeField] protected int knownPeersMaximumCount = 25;
         [SerializeField] protected int peerConnectionLeaseTime = 5;

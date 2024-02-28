@@ -18,10 +18,10 @@ namespace Atom.Components.Connecting
     public class ConnectingComponent : INodeComponent
     {
         public NodeEntity context { get; set; }
-        [InjectComponent] private PacketRouter _packetRouter;
-        [InjectComponent] private PeerSamplingService _peerSampling;
-        [InjectComponent] private NetworkHandlingComponent _networkInfo;
-        [InjectComponent] private HandshakingComponent _handshaking;
+        [Inject] private PacketRouter _packetRouter;
+        [Inject] private PeerSamplingService _peerSampling;
+        [Inject] private NetworkHandlingComponent _networkInfo;
+        [Inject] private HandshakingComponent _handshaking;
 
         public void OnInitialize()
         {

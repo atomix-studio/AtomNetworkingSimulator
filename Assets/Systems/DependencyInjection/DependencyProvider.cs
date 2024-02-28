@@ -52,8 +52,9 @@ namespace Atom.DependencyProvider
         public static Dictionary<Type, object> Singletons => _singletons;
 
 
-        private static Dictionary<Type, IDependencyCreatedCallbackHandler> _injectionContextDependencyCreatedCallback;
+        private static Dictionary<Type, IDependenciesInjectionCallback> _injectionContextDependencyCreatedCallback;
         private static List<object> _injectedDependenciesInstancesBuffer;
+        private static HashSet<Type> _containerInjectionBuffer;
 
         static DependencyProvider()
         {
@@ -167,7 +168,7 @@ namespace Atom.DependencyProvider
         private static void _initializeCollections()
         {
             _assemblyTypes = new List<Type>();
-            _injectionContextDependencyCreatedCallback = new Dictionary<Type, IDependencyCreatedCallbackHandler>();
+            _injectionContextDependencyCreatedCallback = new Dictionary<Type, IDependenciesInjectionCallback>();
             _injectedDependenciesInstancesBuffer = new List<object>();
             _requiredDependenciesTypes = new Dictionary<Type, List<Type>>();
             // to be refactored in the container ?
@@ -177,6 +178,7 @@ namespace Atom.DependencyProvider
             _injectorHandlers = new Dictionary<Type, List<TypeInjectorHandler>>();
             _singletonContainers = new Dictionary<Type, SingletonContainer>();
             _singletons = new Dictionary<Type, object>();
+            _containerInjectionBuffer = new HashSet<Type>();
         }
 
         private static void ResetProviderData(PlayModeStateChange obj)
@@ -193,34 +195,58 @@ namespace Atom.DependencyProvider
 
         #region PUBLIC
 
-        public static void registerInjectionContextDependenciesAwakeCallback(Type injectionContextType, IDependencyCreatedCallbackHandler dependencyProviderCallbackHandler)
+        public static void registerInjectionContextDependenciesAwakeCallback(Type injectionContextType, IDependenciesInjectionCallback dependencyProviderCallbackHandler)
         {
             if (!_initialized)
                 internalInitialize();
 
             _injectionContextDependencyCreatedCallback.Add(injectionContextType, dependencyProviderCallbackHandler);
         }
+
         /// <summary>
-        /// Should be called at instanciation of an InjectionContext object
+        /// 
         /// </summary>
-        /// <param name="injectionContext"></param>
+        /// <param name="injectionContext"> The instance of class/component that is the context of injection </param>
+        /// <param name="dependencyContainer"> The container is the holder for all the dependencies injected in the injection context. 
+        /// By default, the injection context is it's own container for non component types, and is the parent gameobject for unity's components. </param>
         /// <exception cref="Exception"></exception>
-        public static void injectDependencies(object injectionContext, object dependencyContainer = null) //, object masterContext = null
+        public static void InjectDependencies(object injectionContext, object dependencyContainer = null, Action<List<object>> dependenciesInjectedCallback = null) //, object masterContext = null
+        {
+            _injectedDependenciesInstancesBuffer.Clear();
+            _containerInjectionBuffer.Clear();
+            _injectDependencies(injectionContext, dependencyContainer, false);
+            dependenciesInjectedCallback?.Invoke(_injectedDependenciesInstancesBuffer);
+        }
+
+        internal static void _injectDependencies(object injectionContext, object dependencyContainerOverride, bool recursiveCall = false) //, object masterContext = null
         {
             if (!_initialized)
                 internalInitialize();
 
+            if (recursiveCall)
+            {
+                if (_containerInjectionBuffer.Contains(injectionContext.GetType()))
+                {
+                    Debug.Log($"Type {injectionContext.GetType()} already initialized in container {dependencyContainerOverride} / context {injectionContext}");
+                    return;
+                }
+                else
+                {
+                    _containerInjectionBuffer.Add(injectionContext.GetType());
+                }
+            }            
+
             var ctxtType = injectionContext.GetType();
             if (injectorHandlers.TryGetValue(ctxtType, out var injectors))
             {
-                Debug.Log($"Start injecting in {ctxtType}");
+                Debug.Log($"Start injecting in {ctxtType}, recursive call : {recursiveCall}");
 
-                /*if(masterContext == null)
-                {*/
-                    // local variable to store currently generating dependencies without reallocating lists over and over
+                if (!recursiveCall)
+                {
                     _injectedDependenciesInstancesBuffer.Clear();
-                //}
-
+                    _containerInjectionBuffer.Clear();
+                }
+               
                 if (_requiredDependenciesTypes.TryGetValue(ctxtType, out var anonymousDependencies))
                 {
                     for (int i = 0; i < anonymousDependencies.Count; ++i)
@@ -231,10 +257,20 @@ namespace Atom.DependencyProvider
                         // anonymous dependencies are forced within the InjectionContextAttribute parameter ForceInheritedTypesInjectionInContext or ForceRequiredTypesInjectionInContext
 
                         object dependency = null;
-                        if (dependencyContainer != null)
-                            dependency = getOrCreate(anonymousDependencies[i], dependencyContainer);
+                        if (dependencyContainerOverride != null)
+                            dependency = getOrCreate(anonymousDependencies[i], dependencyContainerOverride);
                         else
-                            dependency  = getOrCreate(anonymousDependencies[i], injectionContext);
+                            dependency = getOrCreate(anonymousDependencies[i], injectionContext);
+
+                        if (_injectorHandlers.ContainsKey(dependency.GetType()))
+                        {
+                            //Debug.Log($"Recursive indent to {injected.GetType()}");
+
+                            if (dependencyContainerOverride != null)
+                                _injectDependencies(dependency, dependencyContainerOverride, true);
+                            else
+                                _injectDependencies(dependency, injectionContext, true);
+                        }
 
                         if (!_injectedDependenciesInstancesBuffer.Contains(dependency))
                             _injectedDependenciesInstancesBuffer.Add(dependency);
@@ -244,26 +280,34 @@ namespace Atom.DependencyProvider
                 foreach (var injector in injectors)
                 {
                     object injected = null;
-                    if (dependencyContainer != null)
-                        injected = injector.Inject(injectionContext, dependencyContainer);
+                    if (dependencyContainerOverride != null)
+                        injected = injector.Inject(injectionContext, dependencyContainerOverride);
                     else
                         injected = injector.Inject(injectionContext);
 
                     Debug.Log($"Injected {injected} in {ctxtType}");
-/*
+
+                    // if the type that we injected is also an InjectionContext, we will initialize it as well in the same container as the injection context.
+                    // 
+                    // but as circling references can exist that will lead to infinite loop, we add to keep a trace of what's have been instantiated in the container
+                    // and to allow a type to be instantiated only once in this situation
+                    // workaround can be passed with Attributes parameters 
+
                     if (_injectorHandlers.ContainsKey(injected.GetType()))
                     {
-                        Debug.Log($"Recursive indent to {injected.GetType()}");
+                        //Debug.Log($"Recursive indent to {injected.GetType()}");
 
-                        if (masterContext != null)
-                            injectDependencies(injected, masterContext);
+                        if (dependencyContainerOverride != null)
+                            _injectDependencies(injected, dependencyContainerOverride, true);
                         else
-                            injectDependencies(injected, injectionContextInstance);
+                            _injectDependencies(injected, injectionContext, true);
                     }
-*/
+
                     if (!_injectedDependenciesInstancesBuffer.Contains(injected))
                         _injectedDependenciesInstancesBuffer.Add(injected);
                 }
+
+                Debug.LogError($"{ctxtType} initialized.");
 
                 if (_injectionContextDependencyCreatedCallback.TryGetValue(ctxtType, out var handler))
                 {
@@ -272,10 +316,8 @@ namespace Atom.DependencyProvider
                     // we send the instance of the injectionContext within the callback
                     // from this point, any cross referencing between all injected dependencies from the context are possible
                     // so it is a good entry point for initialization in a complex system where services can use each other
-                    for (int i = 0; i < _injectedDependenciesInstancesBuffer.Count; ++i)
-                    {
-                        handler.OnDependencyInjected(_injectedDependenciesInstancesBuffer[i]);
-                    }
+                    handler.OnDependencyInjected(_injectedDependenciesInstancesBuffer);
+                    //_injectedDependenciesInstancesBuffer.Clear();
                 }
 
             }
@@ -295,13 +337,15 @@ namespace Atom.DependencyProvider
             if (_singletonContainers.TryGetValue(componentType, out var singletonInstance))
             {
                 if (singletonInstance == null)
-                    _findOrCreateSingleton(singletonInstance);
+                    return _findOrCreateSingleton(singletonInstance);
+
+                return singletonInstance;
             }
 
             InjectionContextInstanceContainer container = null;
             if (!_injectionContextContainers.TryGetValue(dependencyContainer, out container))
             {
-                container = new InjectionContextInstanceContainer(dependencyContainer.GetType());
+                container = new InjectionContextInstanceContainer(dependencyContainer);
                 _injectionContextContainers.Add(dependencyContainer, container);
             }
 
@@ -337,7 +381,7 @@ namespace Atom.DependencyProvider
         {
             if (componentType.IsSubclassOf(typeof(Component)))
             {
-                return _createComponent(componentType, context, container);
+                return _createComponent(componentType, container);
             }
             else
             {
@@ -400,7 +444,7 @@ namespace Atom.DependencyProvider
                 var attributes = field.CustomAttributes;
                 foreach (var attribute in attributes)
                 {
-                    if (attribute.AttributeType == typeof(InjectComponentAttribute))
+                    if (attribute.AttributeType == typeof(InjectAttribute))
                     {
                         _injectorHandlers[type].Add(new TypeInjectorHandler(type, field));
                         break;
@@ -429,7 +473,7 @@ namespace Atom.DependencyProvider
                 var attributes = property.CustomAttributes;
                 foreach (var attribute in attributes)
                 {
-                    if (attribute.AttributeType == typeof(InjectComponentAttribute))
+                    if (attribute.AttributeType == typeof(InjectAttribute))
                     {
                         _injectorHandlers[type].Add(new TypeInjectorHandler(type, property));
                         break;
@@ -449,10 +493,6 @@ namespace Atom.DependencyProvider
             var newServiceInstance = Activator.CreateInstance(componentType);
             container.InjectedDependencies.Add(componentType, newServiceInstance);
 
-            /*   if (newServiceInstance is INodeUpdatableComponent)
-                   _updatableComponents.Add(typeof(T), newServiceInstance as INodeUpdatableComponent);
-
-               newServiceInstance.OnInitialize();*/
             return newServiceInstance;
         }
 
@@ -464,20 +504,23 @@ namespace Atom.DependencyProvider
         /// <param name="container"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        private static object _createComponent(Type componentType, object context, InjectionContextInstanceContainer container)
+        private static object _createComponent(Type componentType, InjectionContextInstanceContainer container)
         {
-            var casted = context as Component;
-            var newServiceInstance = casted.gameObject.GetComponent(componentType);
+            var casted = container.BindedInstance as Component;
+            if(casted.gameObject.TryGetComponent(componentType, out var comp))
+            {
+                container.InjectedDependencies.Add(componentType, comp);
+                return comp;
+            }
 
-            if (newServiceInstance == null)
-                newServiceInstance = casted.gameObject.AddComponent(componentType);
+            comp = casted.gameObject.AddComponent(componentType);
 
-            if (newServiceInstance == null)
+            if (comp == null)
                 throw new Exception("Components of type Monobehaviour should be placed on the gameobject before intialisation as the provider can't add dynamic components");
 
-            container.InjectedDependencies.Add(componentType, newServiceInstance);
+            container.InjectedDependencies.Add(componentType, comp);
 
-            return newServiceInstance;
+            return comp;
         }
 
         private static object _findOrCreateSingleton(SingletonContainer singletonContainer, bool allowSingletonDependenciesInjection = true)
@@ -490,7 +533,7 @@ namespace Atom.DependencyProvider
             {
                 // Singletons that are also an Injection Context are dependency injected automatically at creation 
                 if (_injectorHandlers.ContainsKey(singletonContainer.sType))
-                    injectDependencies(created);
+                    InjectDependencies(created);
             }
 
             return created;
