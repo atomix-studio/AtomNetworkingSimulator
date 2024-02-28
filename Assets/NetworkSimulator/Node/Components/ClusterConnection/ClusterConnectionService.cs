@@ -70,6 +70,7 @@ namespace Atom.ClusterConnectionService
                     // means a timout or an error
                     if(response == null)
                     {
+                        Debug.LogError("Connection to cluster request timed out. Quitting isConnecting state.");
                         _isConnecting = false;
                         return;
                     }

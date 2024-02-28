@@ -36,7 +36,7 @@ namespace Atom.CommunicationSystem
 
         }
 
-        public override INetworkPacket GetForwardablePacket(INetworkPacket received)
+        public override INetworkPacket ClonePacket(INetworkPacket received)
         {
             return new NetworkDiscoveryBroadcastPacket(received as NetworkDiscoveryBroadcastPacket);
         }

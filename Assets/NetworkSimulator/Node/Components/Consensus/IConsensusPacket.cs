@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Atom.Broadcasting.Consensus
 {
-    public interface IConsensusPacket : IBroadcastablePacket
+    public interface IConsensusPacket : IClonablePacket, IBroadcastablePacket
     {        
         /// <summary>
         /// when a node starts a consensus request, it initializes this ID that will be kept over  many broadcasts over the newtork

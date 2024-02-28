@@ -23,7 +23,7 @@ namespace Atom.Broadcasting.Consensus
 
         public abstract void SelectChoice();
 
-        public abstract INetworkPacket GetForwardablePacket(INetworkPacket received);   
+        public abstract INetworkPacket ClonePacket(INetworkPacket received);   
 
 
         #region Dispose implementation

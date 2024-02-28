@@ -28,7 +28,7 @@ namespace Atom.Broadcasting.Consensus
             AggregatedSelections[colorVote.ColorSelection]++;
         }
 
-        public override INetworkPacket GetForwardablePacket(INetworkPacket received)
+        public override INetworkPacket ClonePacket(INetworkPacket received)
         {
             var forwardable = new ColorVotingConsensusPacket(received as ColorVotingConsensusPacket);
             return forwardable;

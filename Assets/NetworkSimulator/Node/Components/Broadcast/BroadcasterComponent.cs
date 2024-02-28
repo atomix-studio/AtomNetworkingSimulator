@@ -151,10 +151,13 @@ namespace Atom.Broadcasting
                 return;
 
             var calls_count = GetCurrentFanout(fanoutOverride);
+            var current = packet;
+
             for (int i = 0; i < calls_count; ++i)
             {
                 var index = _random.Next(_networkHandling.Connections.Count);
-                _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, packet);
+                _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, current);
+                current = ((IClonablePacket)packet).ClonePacket(current);
             }
         }
 
@@ -169,14 +172,14 @@ namespace Atom.Broadcasting
 
             broadcastable.broadcasterID = _networkHandling.LocalPeerInfo.peerID;
             broadcastable.broadcastID = Guid.NewGuid().ToString();
-            var current = broadcastable;
+            INetworkPacket current = broadcastable;
 
             var calls_count = GetCurrentFanout(fanoutOverride);
             for (int i = 0; i < calls_count; ++i)
             {
                 var index = _random.Next(_networkHandling.Connections.Count);
                 _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, current);
-                current = (IBroadcastablePacket)broadcastable.GetForwardablePacket(current);
+                current = broadcastable.ClonePacket(current);
             }
         }
 
@@ -206,7 +209,7 @@ namespace Atom.Broadcasting
                 var index = BroadcastingHelpers.GetRandomConnectionIndexForBroadcast(_networkHandling.Connections, broadcastable.broadcasterID, broadcastable.senderID, calls_count * 2);
 
                 // create a new packet from the received and forwards it to the router
-                var relayedPacket = broadcastable.GetForwardablePacket(broadcastable);
+                var relayedPacket = broadcastable.ClonePacket(broadcastable);
                 _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, relayedPacket);
             }
         }

@@ -18,11 +18,19 @@ namespace Atom.Broadcasting.Consensus
         private Dictionary<string, IConsensusPacket> _runningConsensuses = new Dictionary<string, IConsensusPacket>();
         [SerializeField, ReadOnly] private ColorVotingConsensusPacket _colorConsensusBuffer;
 
+        [SerializeField] private float _voteTimeOut = 30; // secondes
         [SerializeField] private float _gossipFrequency = 4; // ticks per second
         private float _timer;
         private float _time;
+        private bool _hasPending = false;
 
         public void OnUpdate()
+        {
+           
+
+        }
+
+        void Update()
         {
             if (_runningConsensuses.Count == 0)
                 return;
@@ -32,9 +40,13 @@ namespace Atom.Broadcasting.Consensus
 
             if (_timer > _time)
             {
-                Gossip();
-            }
+                if (_hasPending)
+                {
+                    Gossip();
+                }
 
+                _timer = 0;
+            }
         }
 
         public void OnInitialize()
@@ -46,7 +58,7 @@ namespace Atom.Broadcasting.Consensus
 
                 if (_runningConsensuses.TryGetValue(colorVote.consensusId, out var consensusPacket))
                 {
-                    var colorConsensusOrigin = (ColorVotingConsensusPacket)consensusPacket;
+                    var colorConsensusOrigin = new ColorVotingConsensusPacket((ColorVotingConsensusPacket)consensusPacket);
 
                     //if (!colorConsensusOrigin._alreadyVoted.Contains(colorVote.broadcasterID))
                     {
@@ -83,6 +95,7 @@ namespace Atom.Broadcasting.Consensus
                         }
                     }
 
+                    _hasPending = true;
                     // forwarding other votes
                     //_broadcaster.RelayBroadcast(colorVote);
                 }
@@ -102,7 +115,16 @@ namespace Atom.Broadcasting.Consensus
 
         private void Gossip()
         {
-            _broadcaster.SendMulticast(_colorConsensusBuffer);
+            _hasPending = false;
+
+            if (_colorConsensusBuffer.sentTime.AddSeconds(_voteTimeOut) < DateTime.Now)
+            {
+                Debug.LogError("Gossip timedout");
+                _runningConsensuses.Remove(_colorConsensusBuffer.consensusId);
+                return;
+            }
+
+            _broadcaster.SendMulticast(new ColorVotingConsensusPacket(_colorConsensusBuffer));
         }
 
         public void StartBroadcastConsensusPacket(IConsensusPacket consensusPacket)

@@ -34,7 +34,7 @@ namespace Atom.Components.PeerCounting
 
         }
 
-        public INetworkPacket GetForwardablePacket(INetworkPacket received)
+        public INetworkPacket ClonePacket(INetworkPacket received)
         {
             return new PeerCountingBroadcastPacket(received as PeerCountingBroadcastPacket);
         }

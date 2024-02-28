@@ -7,18 +7,11 @@ using System.Threading.Tasks;
 
 namespace Atom.CommunicationSystem
 {
-    public interface IBroadcastablePacket  :INetworkPacket
+    public interface IBroadcastablePacket  : INetworkPacket, IClonablePacket
     {
         public string broadcasterID { get; set; }   
 
         // identifier of the broadcaster
         public string broadcastID { get; set; }
-
-        /// <summary>
-        /// Returns a copy of the received packet but keeps the broadcast datas 
-        /// </summary>
-        /// <param name="received"></param>
-        /// <returns></returns>
-        public INetworkPacket GetForwardablePacket(INetworkPacket received);
     }
 }
