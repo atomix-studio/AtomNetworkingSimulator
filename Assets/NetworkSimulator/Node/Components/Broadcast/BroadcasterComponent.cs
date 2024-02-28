@@ -126,7 +126,7 @@ namespace Atom.Broadcasting
         /// <param name="target"></param>
         /// <param name="networkPacket"></param>
         /// <param name="responseCallback"></param>
-        public void SendRequest(string listennerAdress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 1000)
+        public void SendRequest(string listennerAdress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 50000)
         {
             _router.SendRequest(listennerAdress, networkPacket, responseCallback, timeout_ms);
         }
@@ -142,10 +142,27 @@ namespace Atom.Broadcasting
         }
 
         /// <summary>
-        /// Sends a packet to <_fanout> listenners, selected randomly
+        /// Sends a packet to <_fanout> listenners, selected randomly (not a broadcast, the packets will just go to their receivers and won't be relayed)
         /// </summary>
         /// <param name="broadcastable"></param>
-        public void SendBroadcast(IBroadcastablePacket broadcastable, int fanoutOverride = -1)
+        public void SendMulticast(INetworkPacket packet, int fanoutOverride = -1)
+        {
+            if (_networkHandling.Connections.Count <= 0)
+                return;
+
+            var calls_count = GetCurrentFanout(fanoutOverride);
+            for (int i = 0; i < calls_count; ++i)
+            {
+                var index = _random.Next(_networkHandling.Connections.Count);
+                _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, packet);
+            }
+        }
+
+        /// <summary>
+        /// Sends a packet to <_fanout> listenners, selected randomly, that will be relayed until certain conditions are met (cycles, timeout, broadcast relay limit achieved over all network...)
+        /// </summary>
+        /// <param name="broadcastable"></param>
+        public void SendBroadcast(IBroadcastablePacket broadcastable, int fanoutOverride = -1, int cyclesRange = -1)
         {
             if (_networkHandling.Connections.Count <= 0)
                 return;

@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 5533586626479675273}
   - component: {fileID: 5533586626479675316}
-  - component: {fileID: 5308062706113184368}
   - component: {fileID: 5959474041996457471}
   - component: {fileID: 5533586626479675319}
   - component: {fileID: 5533586626479675318}
@@ -54,27 +53,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _networkInfo: {fileID: 0}
+  _worldSimulationManager: {fileID: 0}
   _isBoot: 0
   _preferedGroupSize: 2
   _delayBetweenGroupFindingRequest: 10
   _pingSimulatorStability: 1
   _networkViewsTargetCount: 9
-  IsConnected: 0
+  IsConnectedAndReady: 0
   IsInGroup: 0
   IsSleeping: 0
   CurrentPingSimulatorMultiplier: 1
---- !u!114 &5308062706113184368
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5533586626479675272}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 08d6be3c420ffa24f9f4183ebe587e61, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &5959474041996457471
 MonoBehaviour:
   m_ObjectHideFlags: 0

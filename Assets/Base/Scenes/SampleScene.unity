@@ -249,7 +249,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 5
+  m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &330585543
 GameObject:
@@ -710,14 +710,13 @@ GameObject:
   m_Component:
   - component: {fileID: 1173228168}
   - component: {fileID: 1173228167}
-  - component: {fileID: 1173228169}
   m_Layer: 0
   m_Name: WorldSimulator
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1173228167
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -731,9 +730,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   DisplayGroupConnections: 0
-  DisplayListennersConnections: 0
+  DisplayListennersConnections: 1
   DisplaySelectedOnly: 0
-  DisplayPackets: 0
+  DisplayPackets: 1
   TransportInstantaneously: 0
   PacketSpeed: 100
   _pf_NodeEntity: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
@@ -771,24 +770,8 @@ Transform:
   - {fileID: 584273123}
   - {fileID: 1624927536}
   m_Father: {fileID: 0}
-  m_RootOrder: 4
+  m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1173228169
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1173228166}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 60192e49c1bb51341922bed4b3cb07f8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _fanout: 3
-  _broadcastRelayingCycles: 2
-  _broadcastMessageMaxCycles: -1
-  _relayedBroadcastBufferSize: 2500
 --- !u!1 &1416844539
 GameObject:
   m_ObjectHideFlags: 0
@@ -1021,7 +1004,7 @@ PrefabInstance:
     - target: {fileID: 5533586626479675272, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5533586626479675273, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
@@ -1225,5 +1208,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 5308062706113184368, guid: 09dc6b9d771e62b499c312e8b50d669d, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: 09dc6b9d771e62b499c312e8b50d669d, type: 3}

@@ -10,13 +10,32 @@ using UnityEngine;
 
 namespace Atom.Broadcasting.Consensus
 {
-    public class ConsensusRequestComponent : MonoBehaviour, INodeComponent
+    public class ConsensusRequestComponent : MonoBehaviour, INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }
         [Inject] private BroadcasterComponent _broadcaster;
 
         private Dictionary<string, IConsensusPacket> _runningConsensuses = new Dictionary<string, IConsensusPacket>();
         [SerializeField, ReadOnly] private ColorVotingConsensusPacket _colorConsensusBuffer;
+
+        [SerializeField] private float _gossipFrequency = 4; // ticks per second
+        private float _timer;
+        private float _time;
+
+        public void OnUpdate()
+        {
+            if (_runningConsensuses.Count == 0)
+                return;
+
+            _time = 1f / _gossipFrequency;
+            _timer += Time.deltaTime;
+
+            if (_timer > _time)
+            {
+                Gossip();
+            }
+
+        }
 
         public void OnInitialize()
         {
@@ -29,7 +48,7 @@ namespace Atom.Broadcasting.Consensus
                 {
                     var colorConsensusOrigin = (ColorVotingConsensusPacket)consensusPacket;
 
-                    if (!colorConsensusOrigin._alreadyVoted.Contains(colorVote.broadcasterID))
+                    //if (!colorConsensusOrigin._alreadyVoted.Contains(colorVote.broadcasterID))
                     {
                         colorConsensusOrigin.consensusVersion++;
                         colorConsensusOrigin.Aggregate(colorVote);
@@ -65,7 +84,7 @@ namespace Atom.Broadcasting.Consensus
                     }
 
                     // forwarding other votes
-                    _broadcaster.RelayBroadcast(colorVote);
+                    //_broadcaster.RelayBroadcast(colorVote);
                 }
                 else
                 {
@@ -76,9 +95,14 @@ namespace Atom.Broadcasting.Consensus
                     newVote.SelectChoice();
 
                     // broadcasting the local node vote first time we receive
-                    _broadcaster.SendBroadcast(newVote);
+                    _broadcaster.SendMulticast(newVote);
                 }
             });
+        }
+
+        private void Gossip()
+        {
+            _broadcaster.SendMulticast(_colorConsensusBuffer);
         }
 
         public void StartBroadcastConsensusPacket(IConsensusPacket consensusPacket)
@@ -99,5 +123,6 @@ namespace Atom.Broadcasting.Consensus
             var colorVotingPacket = new ColorVotingConsensusPacket();
             StartBroadcastConsensusPacket(colorVotingPacket);
         }
+
     }
 }

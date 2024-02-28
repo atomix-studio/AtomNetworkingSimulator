@@ -17,7 +17,6 @@ namespace Atom.DependencyProvider.Samples
 
         private void Awake()
         {
-            DependencyProvider.registerInjectionContextDependenciesAwakeCallback(typeof(SimpleInjectionContext), this);
         }
 
         [Button]

@@ -51,8 +51,6 @@ namespace Atom.DependencyProvider
         /// </summary>
         public static Dictionary<Type, object> Singletons => _singletons;
 
-
-        private static Dictionary<Type, IDependenciesInjectionCallback> _injectionContextDependencyCreatedCallback;
         private static List<object> _injectedDependenciesInstancesBuffer;
         private static HashSet<Type> _containerInjectionBuffer;
 
@@ -152,7 +150,6 @@ namespace Atom.DependencyProvider
 
                         var container = new SingletonContainer(all_types[i], singleton_attribute.LazyLoad, singleton_attribute.AllowSingletonOverride);
                         _singletonContainers.Add(all_types[i], container);
-
                         if (!singleton_attribute.LazyLoad)
                         {
                             // create now
@@ -168,7 +165,6 @@ namespace Atom.DependencyProvider
         private static void _initializeCollections()
         {
             _assemblyTypes = new List<Type>();
-            _injectionContextDependencyCreatedCallback = new Dictionary<Type, IDependenciesInjectionCallback>();
             _injectedDependenciesInstancesBuffer = new List<object>();
             _requiredDependenciesTypes = new Dictionary<Type, List<Type>>();
             // to be refactored in the container ?
@@ -194,14 +190,6 @@ namespace Atom.DependencyProvider
         #endregion
 
         #region PUBLIC
-
-        public static void registerInjectionContextDependenciesAwakeCallback(Type injectionContextType, IDependenciesInjectionCallback dependencyProviderCallbackHandler)
-        {
-            if (!_initialized)
-                internalInitialize();
-
-            _injectionContextDependencyCreatedCallback.Add(injectionContextType, dependencyProviderCallbackHandler);
-        }
 
         /// <summary>
         /// 
@@ -309,7 +297,7 @@ namespace Atom.DependencyProvider
 
                 Debug.LogError($"{ctxtType} initialized.");
 
-                if (_injectionContextDependencyCreatedCallback.TryGetValue(ctxtType, out var handler))
+               /* if (_injectionContextDependencyCreatedCallback.TryGetValue(ctxtType, out var handler))
                 {
                     // very very work in progress
                     // basically what we do is notifying all the injected dependencies that they have been all initiated 
@@ -318,7 +306,7 @@ namespace Atom.DependencyProvider
                     // so it is a good entry point for initialization in a complex system where services can use each other
                     handler.OnDependencyInjected(_injectedDependenciesInstancesBuffer);
                     //_injectedDependenciesInstancesBuffer.Clear();
-                }
+                }*/
 
             }
             else
@@ -334,12 +322,12 @@ namespace Atom.DependencyProvider
 
         public static object getOrCreate(Type componentType, object dependencyContainer)
         {
-            if (_singletonContainers.TryGetValue(componentType, out var singletonInstance))
+            if (_singletonContainers.TryGetValue(componentType, out var singletonContainer))
             {
-                if (singletonInstance == null)
-                    return _findOrCreateSingleton(singletonInstance);
+                if (singletonContainer == null)
+                    return _findOrCreateSingleton(singletonContainer);
 
-                return singletonInstance;
+                return singletonContainer.Instance;
             }
 
             InjectionContextInstanceContainer container = null;

@@ -11,6 +11,7 @@ using UnityEngine;
 
 namespace Atom.Components.Connecting
 {
+    [Serializable]
     public class BootNodeHandling : INodeUpdatableComponent
     {
         public NodeEntity context { get; set; }

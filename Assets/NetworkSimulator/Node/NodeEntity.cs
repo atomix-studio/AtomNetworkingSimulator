@@ -14,7 +14,7 @@ using UnityEditor.Rendering.LookDev;
 using Atom.DependencyProvider.Samples;
 
 [InjectionContext(ForceInheritedTypesInjectionInContext = typeof(INodeComponent))]
-public class NodeEntity : MonoBehaviour, IDependenciesInjectionCallback
+public class NodeEntity : MonoBehaviour
 {
     public BroadcasterComponent broadcaster { get; set; }
     public TransportLayerComponent transportLayer { get; set; }
@@ -22,9 +22,11 @@ public class NodeEntity : MonoBehaviour, IDependenciesInjectionCallback
     public NetworkHandlingComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }
 
     [SerializeField] private NetworkHandlingComponent _networkInfo;
-    private BootNodeHandling _bootNodeHandling;
+    [SerializeField] private BootNodeHandling _bootNodeHandling;
 
-    [Inject] private WorldSimulationManager _worldSimulationManager;
+    private List<INodeUpdatableComponent> _updatableComponents = new List<INodeUpdatableComponent>();
+
+    [Inject, SerializeField] private WorldSimulationManager _worldSimulationManager;
 
     [Header("Params")]
     [SerializeField] private bool _isBoot;
@@ -55,10 +57,23 @@ public class NodeEntity : MonoBehaviour, IDependenciesInjectionCallback
 
     private void Awake()
     {
-        DependencyProvider.registerInjectionContextDependenciesAwakeCallback(typeof(NodeEntity), this);
-
         // creating the instances of all components
-        DependencyProvider.InjectDependencies(this);
+        DependencyProvider.InjectDependencies(this, null, (dependencies) => {
+
+            foreach (var dependency in dependencies)
+            {
+                // initializing everyone when everyone is ready
+                var nComponent = dependency as INodeComponent;
+                if (nComponent != null)
+                {
+                    nComponent.context = this;
+                    nComponent.OnInitialize();
+
+                    if(nComponent is INodeUpdatableComponent)
+                        _updatableComponents.Add(nComponent as INodeUpdatableComponent);
+                }
+            }
+        });
 /*
         foreach (var dependency in DependencyProvider.injectionContextContainers[this].InjectedDependencies)
         {
@@ -73,20 +88,6 @@ public class NodeEntity : MonoBehaviour, IDependenciesInjectionCallback
         if (IsBoot)
         {
             _bootNodeHandling = GetNodeComponent<BootNodeHandling>();
-        }
-    }
-
-    public void OnDependencyInjected(List<object> dependencies)
-    {
-        foreach (var dependency in dependencies)
-        {
-            // initializing everyone when everyone is ready
-            var nComponent = dependency as INodeComponent;
-            if(nComponent != null)
-            {
-                nComponent.context = this;
-                nComponent.OnInitialize();
-            }
         }
     }
 
@@ -204,6 +205,9 @@ public class NodeEntity : MonoBehaviour, IDependenciesInjectionCallback
             return;
 
         CurrentPingSimulatorMultiplier = Mathf.PerlinNoise(Random.Range(-10, 10), Random.Range(-10, 10)) * _pingSimulatorStability;
+
+        for (int i = 0; i < _updatableComponents.Count; ++i)
+            _updatableComponents[i].OnUpdate();
 
         //peerSampling.OnUpdated();
 
