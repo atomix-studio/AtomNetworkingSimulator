@@ -79,15 +79,23 @@ namespace Atom.Components.Connecting
             if (_networkInfo.Connections.ContainsKey(peerInfo.peerID))
                 return;
 
+           /* peerInfo.pendingConnectionResponse = true;
+            _networkInfo.Connections.Add(peerInfo.peerID, peerInfo);*/
+
             _packetRouter.SendRequest(peerInfo.peerAdress, new ConnectionRequestPacket((byte)_networkInfo.Connections.Count), (response) =>
             {
                 if (response == null)
-                    //tcs.SetResult(false);
+                {
+                   /* _networkInfo.Connections.Remove(peerInfo.peerID);*/
+                    peerInfo.Dispose();
                     return;
+                }
+                //tcs.SetResult(false);
 
                 var connectionResponsePacket = (ConnectionRequestResponsePacket)response;
                 if (connectionResponsePacket.isAccepted)
                 {
+
                     peerInfo.UpdateAveragePing(2 * response.GetReceptionDelayMs());
                     // we want to be sure that the sure is up to date here because if its 0 the new connection could be replaced by a worst one at any time
                     peerInfo.SetScoreByDistance(controller.transform.position);
@@ -96,11 +104,17 @@ namespace Atom.Components.Connecting
                     peerInfo.requestedByLocal = true;
                     _networkInfo.AddConnection(peerInfo);
 
-
                     if (removeOnSuccss != null)
                         DisconnectFromPeer(removeOnSuccss);
                 }
-
+                else
+                {
+                    // for the sake of network traffic, connection request that aren't accepted are not sent. 
+                    // the requester will handle that code in the timeout (response == null)
+                    // in case of a misusage/modification of that logic later, I let this here
+                    //_networkInfo.Connections.Remove(peerInfo.peerID);
+                    peerInfo.Dispose();
+                }
                 //tcs.SetResult(connectionResponsePacket.isAccepted);
             });
 

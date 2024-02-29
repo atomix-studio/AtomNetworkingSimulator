@@ -18,7 +18,7 @@ namespace Atom.Broadcasting.Consensus
         // a class variable not used in packet but used to holds the aggregated datas
         public int[] AggregatedSelections { get; set; } = new int[4];
         [SerializerIgnore] public int LocalSelection = -1;
-        public HashSet<string> _alreadyVoted = new HashSet<string>();
+        public List<string> _alreadyVoted = new List<string>();
 
         public ColorVotingConsensusPacket() { }
 
@@ -34,13 +34,14 @@ namespace Atom.Broadcasting.Consensus
             return forwardable;
         }
 
-        public ColorVotingConsensusPacket(short packetIdentifier, string senderID, DateTime sentTime, string broadcastID, string broadcasterID, int colorSelection, string consensusId, int consensusVersion, int[] aggregatedSelections)
+        public ColorVotingConsensusPacket(short packetIdentifier, string senderID, DateTime sentTime, string broadcastID, string broadcasterID, int colorSelection, DateTime consensusStartedTime, string consensusId, int consensusVersion, int[] aggregatedSelections)
         {
             this.packetTypeIdentifier = packetIdentifier;
             this.senderID = senderID;
             this.sentTime = sentTime;
             this.broadcastID = broadcastID;
             this.broadcasterID = broadcasterID;
+            this.concensusStartedTime = consensusStartedTime;
             this.consensusId = consensusId;
             this.consensusVersion = consensusVersion++;
             this.ColorSelection = colorSelection;
@@ -48,7 +49,7 @@ namespace Atom.Broadcasting.Consensus
         }
 
         public ColorVotingConsensusPacket(ColorVotingConsensusPacket subscriptionPacket) :
-            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.ColorSelection, subscriptionPacket.consensusId, subscriptionPacket.consensusVersion, subscriptionPacket.AggregatedSelections)
+            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.ColorSelection, subscriptionPacket.concensusStartedTime, subscriptionPacket.consensusId, subscriptionPacket.consensusVersion, subscriptionPacket.AggregatedSelections)
         {
 
         }

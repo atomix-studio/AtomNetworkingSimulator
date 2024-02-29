@@ -98,7 +98,7 @@ namespace Atom.CommunicationSystem
             // we intercept any request response received by the node to keep updating our ping average value as its finest over connections
             _packetRouter.RegisterOnResponseReceivedCallback((response) =>
             {
-                if(Connections.TryGetValue(response.packet.senderID, out var peerInfo))
+                if (Connections.TryGetValue(response.packet.senderID, out var peerInfo))
                 {
                     peerInfo.UpdateAveragePing(response.requestPing);
                 }
@@ -119,16 +119,20 @@ namespace Atom.CommunicationSystem
 
             TryRemoveKnownPeer(peerInfo);
 
-            if (Connections.ContainsKey(peerInfo.peerID))
+            // we can only 
+            var hasvalue = Connections.TryGetValue(peerInfo.peerID, out var _conn);
+
+            // check for duplicated calls to the AddConnection
+            if (hasvalue && !_conn.pendingConnectionResponse)
                 return;
 
-            Connections.Add(peerInfo.peerID, peerInfo);
+            if (!hasvalue)
+                Connections.Add(peerInfo.peerID, peerInfo);
+
+            peerInfo.pendingConnectionResponse = false;
             _connectionsDebug.Add(peerInfo);
             peerInfo.last_updated = DateTime.Now;
-
-
             UpdateNetworkScore();
-
         }
 
         public void RemoveConnection(PeerInfo peerInfo)
@@ -284,5 +288,21 @@ namespace Atom.CommunicationSystem
             return true;
         }
 
+        public PeerInfo GetBestConnection()
+        {
+            float scr = float.MinValue;
+            PeerInfo best = null;
+            for(int i = 0; i< Connections.Count; ++i)
+            {
+                var peer = Connections.ElementAt(i).Value;
+                if (peer.score > scr)
+                {
+                    scr = peer.score;
+                    best = peer; 
+                    break;
+                }
+            }
+            return best;
+        }
     }
 }

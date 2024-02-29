@@ -12,7 +12,7 @@ namespace Atom.CommunicationSystem
     /// <summary>
     /// Holds data of a peer (adress, lease, etc)
     /// </summary>
-    public class PeerInfo
+    public class PeerInfo : IDisposable
     {
         public PeerInfo() { }
 
@@ -26,10 +26,12 @@ namespace Atom.CommunicationSystem
         [SerializeField] private string _peerID;
         [SerializeField] private string _peerAdress;
         [SerializeField] private bool _requestedByLocal;
+        [SerializeField] private bool _pendingAcceptation;
         [SerializeField] private float _ping;
         [SerializeField] private float _score;
         [SerializeField] private float _trust_coefficient;
         [SerializeField] private DateTime _last_updated;
+        private bool _disposed = false;
 
         public string peerID {  get => _peerID; set => _peerID = value; } 
         public string peerAdress { get => _peerAdress; set => _peerAdress = value; }
@@ -39,6 +41,13 @@ namespace Atom.CommunicationSystem
         /// only requesters handle the heartbeat of the connection
         /// </summary>
         public bool requestedByLocal { get => _requestedByLocal; set => _requestedByLocal = value; }
+
+        /// <summary>
+        /// When a node sends a connection request to another, it adds the connections temporarly with the pending acceptation at true.
+        /// If the connection is accepted it juste sets this value to false
+        /// Else it will remove the peerInfo and
+        /// </summary>
+        public bool pendingConnectionResponse { get => _pendingAcceptation; set => _pendingAcceptation = value; }
 
         /// <summary>
         /// average ping
@@ -87,6 +96,39 @@ namespace Atom.CommunicationSystem
         {
             this.score = score;
             this.last_updated = DateTime.Now;
+        }
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            // This object will be cleaned up by the Dispose method.
+            // Therefore, you should call GC.SuppressFinalize to
+            // take this object off the finalization queue
+            // and prevent finalization code for this object
+            // from executing a second time.
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                // TODO: dispose managed state (managed objects).
+            }
+
+            // TODO: free unmanaged resources (unmanaged objects) and override a finalizer below.
+            // TODO: set large fields to null.
+
+            _disposed = true;
+        }
+
+        public void DisposePacket()
+        {
+            Dispose();
         }
     }
 }

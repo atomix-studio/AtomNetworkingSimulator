@@ -8,7 +8,12 @@ using System.Threading.Tasks;
 namespace Atom.Broadcasting.Consensus
 {
     public interface IConsensusPacket : IClonablePacket, IBroadcastablePacket
-    {        
+    {
+        /// <summary>
+        /// the very first moment the consensus request was broadcasted by its issuer
+        /// </summary>
+        public DateTime concensusStartedTime { get; set; }
+
         /// <summary>
         /// when a node starts a consensus request, it initializes this ID that will be kept over  many broadcasts over the newtork
         /// </summary>

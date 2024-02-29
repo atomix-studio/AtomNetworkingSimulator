@@ -152,7 +152,15 @@ namespace Atom.Broadcasting
 
             var calls_count = GetCurrentFanout(fanoutOverride);
             var current = packet;
-
+             // security here. 
+            // it happens that broadcastable packet are forwared as multicast
+            // if broadcasterID and broadcastID have been cloned or haven't been set, the relayed broadcast from nodes will be filled with string.Empty and the packet multicasted will encounter bugs.
+            if (packet is IBroadcastablePacket)
+            {
+                var brdcst = packet as IBroadcastablePacket;
+                brdcst.broadcasterID = _networkHandling.LocalPeerInfo.peerAdress;
+                brdcst.broadcastID = Guid.NewGuid().ToString();
+            }
             for (int i = 0; i < calls_count; ++i)
             {
                 var index = _random.Next(_networkHandling.Connections.Count);
@@ -170,8 +178,14 @@ namespace Atom.Broadcasting
             if (_networkHandling.Connections.Count <= 0)
                 return;
 
+            // the work is now done by the packet router as it is the solo entry point for transport layer 
+            // it is more secure to handle ids down that system cause if they aare unset for some reason,
+            // it will screw up their ability to be received as they will be blocked by the broadcaster middleware of the receiver
+            // (if two or 3 broadcastable packet arrives with a string.Empty id, all other broadcasts with string.Empty id will be ignored as well
+
             broadcastable.broadcasterID = _networkHandling.LocalPeerInfo.peerID;
             broadcastable.broadcastID = Guid.NewGuid().ToString();
+
             INetworkPacket current = broadcastable;
 
             var calls_count = GetCurrentFanout(fanoutOverride);
@@ -179,6 +193,9 @@ namespace Atom.Broadcasting
             {
                 var index = _random.Next(_networkHandling.Connections.Count);
                 _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, current);
+
+                // cloning packet is done here cause we are in a local environment simulating network packets
+                // the receiver is disposing packet and we surely don't want any strange reference bugs if multiple nodes share an instance of the same packet
                 current = broadcastable.ClonePacket(current);
             }
         }

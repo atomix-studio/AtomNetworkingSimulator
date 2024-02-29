@@ -13,7 +13,7 @@ using static UnityEngine.EventSystems.EventTrigger;
 [Singleton]
 public class WorldSimulationManager : MonoBehaviour
 {
-    public bool DisplayGroupConnections;
+    public bool DisplayBestConnection;
     public bool DisplayListennersConnections;
     public bool DisplaySelectedOnly;
     public bool DisplayPackets;
@@ -122,6 +122,17 @@ public class WorldSimulationManager : MonoBehaviour
             _packetTimer = 1;
         }
 
+        if (DisplayBestConnection)
+        {
+
+            for (int i = 0; i < _currentAliveNodes.Count; ++i)
+            {
+                var best_con = _currentAliveNodes[i].networkHandling.GetBestConnection();
+                if (best_con != null)
+                    Debug.DrawRay(_currentAliveNodes[i].transform.position, nodeAddresses[best_con.peerAdress].transform.position, Color.magenta);
+            }
+        }
+
         if (!_autoSpawn)
             return;
 
@@ -141,6 +152,7 @@ public class WorldSimulationManager : MonoBehaviour
             DisconnectRandomNodeEntity();
             _despawnTimer = 0;
         }
+
     }
 
     public void GenerateNodeEntity(bool startAsleep)

@@ -1,4 +1,5 @@
-﻿using Atom.DependencyProvider;
+﻿using Atom.CommunicationSystem;
+using Atom.DependencyProvider;
 using Atom.Helpers;
 using Sirenix.OdinInspector;
 using System;
@@ -15,8 +16,8 @@ namespace Atom.Broadcasting.Consensus
         public NodeEntity controller { get; set; }
         [Inject] private BroadcasterComponent _broadcaster;
 
-        private Dictionary<string, IConsensusPacket> _runningConsensuses = new Dictionary<string, IConsensusPacket>();
-        [SerializeField, ReadOnly] private ColorVotingConsensusPacket _colorConsensusBuffer;
+        private Dictionary<string, RunningConsensusData> _runningConsensuses = new Dictionary<string, RunningConsensusData>();
+        [SerializeField, ReadOnly] private ColorVotingConsensusPacket debugColorConsensus;
 
         [SerializeField] private float _voteTimeOut = 30; // secondes
         [SerializeField] private float _gossipFrequency = 4; // ticks per second
@@ -24,9 +25,12 @@ namespace Atom.Broadcasting.Consensus
         private float _time;
         private bool _hasPending = false;
 
+        public int[] debugAggregate = new int[4];
+        private List<string> _endingConsensusesBuffer = new List<string>();
+
         public void OnUpdate()
         {
-           
+
 
         }
 
@@ -35,14 +39,39 @@ namespace Atom.Broadcasting.Consensus
             if (_runningConsensuses.Count == 0)
                 return;
 
+
             _time = 1f / _gossipFrequency;
             _timer += Time.deltaTime;
 
             if (_timer > _time)
             {
-                if (_hasPending)
+              
+                foreach (var consensus in _runningConsensuses)
                 {
-                    Gossip();
+                    // todo
+                    // eventually remove it after few minutes
+                    if (consensus.Value.hasExpired)
+                        continue;
+
+                    if (DateTime.Now > consensus.Value.expiration_time )
+                    {
+                        // we don't remove the consensus data at expiration because if we do, 
+                        // we could receive a new consensus packet from another node and can't notice it was expired
+                        consensus.Value.hasExpired = true;                 
+                    }
+                    else
+                    {
+                        if (consensus.Value.hasUpdate)
+                            Gossip(consensus.Value);
+                    }
+                }
+
+                for (int i = 0; i < _endingConsensusesBuffer.Count; ++i)
+                {
+                    Debug.LogError("Gossip timedout");
+                    _runningConsensuses.Remove(_endingConsensusesBuffer[i]);
+                    _endingConsensusesBuffer.RemoveAt(i);
+                    i--;
                 }
 
                 _timer = 0;
@@ -56,43 +85,46 @@ namespace Atom.Broadcasting.Consensus
             {
                 var colorVote = (ColorVotingConsensusPacket)received;
 
-                if (_runningConsensuses.TryGetValue(colorVote.consensusId, out var consensusPacket))
+                if (_runningConsensuses.TryGetValue(colorVote.consensusId, out var consensusData))
                 {
-                    var colorConsensusOrigin = new ColorVotingConsensusPacket((ColorVotingConsensusPacket)consensusPacket);
+                    consensusData.hasUpdate = true;
+                    var colorConsensusOrigin = consensusData.packet as ColorVotingConsensusPacket; // new ColorVotingConsensusPacket((ColorVotingConsensusPacket)consensusPacket.packet);
 
                     //if (!colorConsensusOrigin._alreadyVoted.Contains(colorVote.broadcasterID))
+                    colorConsensusOrigin.consensusVersion++;
+                    colorConsensusOrigin.Aggregate(colorVote);
+                    colorConsensusOrigin._alreadyVoted.Add(colorVote.broadcasterID);
+                    debugAggregate[colorVote.ColorSelection]++;
+
+                    Debug.Log("version" + colorConsensusOrigin.consensusVersion);
+                    int max = 0;
+                    int maxIndex = -1;
+
+                    for (int i = 0; i < colorConsensusOrigin.AggregatedSelections.Length; ++i)
                     {
-                        colorConsensusOrigin.consensusVersion++;
-                        colorConsensusOrigin.Aggregate(colorVote);
-                        colorConsensusOrigin._alreadyVoted.Add(colorVote.broadcasterID);
-
-                        int max = 0;
-                        int maxIndex = -1;
-
-                        for (int i = 0; i < colorConsensusOrigin.AggregatedSelections.Length; ++i)
+                        if (colorConsensusOrigin.AggregatedSelections[i] > max)
                         {
-                            if (colorConsensusOrigin.AggregatedSelections[i] > max)
-                            {
-                                max = colorConsensusOrigin.AggregatedSelections[i];
-                                maxIndex = i;
-                            }
+                            max = colorConsensusOrigin.AggregatedSelections[i];
+                            maxIndex = i;
                         }
+                    }
 
-                        switch (maxIndex)
-                        {
-                            case 0:
-                                controller.material.color = Color.white;
-                                break;
-                            case 1:
-                                controller.material.color = Color.green;
-                                break;
-                            case 2:
-                                controller.material.color = Color.red;
-                                break;
-                            case 3:
-                                controller.material.color = Color.blue;
-                                break;
-                        }
+                    Debug.Log(maxIndex);
+
+                    switch (maxIndex)
+                    {
+                        case 0:
+                            controller.material.color = Color.white;
+                            break;
+                        case 1:
+                            controller.material.color = Color.green;
+                            break;
+                        case 2:
+                            controller.material.color = Color.red;
+                            break;
+                        case 3:
+                            controller.material.color = Color.blue;
+                            break;
                     }
 
                     _hasPending = true;
@@ -102,29 +134,27 @@ namespace Atom.Broadcasting.Consensus
                 else
                 {
                     // choosing a response here
-                    _colorConsensusBuffer = new ColorVotingConsensusPacket(colorVote);
-                    _runningConsensuses.Add(_colorConsensusBuffer.consensusId, _colorConsensusBuffer);
-                    var newVote = new ColorVotingConsensusPacket(_colorConsensusBuffer);
+                    debugColorConsensus = new ColorVotingConsensusPacket(colorVote);
+                    var newVote = new ColorVotingConsensusPacket(colorVote);
                     newVote.SelectChoice();
+                    consensusData = new RunningConsensusData() { hasUpdate = true, packet = newVote, expiration_time = colorVote.concensusStartedTime.AddSeconds(_voteTimeOut) };
+                    _runningConsensuses.Add(debugColorConsensus.consensusId, consensusData);
 
-                    // broadcasting the local node vote first time we receive
-                    _broadcaster.SendMulticast(newVote);
+                    // packet with chosen vote from local node will be sent next gossip roung
+                    /*// broadcasting the local node vote first time we receive
+                    _broadcaster.SendMulticast(newVote);*/
                 }
             });
         }
 
-        private void Gossip()
+        private void Gossip(RunningConsensusData data)
         {
             _hasPending = false;
 
-            if (_colorConsensusBuffer.sentTime.AddSeconds(_voteTimeOut) < DateTime.Now)
-            {
-                Debug.LogError("Gossip timedout");
-                _runningConsensuses.Remove(_colorConsensusBuffer.consensusId);
-                return;
-            }
+            var colorConsensusGossip = data.packet.ClonePacket(data.packet); //new ColorVotingConsensusPacket(debugColorConsensus);
 
-            _broadcaster.SendMulticast(new ColorVotingConsensusPacket(_colorConsensusBuffer));
+            _broadcaster.SendMulticast(colorConsensusGossip);
+            data.hasUpdate = false;
         }
 
         public void StartBroadcastConsensusPacket(IConsensusPacket consensusPacket)
@@ -132,10 +162,12 @@ namespace Atom.Broadcasting.Consensus
             consensusPacket.consensusId = System.Guid.NewGuid().ToString();
             consensusPacket.consensusVersion = 0; // obvious but for the sake of explicity
 
-            _runningConsensuses.Add(consensusPacket.consensusId, consensusPacket);
+            _runningConsensuses.Add(consensusPacket.consensusId, new RunningConsensusData() { hasUpdate = false, packet = consensusPacket });
             // locally voting
             consensusPacket.SelectChoice();
             consensusPacket.Aggregate(consensusPacket);
+
+            consensusPacket.concensusStartedTime = DateTime.Now; 
 
             _broadcaster.SendBroadcast(consensusPacket);
         }

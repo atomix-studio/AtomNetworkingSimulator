@@ -196,7 +196,17 @@ namespace Atom.CommunicationSystem
             networkPacket.senderID = _peerId;
 
             if (networkPacket is IRespondable)
-                (networkPacket as IRespondable).senderAdress = controller.networkHandling.LocalPeerInfo.peerAdress;
+                (networkPacket as IRespondable).senderAdress = networkHandling.LocalPeerInfo.peerAdress;
+
+           /* // security here. 
+            // it happens that broadcastable packet are forwared as multicast
+            // if broadcasterID and broadcastID have been cloned or haven't been set, the relayed broadcast from nodes will be filled with string.Empty and the packet multicasted will encounter bugs.
+            if (networkPacket is IBroadcastablePacket)
+            {
+                var brdcst = networkPacket as IBroadcastablePacket;
+                brdcst.broadcasterID = networkHandling.LocalPeerInfo.peerAdress;
+                brdcst.broadcastID = Guid.NewGuid().ToString();
+            }*/
         }
 
         private async void onReceivePacket(INetworkPacket networkPacket)

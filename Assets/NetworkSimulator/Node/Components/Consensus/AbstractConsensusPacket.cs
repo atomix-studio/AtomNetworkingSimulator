@@ -16,6 +16,9 @@ namespace Atom.Broadcasting.Consensus
         public string broadcasterID { get; set; }
         public string broadcastID { get; set; }
 
+        public DateTime concensusStartedTime { get; set; }
+        // should we set an expiration time here instead ?
+
         public string consensusId { get; set; }
         public int consensusVersion { get; set; }
 
