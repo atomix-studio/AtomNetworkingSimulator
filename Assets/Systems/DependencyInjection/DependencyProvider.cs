@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using static Atom.DependencyProvider.NodeComponentProvider;
@@ -23,7 +24,7 @@ namespace Atom.DependencyProvider
         public static List<Type> InjectionContextTypes => _injectionContextTypes;
         #endregion
 
-        #region Injector Handlers (delegate that handle the set values on the members flagged with InjectComponent in an InjectionContext
+        #region Injector Handlers and Binders (delegate that handle the set values on the members flagged with InjectComponent in an InjectionContext
         private static Dictionary<Type, List<TypeInjectorHandler>> _injectorHandlers;
         /// <summary>
         /// injector handlers are created for each InjectionContext type. 
@@ -426,8 +427,8 @@ namespace Atom.DependencyProvider
 
                 if (has_required_types && _requiredDependenciesTypes[type].Contains(field.FieldType))
                 {
-                    if (inject_attribute != null)
-                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, field, inject_attribute));
+                    if (inject_attribute == null)
+                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, field, null));
 
                     // we remove the field.FieldType from the collection at this point because the injector will handle creation and assignation in the context
                     // all the eventual remaining types in  _requiredDependenciesTypes[type] will be instanced as anonymous dependencies
@@ -454,8 +455,8 @@ namespace Atom.DependencyProvider
 
                 if (has_required_types && _requiredDependenciesTypes[type].Contains(property.PropertyType))
                 {
-                    if (inject_attribute != null)
-                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, property, inject_attribute));
+                    if (inject_attribute == null)
+                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, property, null));
 
                     // we remove the field.FieldType from the collection at this point because the injector will handle creation and assignation in the context
                     // all the eventual remaining types in  _requiredDependenciesTypes[type] will be instanced as anonymous dependencies
