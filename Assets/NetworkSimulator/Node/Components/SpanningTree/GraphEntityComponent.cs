@@ -24,7 +24,7 @@ namespace Atom.Components.GraphNetwork
 
     public class GraphEntityComponent : INodeComponent
     {
-        public NodeEntity context { get ; set ; }
+        public NodeEntity controller { get ; set ; }
         [Inject] private BroadcasterComponent _broadcaster;
 
         public void OnInitialize()

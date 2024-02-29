@@ -19,7 +19,7 @@ namespace Atom.CommunicationSystem
     [Serializable]
     public class NetworkHandlingComponent : MonoBehaviour, INodeUpdatableComponent
     {
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
         [Inject] private HandshakingComponent _handshaking;
         [Inject] private ConnectingComponent _connecting;
         [Inject] private PeerSamplingService _peerSampling;
@@ -110,7 +110,7 @@ namespace Atom.CommunicationSystem
         {
             LocalPeerInfo = localPeerInfo;
             // ugly, will see later to optimize inits
-            context.GetNodeComponent<PacketRouter>().InitPeerAdress(localPeerInfo.peerID);
+            controller.GetNodeComponent<PacketRouter>().InitPeerAdress(localPeerInfo.peerID);
         }
 
         public void AddConnection(PeerInfo peerInfo)
@@ -170,7 +170,7 @@ namespace Atom.CommunicationSystem
 
         public async void OnUpdate()
         {
-            if (context.IsSleeping)
+            if (controller.IsSleeping)
                 return;
 
             foreach (var peer in Connections)
@@ -279,7 +279,7 @@ namespace Atom.CommunicationSystem
                 return false;
             }
 
-            peerInfo.SetScoreByDistance(context.transform.position);
+            peerInfo.SetScoreByDistance(controller.transform.position);
 
             return true;
         }

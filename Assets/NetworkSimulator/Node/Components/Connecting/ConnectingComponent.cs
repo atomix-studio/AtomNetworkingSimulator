@@ -17,7 +17,7 @@ namespace Atom.Components.Connecting
     /// </summary>
     public class ConnectingComponent : INodeComponent
     {
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
         [Inject] private PacketRouter _packetRouter;
         [Inject] private PeerSamplingService _peerSampling;
         [Inject] private NetworkHandlingComponent _networkInfo;
@@ -34,7 +34,7 @@ namespace Atom.Components.Connecting
                 // is this node avalaible ?
                 // multiplying ping per 2 in this case to simulate the return as we dont want to ping the node now
                 PeerInfo peerInfo = new PeerInfo(received.senderID, respondable.senderAdress);
-                peerInfo.SetScoreByDistance(context.transform.position);
+                peerInfo.SetScoreByDistance(controller.transform.position);
                 peerInfo.UpdateAveragePing(2 * received.GetReceptionDelayMs());
 
                 if (CanAcceptConnectionWith(peerInfo, out var toRemove))
@@ -90,7 +90,7 @@ namespace Atom.Components.Connecting
                 {
                     peerInfo.UpdateAveragePing(2 * response.GetReceptionDelayMs());
                     // we want to be sure that the sure is up to date here because if its 0 the new connection could be replaced by a worst one at any time
-                    peerInfo.SetScoreByDistance(context.transform.position);
+                    peerInfo.SetScoreByDistance(controller.transform.position);
                     peerInfo.UpdateAveragePing(connectionResponsePacket.requestPing);
 
                     peerInfo.requestedByLocal = true;
@@ -160,7 +160,7 @@ namespace Atom.Components.Connecting
                 return true;
             }
 
-            if (_networkInfo.Connections.Count >= context.NetworkViewsTargetCount)
+            if (_networkInfo.Connections.Count >= controller.NetworkViewsTargetCount)
             {
                 // trying to replace an existing worst caller by the requesting one
                 foreach (var connection in _networkInfo.Connections)

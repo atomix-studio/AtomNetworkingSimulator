@@ -12,7 +12,7 @@ namespace Atom.Broadcasting.Consensus
 {
     public class ConsensusRequestComponent : MonoBehaviour, INodeUpdatableComponent
     {
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
         [Inject] private BroadcasterComponent _broadcaster;
 
         private Dictionary<string, IConsensusPacket> _runningConsensuses = new Dictionary<string, IConsensusPacket>();
@@ -81,16 +81,16 @@ namespace Atom.Broadcasting.Consensus
                         switch (maxIndex)
                         {
                             case 0:
-                                context.material.color = Color.white;
+                                controller.material.color = Color.white;
                                 break;
                             case 1:
-                                context.material.color = Color.green;
+                                controller.material.color = Color.green;
                                 break;
                             case 2:
-                                context.material.color = Color.red;
+                                controller.material.color = Color.red;
                                 break;
                             case 3:
-                                context.material.color = Color.blue;
+                                controller.material.color = Color.blue;
                                 break;
                         }
                     }

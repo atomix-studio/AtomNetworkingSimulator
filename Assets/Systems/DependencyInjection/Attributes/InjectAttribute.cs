@@ -30,12 +30,6 @@ namespace Atom.DependencyProvider
             /// Bind any dependency to an object scope.  
             /// </summary>
             GameObject = 2,
-
-            /// <summary>
-            /// Specifying this scope will force the provider to inject a ControllerScope instance of the dependency type.
-            /// It also means that if the injection is not required by the service controller, this field will remain null event if the class has been initialized
-            /// </summary>
-            ServiceControllerOnly = 3,
         }
 
         public DependencyScopes DependencyScope { get; set; }

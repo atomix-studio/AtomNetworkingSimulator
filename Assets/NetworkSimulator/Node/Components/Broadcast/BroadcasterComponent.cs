@@ -49,7 +49,7 @@ namespace Atom.Broadcasting
         public Dictionary<string, int> relayedBroadcastsBuffer => _relayedBroadcastsBuffer;
         private List<Func<IBroadcastablePacket, bool>> _receivedBroadcastMiddlewares = new List<Func<IBroadcastablePacket, bool>>();
 
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
 
         public void OnInitialize()
         {
@@ -58,7 +58,7 @@ namespace Atom.Broadcasting
 
             RegisterPacketHandlerWithMiddleware(typeof(BroadcastBenchmarkPacket), (received) =>
             {
-                context.material.color = Color.red;
+                controller.material.color = Color.red;
                 RelayBroadcast((IBroadcastablePacket)received);
             });
         }

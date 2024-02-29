@@ -12,7 +12,7 @@ namespace Atom.Broadcasting
         [Inject] private PacketRouter _router;
         [SerializeField, ShowInInspector, ReadOnly] private int _responsesCount = 0;
 
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
 
         public void OnInitialize()
         {

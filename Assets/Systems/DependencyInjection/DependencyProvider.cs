@@ -148,7 +148,7 @@ namespace Atom.DependencyProvider
                     {
                         var singleton_attribute = attribute as SingletonAttribute;
 
-                        var container = new SingletonContainer(all_types[i], singleton_attribute.LazyLoad, singleton_attribute.AllowSingletonOverride);
+                        var container = new SingletonContainer(all_types[i], singleton_attribute.LazyLoad, singleton_attribute.AllowSingletonOverride, singleton_attribute.DontDestroyOnLoad);
                         _singletonContainers.Add(all_types[i], container);
                         if (!singleton_attribute.LazyLoad)
                         {
@@ -167,8 +167,6 @@ namespace Atom.DependencyProvider
             _assemblyTypes = new List<Type>();
             _injectedDependenciesInstancesBuffer = new List<object>();
             _requiredDependenciesTypes = new Dictionary<Type, List<Type>>();
-            // to be refactored in the container ?
-            // keeping injectionContext type could be good 
             _injectionContextTypes = new List<Type>();
             _injectionContextContainers = new Dictionary<object, InjectionContextInstanceContainer>();
             _injectorHandlers = new Dictionary<Type, List<TypeInjectorHandler>>();
@@ -213,28 +211,29 @@ namespace Atom.DependencyProvider
 
             if (recursiveCall)
             {
+                // avoid cycling while injecting recursively in a complex structure of 
                 if (_containerInjectionBuffer.Contains(injectionContext.GetType()))
                 {
-                    Debug.Log($"Type {injectionContext.GetType()} already initialized in container {dependencyContainerOverride} / context {injectionContext}");
+                    //Debug.Log($"Type {injectionContext.GetType()} already initialized in container {dependencyContainerOverride} / context {injectionContext}");
                     return;
                 }
                 else
                 {
                     _containerInjectionBuffer.Add(injectionContext.GetType());
                 }
-            }            
+            }
 
             var ctxtType = injectionContext.GetType();
             if (injectorHandlers.TryGetValue(ctxtType, out var injectors))
             {
-                Debug.Log($"Start injecting in {ctxtType}, recursive call : {recursiveCall}");
+                //Debug.Log($"Start injecting in {ctxtType}, recursive call : {recursiveCall}");
 
                 if (!recursiveCall)
                 {
                     _injectedDependenciesInstancesBuffer.Clear();
                     _containerInjectionBuffer.Clear();
                 }
-               
+
                 if (_requiredDependenciesTypes.TryGetValue(ctxtType, out var anonymousDependencies))
                 {
                     for (int i = 0; i < anonymousDependencies.Count; ++i)
@@ -273,7 +272,7 @@ namespace Atom.DependencyProvider
                     else
                         injected = injector.Inject(injectionContext);
 
-                    Debug.Log($"Injected {injected} in {ctxtType}");
+                    //Debug.Log($"Injected {injected} in {ctxtType}");
 
                     // if the type that we injected is also an InjectionContext, we will initialize it as well in the same container as the injection context.
                     // 
@@ -295,18 +294,18 @@ namespace Atom.DependencyProvider
                         _injectedDependenciesInstancesBuffer.Add(injected);
                 }
 
-                Debug.LogError($"{ctxtType} initialized.");
+                //Debug.LogError($"{ctxtType} initialized.");
 
-               /* if (_injectionContextDependencyCreatedCallback.TryGetValue(ctxtType, out var handler))
-                {
-                    // very very work in progress
-                    // basically what we do is notifying all the injected dependencies that they have been all initiated 
-                    // we send the instance of the injectionContext within the callback
-                    // from this point, any cross referencing between all injected dependencies from the context are possible
-                    // so it is a good entry point for initialization in a complex system where services can use each other
-                    handler.OnDependencyInjected(_injectedDependenciesInstancesBuffer);
-                    //_injectedDependenciesInstancesBuffer.Clear();
-                }*/
+                /* if (_injectionContextDependencyCreatedCallback.TryGetValue(ctxtType, out var handler))
+                 {
+                     // very very work in progress
+                     // basically what we do is notifying all the injected dependencies that they have been all initiated 
+                     // we send the instance of the injectionContext within the callback
+                     // from this point, any cross referencing between all injected dependencies from the context are possible
+                     // so it is a good entry point for initialization in a complex system where services can use each other
+                     handler.OnDependencyInjected(_injectedDependenciesInstancesBuffer);
+                     //_injectedDependenciesInstancesBuffer.Clear();
+                 }*/
 
             }
             else
@@ -410,62 +409,58 @@ namespace Atom.DependencyProvider
             // by doing this we do the reflection call one time per type only
             _injectorHandlers.Add(type, new List<TypeInjectorHandler>());
 
-            // TODO buffering the reflection datas to be reusable for other instances in a static class with member delegate binder
             var fields = type.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
             foreach (var field in fields)
             {
-                if (has_required_types)
+                InjectAttribute inject_attribute = null;
+                var attributes = field.GetCustomAttributes(true);
+                foreach (var attribute in attributes)
                 {
-                    if (_requiredDependenciesTypes[type].Contains(field.FieldType))
+                    if (attribute.GetType() == typeof(InjectAttribute))
                     {
-                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, field));
-
-                        // in this situation we don't event check for the attribute
-                        // we remove the field.FieldType from the collection at this point because the injector will handle creation and assignation in the context
-                        // all the eventual remaining types in  _requiredDependenciesTypes[type] will be instanced as anonymous dependencies
-                        // and kept in the injectionContextInstance container
-                        _requiredDependenciesTypes[type].Remove(field.FieldType);
-                        continue;
+                        inject_attribute = attribute as InjectAttribute;
+                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, field, inject_attribute));
+                        break;
                     }
                 }
 
-                var attributes = field.CustomAttributes;
-                foreach (var attribute in attributes)
+                if (has_required_types && _requiredDependenciesTypes[type].Contains(field.FieldType))
                 {
-                    if (attribute.AttributeType == typeof(InjectAttribute))
-                    {
-                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, field));
-                        break;
-                    }
+                    if (inject_attribute != null)
+                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, field, inject_attribute));
+
+                    // we remove the field.FieldType from the collection at this point because the injector will handle creation and assignation in the context
+                    // all the eventual remaining types in  _requiredDependenciesTypes[type] will be instanced as anonymous dependencies
+                    // and kept in the injectionContextInstance container
+                    _requiredDependenciesTypes[type].Remove(field.FieldType);
                 }
             }
 
             var properties = type.GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
             foreach (var property in properties)
             {
-                if (has_required_types)
-                {
-                    if (_requiredDependenciesTypes[type].Contains(property.PropertyType))
-                    {
-                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, property));
+                InjectAttribute inject_attribute = null;
 
-                        // in this situation we don't event check for the attribute
-                        // we remove the field.FieldType from the collection at this point because the injector will handle creation and assignation in the context
-                        // all the eventual remaining types in  _requiredDependenciesTypes[type] will be instanced as anonymous dependencies
-                        // and kept in the injectionContextInstance container
-                        _requiredDependenciesTypes[type].Remove(property.PropertyType);
-                        continue;
+                var attributes = property.GetCustomAttributes(true);
+                foreach (var attribute in attributes)
+                {
+                    if (attribute.GetType() == typeof(InjectAttribute))
+                    {
+                        inject_attribute = attribute as InjectAttribute;
+                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, property, inject_attribute));
+                        break;
                     }
                 }
 
-                var attributes = property.CustomAttributes;
-                foreach (var attribute in attributes)
+                if (has_required_types && _requiredDependenciesTypes[type].Contains(property.PropertyType))
                 {
-                    if (attribute.AttributeType == typeof(InjectAttribute))
-                    {
-                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, property));
-                        break;
-                    }
+                    if (inject_attribute != null)
+                        _injectorHandlers[type].Add(new TypeInjectorHandler(type, property, inject_attribute));
+
+                    // we remove the field.FieldType from the collection at this point because the injector will handle creation and assignation in the context
+                    // all the eventual remaining types in  _requiredDependenciesTypes[type] will be instanced as anonymous dependencies
+                    // and kept in the injectionContextInstance container
+                    _requiredDependenciesTypes[type].Remove(property.PropertyType);
                 }
             }
         }
@@ -495,7 +490,7 @@ namespace Atom.DependencyProvider
         private static object _createComponent(Type componentType, InjectionContextInstanceContainer container)
         {
             var casted = container.BindedInstance as Component;
-            if(casted.gameObject.TryGetComponent(componentType, out var comp))
+            if (casted.gameObject.TryGetComponent(componentType, out var comp))
             {
                 container.InjectedDependencies.Add(componentType, comp);
                 return comp;
@@ -524,6 +519,22 @@ namespace Atom.DependencyProvider
                     InjectDependencies(created);
             }
 
+            // we initialize any static value coming in the singleton that is of the same type
+            // but it won't be a good practice to keep doing that as the interest is to actually get an instance reference of the singleton where you need it WITHOUT gettint by Singleton.Instance type of call.
+            var fields = singletonContainer.sType.GetFields(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+            for (int i = 0; i < fields.Length; ++i)
+            {
+                if (fields[i].FieldType == singletonContainer.sType)
+                    fields[i].SetValue(created, created);
+            }
+
+            var properties = singletonContainer.sType.GetProperties(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+            for (int i = 0; i < properties.Length; ++i)
+            {
+                if (properties[i].PropertyType == singletonContainer.sType && properties[i].CanWrite)
+                    properties[i].SetValue(created, created);
+            }
+
             return created;
         }
 
@@ -549,8 +560,15 @@ namespace Atom.DependencyProvider
                 {
                     var singleton_gamobject = new GameObject("singleton_" + singletonContainer.sType.Name);
                     singletonContainer.Instance = singleton_gamobject.AddComponent(singletonContainer.sType);
+
+                    if (singletonContainer.dontDestroyOnLoad)
+                        GameObject.DontDestroyOnLoad(singleton_gamobject);
+
                     return singletonContainer.Instance;
                 }
+
+                if (singletonContainer.dontDestroyOnLoad)
+                    GameObject.DontDestroyOnLoad(((Component)singletonInstances[0]).gameObject);
 
                 // singleton already exists in the scene and is alone as it should, we keep its reference in the container
                 singletonContainer.Instance = singletonInstances[0];

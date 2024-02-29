@@ -15,7 +15,7 @@ namespace Atom.Components.Handshaking
     /// </summary>
     public class HandshakingComponent : INodeComponent
     {
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
         [Inject] private PacketRouter _packetRouter;
 
         public void OnInitialize()
@@ -25,7 +25,7 @@ namespace Atom.Components.Handshaking
                 var respondable = packet as IRespondable;
                 var response = (HandshakeResponsePacket)(respondable.GetResponsePacket(respondable).packet);
                 //response.networkInfoCallersCount = (byte)context.networkHandling.Callers.Count;
-                response.networkInfoListennersCount = (byte)context.networkHandling.Connections.Count;
+                response.networkInfoListennersCount = (byte)controller.networkHandling.Connections.Count;
 
                 _packetRouter.SendResponse(respondable, response);
             });

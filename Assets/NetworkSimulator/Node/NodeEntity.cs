@@ -66,7 +66,7 @@ public class NodeEntity : MonoBehaviour
                 var nComponent = dependency as INodeComponent;
                 if (nComponent != null)
                 {
-                    nComponent.context = this;
+                    nComponent.controller = this;
                     nComponent.OnInitialize();
 
                     if(nComponent is INodeUpdatableComponent)

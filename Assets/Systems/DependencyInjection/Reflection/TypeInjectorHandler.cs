@@ -9,22 +9,26 @@ namespace Atom.DependencyProvider
         {
             private Type _contextType;
             private Type _reflectingType;
+            private InjectAttribute _injectAttribute;
             private DynamicMemberDelegateBinder _binder;
 
             public Type reflectingType => _reflectingType;
+            public InjectAttribute injectAttribute => _injectAttribute;
 
-            public TypeInjectorHandler(Type context, FieldInfo fieldInfo)
+            public TypeInjectorHandler(Type context, FieldInfo fieldInfo, InjectAttribute injectAttribute)
             {
                 _contextType = context;
                 _reflectingType = fieldInfo.FieldType;
+                _injectAttribute = injectAttribute;
                 _binder = new DynamicMemberDelegateBinder();
                 _binder.createFieldDelegatesAuto(fieldInfo);
             }
 
-            public TypeInjectorHandler(Type context, PropertyInfo propertyInfo)
+            public TypeInjectorHandler(Type context, PropertyInfo propertyInfo, InjectAttribute injectAttribute)
             {
                 _contextType = context;
                 _reflectingType = propertyInfo.PropertyType;
+                _injectAttribute = injectAttribute;
                 _binder = new DynamicMemberDelegateBinder();
                 _binder.createPropertyDelegatesAuto(propertyInfo);
             }

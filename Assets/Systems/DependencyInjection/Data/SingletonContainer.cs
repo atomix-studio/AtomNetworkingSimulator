@@ -11,13 +11,15 @@ namespace Atom.DependencyProvider
         public Type sType;
         public bool isLazyLoad;
         public bool allowSingletonOverride;
+        public bool dontDestroyOnLoad;
         public object Instance;
 
-        public SingletonContainer(Type sType, bool isLazyLoad, bool allowSingletonOverride)
+        public SingletonContainer(Type sType, bool isLazyLoad, bool allowSingletonOverride, bool dontDestroyOnLoad)
         {
             this.sType = sType;
             this.isLazyLoad = isLazyLoad;
             this.allowSingletonOverride = allowSingletonOverride;
+            this.dontDestroyOnLoad = dontDestroyOnLoad; 
         }
     }
 }

@@ -38,7 +38,7 @@ namespace Atom.Transport
         private Dictionary<INetworkPacket, NodeEntity> _sendBuffer = new Dictionary<INetworkPacket, NodeEntity>();
 
 
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
         [Inject] private WorldSimulationManager _simulationManager;
 
         /// <summary>
@@ -57,7 +57,7 @@ namespace Atom.Transport
 
         public void OnInitialize()
         {
-            _nodeEntity = context;
+            _nodeEntity = controller;
         }
 
         public void Send(string address, INetworkPacket packet)

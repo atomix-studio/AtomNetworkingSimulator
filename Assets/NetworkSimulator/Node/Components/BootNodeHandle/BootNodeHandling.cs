@@ -14,7 +14,7 @@ namespace Atom.Components.Connecting
     [Serializable]
     public class BootNodeHandling : INodeUpdatableComponent
     {
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
         [Inject] private BroadcasterComponent _broadcaster;
         [Inject] private NetworkHandlingComponent _networkHandling;
 
@@ -24,7 +24,7 @@ namespace Atom.Components.Connecting
 
         public void OnInitialize()
         {
-            if (!context.IsBoot)
+            if (!controller.IsBoot)
                 return;
 
             _broadcaster.RegisterBroadcastReceptionMiddleware(BootNodeBroadcastMiddleware);

@@ -11,7 +11,7 @@ namespace Atom.ClusterConnectionService
 {
     public class ClusterConnectionService : INodeUpdatableComponent
     {
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
         [Inject] private PeerSamplingService _samplingService;
         [Inject] private PacketRouter _packetRouter;
         [Inject] private BroadcasterComponent _broadcaster;
@@ -33,9 +33,9 @@ namespace Atom.ClusterConnectionService
             {
                 var respondable = (packet as IRespondable);
                 var response = (ClusterConnectionRequestResponsePacket)respondable.GetResponsePacket(respondable).packet;
-                response.potentialPeerInfos = new System.Collections.Generic.List<PeerInfo>() { context.networkHandling.LocalPeerInfo };
-                response.potentialPeerInfos.AddRange(context.networkHandling.Connections.Values.ToList());
-                response.potentialPeerInfos.AddRange(context.networkHandling.KnownPeers.Values.ToList());
+                response.potentialPeerInfos = new System.Collections.Generic.List<PeerInfo>() { controller.networkHandling.LocalPeerInfo };
+                response.potentialPeerInfos.AddRange(controller.networkHandling.Connections.Values.ToList());
+                response.potentialPeerInfos.AddRange(controller.networkHandling.KnownPeers.Values.ToList());
                 while(response.potentialPeerInfos.Count > 9)
                 {
                     response.potentialPeerInfos.RemoveAt(UnityEngine.Random.Range(0, response.potentialPeerInfos.Count));   
@@ -58,7 +58,7 @@ namespace Atom.ClusterConnectionService
             {
                 int index = UnityEngine.Random.Range(0, nodesList.Count);
 
-                if (nodesList[index] == context)
+                if (nodesList[index] == controller)
                     continue;
 
                 _btNodeCalls++;
@@ -80,7 +80,7 @@ namespace Atom.ClusterConnectionService
                     // the datas goes to the peer sampling service at this moment.
                     _samplingService.OnReceiveSubscriptionResponse(clusterResponse);
                     _isConnecting = false;
-                    context.IsConnectedAndReady = true;
+                    controller.IsConnectedAndReady = true;
                    /* _broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
                     {
                         var subscriptionResponse = (SubscriptionResponsePacket)response;
@@ -93,7 +93,7 @@ namespace Atom.ClusterConnectionService
 
         public void OnUpdate()
         {
-            if (context.IsSleeping)
+            if (controller.IsSleeping)
                 return;
 
             if (_isConnecting)

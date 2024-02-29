@@ -13,7 +13,7 @@ namespace Atom.CommunicationSystem
     }
     public class PacketRouter : MonoBehaviour, INodeUpdatableComponent
     {
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
         [Inject] public TransportLayerComponent transportLayer { get; set; }
         [Inject] public NetworkHandlingComponent networkHandling { get; set; }
 
@@ -143,7 +143,7 @@ namespace Atom.CommunicationSystem
             _receivePacketHandlers.Add(packetIdentifier, packetReceiveHandler);
 
             if (_packetIdentifiers.ContainsKey(packetType))
-                throw new Exception(packetType + " this " + context.gameObject);
+                throw new Exception(packetType + " this " + controller.gameObject);
             _packetIdentifiers.Add(packetType, packetIdentifier);
         }
 
@@ -196,7 +196,7 @@ namespace Atom.CommunicationSystem
             networkPacket.senderID = _peerId;
 
             if (networkPacket is IRespondable)
-                (networkPacket as IRespondable).senderAdress = context.networkHandling.LocalPeerInfo.peerAdress;
+                (networkPacket as IRespondable).senderAdress = controller.networkHandling.LocalPeerInfo.peerAdress;
         }
 
         private async void onReceivePacket(INetworkPacket networkPacket)
@@ -231,7 +231,7 @@ namespace Atom.CommunicationSystem
                 // responses might be sent outside of a request awaiter (if implemented), so we have to check for a potential handler for the message outside of the awaiters
                 if (_receivePacketHandlers.ContainsKey(networkPacket.packetTypeIdentifier))
                 {
-                    Debug.Log($"{networkPacket.GetType()} has been received by {context} out of a request range.");
+                    Debug.Log($"{networkPacket.GetType()} has been received by {controller} out of a request range.");
                     _onResponseReceived?.Invoke(resp);
 
                     _receivePacketHandlers[networkPacket.packetTypeIdentifier]?.Invoke(networkPacket);

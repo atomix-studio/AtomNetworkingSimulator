@@ -12,7 +12,7 @@ namespace Atom.DependencyProvider.Samples
     }
 
     [Serializable]
-    public class SomeInjectedComponentB : IDependenciesInjectionCallback
+    public class SomeInjectedComponentB 
     {
         [Inject] public SomeInjectedComponentA SomeInjectedComponentA { get; set; }
         public void OnDependencyInjected(List<object> context)
@@ -22,7 +22,7 @@ namespace Atom.DependencyProvider.Samples
     }
 
     [Serializable]
-    public class SomeInjectedComponentC : IDependenciesInjectionCallback
+    public class SomeInjectedComponentC 
     {
         public string SomeInt;
         [Inject] public SomeInjectedComponentA SomeInjectedComponentA { get; set; }
@@ -35,7 +35,7 @@ namespace Atom.DependencyProvider.Samples
     }
 
     [Serializable]
-    public class SomeInjectedComponentD : IDependenciesInjectionCallback
+    public class SomeInjectedComponentD 
     {
         public string SomeInt;
         [Inject] public SomeInjectedComponentB SomeInjectedComponentB { get; set; }

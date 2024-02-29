@@ -10,7 +10,7 @@ namespace Atom.Components.Gossip
 {
     public class GossipComponent : MonoBehaviour, INodeComponent
     {
-        public NodeEntity context { get ; set ; }
+        public NodeEntity controller { get ; set ; }
 
         /// <summary>
         /// number of gossip ticks per minute
@@ -26,7 +26,7 @@ namespace Atom.Components.Gossip
 
         void Update()
         {
-            if (!context.IsConnectedAndReady)
+            if (!controller.IsConnectedAndReady)
                 return;
         }
     }

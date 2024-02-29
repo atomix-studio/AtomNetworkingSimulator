@@ -9,7 +9,7 @@ using UnityEngine;
 namespace Atom.DependencyProvider.Samples
 {
     [InjectionContext]
-    public class SimpleInjectionContext : MonoBehaviour, IDependenciesInjectionCallback
+    public class SimpleInjectionContext : MonoBehaviour
     {
         [Inject, ShowInInspector, ReadOnly] private SomeInjectedComponentA _componentA;
         [Inject, ShowInInspector, ReadOnly] public SomeInjectedComponentB componentB { get; private set; }
@@ -31,12 +31,6 @@ namespace Atom.DependencyProvider.Samples
             DependencyProvider.InjectDependencies(this, this.gameObject);
         }
 
-        // will be called by provider when all dependencies are created
-        // the context can then notify the dependencies by calling a custom initialisation method
-        public void OnDependencyInjected(List<object> dependencyInstance)
-        {
-
-        }
-
+       
     }
 }
