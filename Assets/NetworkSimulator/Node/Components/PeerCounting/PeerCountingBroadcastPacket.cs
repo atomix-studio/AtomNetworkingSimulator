@@ -1,4 +1,5 @@
 ﻿using Atom.CommunicationSystem;
+using Atom.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,7 +34,7 @@ namespace Atom.Components.PeerCounting
 
         }
 
-        public INetworkPacket GetForwardablePacket(INetworkPacket received)
+        public INetworkPacket ClonePacket(INetworkPacket received)
         {
             return new PeerCountingBroadcastPacket(received as PeerCountingBroadcastPacket);
         }
@@ -45,10 +46,11 @@ namespace Atom.Components.PeerCounting
     }
 
     public class PeerCountingBroadcastResponsePacket : AbstractNetworkPacket, IResponse
-    {
-        public INetworkPacket packet => this;
-
+    {        
         public long callerPacketUniqueId { get; set; }
+
+        public INetworkPacket packet => this;
+        [SerializerIgnore] public int requestPing { get; set; }
 
         public PeerCountingBroadcastResponsePacket() { }
     }

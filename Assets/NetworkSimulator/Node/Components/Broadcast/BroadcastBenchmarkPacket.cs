@@ -8,7 +8,7 @@ namespace Atom.CommunicationSystem
 {
     internal class BroadcastBenchmarkPacket : AbstractBroadcastablePacket
     {
-        public override INetworkPacket GetForwardablePacket(INetworkPacket received)
+        public override INetworkPacket ClonePacket(INetworkPacket received)
         {
             return new BroadcastBenchmarkPacket((BroadcastBenchmarkPacket)received);
         }

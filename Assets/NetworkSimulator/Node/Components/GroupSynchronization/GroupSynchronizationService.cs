@@ -1,4 +1,4 @@
-﻿using Atom.ComponentProvider;
+﻿using Atom.DependencyProvider;
 using System;
 
 namespace Atom.GroupManagement
@@ -14,7 +14,7 @@ namespace Atom.GroupManagement
     /// </summary>
     public class GroupSynchronizationService : INodeComponent
     {
-        public NodeEntity context { get ; set; }
+        public NodeEntity controller { get ; set; }
 
         public void OnInitialize()
         {

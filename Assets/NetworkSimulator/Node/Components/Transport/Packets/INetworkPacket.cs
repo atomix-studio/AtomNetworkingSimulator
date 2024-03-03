@@ -13,5 +13,10 @@ namespace Atom.CommunicationSystem
         ///  access to IDisposable dispose
         /// </summary>
         public void DisposePacket();
+
+        public virtual int GetReceptionDelayMs()
+        {
+            return (DateTime.Now - sentTime).Milliseconds;
+        }
     }
 }

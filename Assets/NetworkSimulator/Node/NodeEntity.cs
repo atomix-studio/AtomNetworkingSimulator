@@ -1,22 +1,32 @@
 using Atom.Transport;
 using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
+using Atom.Broadcasting;
 using System.Collections.Generic;
 using UnityEngine;
 using Sirenix.OdinInspector;
 using Atom.ClusterConnectionService;
 using Atom.Components.Handshaking;
 using System.Linq;
+using Atom.Components.Connecting;
+using Sirenix.Utilities;
+using UnityEditor.Rendering.LookDev;
+using Atom.DependencyProvider.Samples;
 
+[InjectionContext(ForceInheritedTypesInjectionInContext = typeof(INodeComponent))]
 public class NodeEntity : MonoBehaviour
 {
-    public NodeComponentProvider componentProvider { get; private set; }
-    public BroadcasterComponent broadcaster { get; private set; }
-    public TransportLayerComponent transportLayer { get; private set; }
-    public NetworkHandlingComponent networkHandling { get => _networkInfo; private set => _networkInfo = value; }
-    public PeerSamplingService peerSampling { get; private set; }
+    public BroadcasterComponent broadcaster { get; set; }
+    public TransportLayerComponent transportLayer { get; set; }
+    public PeerSamplingService peerSampling { get; set; }
+    public NetworkHandlingComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }
 
     [SerializeField] private NetworkHandlingComponent _networkInfo;
+    [SerializeField] private BootNodeHandling _bootNodeHandling;
+
+    private List<INodeUpdatableComponent> _updatableComponents = new List<INodeUpdatableComponent>();
+
+    [Inject, SerializeField] private WorldSimulationManager _worldSimulationManager;
 
     [Header("Params")]
     [SerializeField] private bool _isBoot;
@@ -32,7 +42,7 @@ public class NodeEntity : MonoBehaviour
     public int NetworkViewsTargetCount => _networkViewsTargetCount;
 
     [Header("Variables")]
-    public bool IsConnected = false;
+    public bool IsConnectedAndReady = false;
     public bool IsInGroup = false;
     public bool IsSleeping = false;
 
@@ -41,51 +51,63 @@ public class NodeEntity : MonoBehaviour
     public bool IsBoot => _isBoot;
     public Material material => _material;
 
-    /// <summary>
-    /// The current group entities, alive TCP connections
-    /// </summary>
-    public List<NodeEntity> Connections = new List<NodeEntity>();
-
-
     private float _timerBetweenTryConnection;
     private int _groupRequestsSent;
     private Material _material;
 
     private void Awake()
     {
-        componentProvider = GetComponent<NodeComponentProvider>();
-        componentProvider.Initialize();
+        // creating the instances of all components
+        DependencyProvider.InjectDependencies(this, null, (dependencies) => {
 
-        broadcaster = GetNodeComponent<BroadcasterComponent>();
-        transportLayer = GetNodeComponent<TransportLayerComponent>();
-        networkHandling = GetNodeComponent<NetworkHandlingComponent>();
-        peerSampling = GetNodeComponent<PeerSamplingService>();
+            foreach (var dependency in dependencies)
+            {
+                // initializing everyone when everyone is ready
+                var nComponent = dependency as INodeComponent;
+                if (nComponent != null)
+                {
+                    nComponent.controller = this;
+                    nComponent.OnInitialize();
+
+                    if(nComponent is INodeUpdatableComponent)
+                        _updatableComponents.Add(nComponent as INodeUpdatableComponent);
+                }
+            }
+        });
+/*
+        foreach (var dependency in DependencyProvider.injectionContextContainers[this].InjectedDependencies)
+        {
+            // initializing everyone when everyone is ready
+            var nComponent = dependency.Value as INodeComponent;
+            nComponent.context = this;
+            nComponent.OnInitialize();
+        }*/
 
         _material = GetComponent<MeshRenderer>().material;
+
+        if (IsBoot)
+        {
+            _bootNodeHandling = GetNodeComponent<BootNodeHandling>();
+        }
     }
 
     public void OnStart(ClusterInfo clusterInfo, bool sleeping)
     {
-        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = System.Guid.NewGuid().ToString(), peerAdress = this.name, ping = 0, trust_coefficient = 0 });
+        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = System.Guid.NewGuid().ToString(), peerAdress = this.name, averagePing = 0, trust_coefficient = 0 });
 
         GetNodeComponent<ClusterConnectionService>().ConnectToCluster(clusterInfo);
         IsSleeping = sleeping;
     }
 
-    public T GetNodeComponent<T>() where T: INodeComponent
+    public T GetNodeComponent<T>() where T : INodeComponent
     {
-        return componentProvider.Get<T>();
+        return (T)DependencyProvider.getOrCreate(typeof(T), this);
     }
 
     void OnDisable()
     {
-        for (int i = 0; i < Connections.Count; ++i)
-        {
-            Connections[i]?.GroupDisconnect(this);
-        }
 
-        Connections.Clear();
-        IsConnected = false;
+        IsConnectedAndReady = false;
         IsInGroup = false;
         _material.color = Color.gray;
     }
@@ -93,53 +115,43 @@ public class NodeEntity : MonoBehaviour
     [Button]
     public void TestConnectToCluster()
     {
-        var clusterConnectionService = componentProvider.Get<ClusterConnectionService>();
-        clusterConnectionService.ConnectToCluster(WorldSimulationManager.defaultCluster);
+        /*var clusterConnectionService = componentProvider.Get<ClusterConnectionService>();
+        clusterConnectionService.ConnectToCluster(WorldSimulationManager.defaultCluster);*/
     }
 
     [Button]
 
     public async void TestAwaitableGetPingWithPeer(NodeEntity nodeEntity)
     {
-        var handshakingService = componentProvider.Get<HandshakingComponent>();
+        var handshakingService = this.GetDependency<HandshakingComponent>();
         var ping = await handshakingService.GetPingAsync(nodeEntity);
         Debug.LogError("Ping" + ping);
-    }
-
-
-    private bool IsConnectedWith(NodeEntity requester)
-    {
-        for (int i = 0; i < Connections.Count; ++i)
-        {
-            if (Connections[i] == requester) return true;
-        }
-        return false;
     }
 
     // DIFFERENCIER REJOINDRE GROUPE DU REQUESTER ET GROUPE DU LOCAL 
     public void OnReceiveGroupRequest(NodeEntity requester)
     {
-        if (Connections.Count < _preferedGroupSize
-            && !IsConnectedWith(requester))
-        {
-            //   requester.JoinLocalGroup();
+        /* if (Connections.Count < _preferedGroupSize
+             && !IsConnectedWith(requester))
+         {
+             //   requester.JoinLocalGroup();
 
-            if (requester.GroupConnect(this))
-            {
-                Connections.Add(requester);
-                IsInGroup = true;
-            }
-        }
-        else
-        {
-            transportLayer.SendPacket(requester, "GROUP_REQUEST_REFUSED");
-        }
+             if (requester.GroupConnect(this))
+             {
+                 Connections.Add(requester);
+                 IsInGroup = true;
+             }
+         }
+         else
+         {
+             transportLayer.SendPacket(requester, "GROUP_REQUEST_REFUSED");
+         }*/
     }
 
 
     public bool GroupConnect(NodeEntity connection)
     {
-        if (Connections.Count < _preferedGroupSize
+        /*if (Connections.Count < _preferedGroupSize
              && !IsConnectedWith(connection))
         {
             Debug.Log($"Connection from {connection} accepter by {this}");
@@ -161,46 +173,32 @@ public class NodeEntity : MonoBehaviour
             }
 
             return true;
-        }
+        }*/
 
         return false;
     }
 
-    public void GroupDisconnect(NodeEntity connection)
-    {
-        //Debug.Log($"{this} is disconnecting from {connection}");
-        Connections.Remove(connection);
-    }
-
     private void Update()
     {
-        if(!WorldSimulationManager.Instance.DisplaySelectedOnly || this == WorldSimulationManager.Instance.DebugSelectedNodeEntity)
+        if (!_worldSimulationManager.DisplaySelectedOnly || this == _worldSimulationManager.DebugSelectedNodeEntity)
         {
-            if (WorldSimulationManager.Instance.DisplayGroupConnections)
-            {
-                for (int i = 0; i < Connections.Count; ++i)
-                {
-                    Debug.DrawLine(transform.position + Vector3.up, Connections[i].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.red);
-                }
-            }
-            else
-            {
-                if (WorldSimulationManager.Instance.DisplayCallersConnections)
-                {
-                    for (int i = 0; i < networkHandling.Callers.Count; ++i)
-                    {
-                        Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Callers.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.red);
-                    }
-                }
 
-                if (WorldSimulationManager.Instance.DisplayListennersConnections)
+            /*if (WorldSimulationManager.Instance.DisplayCallersConnections)
+            {
+                for (int i = 0; i < networkHandling.Callers.Count; ++i)
                 {
-                    for (int i = 0; i < networkHandling.Listenners.Count; ++i)
-                    {
-                        Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Listenners.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.black);
-                    }
+                    Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Callers.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, WorldSimulationManager.Instance.DebugSelectedNodeEntity == this ? Color.green : Color.red);
+                }
+            }*/
+
+            if (_worldSimulationManager.DisplayListennersConnections)
+            {
+                for (int i = 0; i < networkHandling.Connections.Count; ++i)
+                {
+                    Debug.DrawLine(transform.position + Vector3.up, WorldSimulationManager.nodeAddresses[networkHandling.Connections.ElementAt(i).Value.peerAdress].transform.position + Vector3.up, _worldSimulationManager.DebugSelectedNodeEntity == this ? Color.green : Color.black);
                 }
             }
+
         }
 
         if (IsSleeping)
@@ -208,22 +206,26 @@ public class NodeEntity : MonoBehaviour
 
         CurrentPingSimulatorMultiplier = Mathf.PerlinNoise(Random.Range(-10, 10), Random.Range(-10, 10)) * _pingSimulatorStability;
 
+        for (int i = 0; i < _updatableComponents.Count; ++i)
+            _updatableComponents[i].OnUpdate();
+
         //peerSampling.OnUpdated();
 
         if (_isBoot)
             return;
+        /*
+                if (Connections.Count < _preferedGroupSize)
+                {
+                    _timerBetweenTryConnection += Time.deltaTime;
+                    if (_timerBetweenTryConnection > _delayBetweenGroupFindingRequest)
+                    {
+                        // broadcast in the network to find new connections (TCP)
+                        peerSampling.SendNextGroupConnectionRequest();
+                        _timerBetweenTryConnection = 0;
+                    }
+                }
 
-        if (Connections.Count < _preferedGroupSize)
-        {
-            _timerBetweenTryConnection += Time.deltaTime;
-            if (_timerBetweenTryConnection > _delayBetweenGroupFindingRequest)
-            {
-                // broadcast in the network to find new connections (TCP)
-                peerSampling.SendNextGroupConnectionRequest();
-                _timerBetweenTryConnection = 0;
-            }
-        }
-
-        IsInGroup = Connections.Count > 0;
+                IsInGroup = Connections.Count > 0;*/
     }
+
 }

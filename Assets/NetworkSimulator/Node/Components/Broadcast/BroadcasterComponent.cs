@@ -1,6 +1,7 @@
-﻿using Atom.CommunicationSystem;
+﻿using Atom.Broadcasting;
 using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
+using Atom.Helpers;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Atom.CommunicationSystem
+namespace Atom.Broadcasting
 {
     public static class BroadcasterEventHandler
     {
@@ -21,8 +22,8 @@ namespace Atom.CommunicationSystem
 
     public class BroadcasterComponent : MonoBehaviour, INodeComponent
     {
-        [InjectComponent] private PacketRouter _router;
-        [InjectComponent] private NetworkHandlingComponent _networkHandling;
+        [Inject] private PacketRouter _router;
+        [Inject] private NetworkHandlingComponent _networkHandling;
 
         [Header("Broadcasting Properties")]
         // number of calls for a broadcast
@@ -46,8 +47,9 @@ namespace Atom.CommunicationSystem
         private Dictionary<string, int> _relayedBroadcastsBuffer;
 
         public Dictionary<string, int> relayedBroadcastsBuffer => _relayedBroadcastsBuffer;
+        private List<Func<IBroadcastablePacket, bool>> _receivedBroadcastMiddlewares = new List<Func<IBroadcastablePacket, bool>>();
 
-        public NodeEntity context { get; set; }
+        public NodeEntity controller { get; set; }
 
         public void OnInitialize()
         {
@@ -56,7 +58,7 @@ namespace Atom.CommunicationSystem
 
             RegisterPacketHandlerWithMiddleware(typeof(BroadcastBenchmarkPacket), (received) =>
             {
-                context.material.color = Color.red;
+                controller.material.color = Color.red;
                 RelayBroadcast((IBroadcastablePacket)received);
             });
         }
@@ -73,15 +75,39 @@ namespace Atom.CommunicationSystem
             {
                 // the router checks for packet that are IBroadcastable and ensure they haven't been too much relayed
                 // if the packet as reached is maximum broadcast cycles on the node and the router receives it one more time
-                if (receivedPacket is IBroadcastablePacket && !UpdateAndCheckBroadcastIsForwardable((IBroadcastablePacket)receivedPacket))
+                if (receivedPacket is IBroadcastablePacket)
                 {
-                    receivedPacket.DisposePacket();
-                    return;
+                    var broadcastable = (IBroadcastablePacket)receivedPacket;
+                    if (!CheckBroadcastRelayCycles(broadcastable))
+                        return;
+
+                    for (int i = 0; i < _receivedBroadcastMiddlewares.Count; ++i)
+                    {
+                        if (!_receivedBroadcastMiddlewares[i](broadcastable))
+                            return;
+                    }
+
                 }
 
                 packetReceiveHandler?.Invoke(receivedPacket);
             },
             true);
+        }
+
+        public void RegisterBroadcastReceptionMiddleware(Func<IBroadcastablePacket, bool> routingMiddleware)
+        {
+            if (_receivedBroadcastMiddlewares == null)
+                _receivedBroadcastMiddlewares = new List<Func<IBroadcastablePacket, bool>>();
+
+            _receivedBroadcastMiddlewares.Add(routingMiddleware);
+        }
+
+        public void UnregisterBroadcastReceptionMiddleware(Func<IBroadcastablePacket, bool> routingMiddleware)
+        {
+            if (_receivedBroadcastMiddlewares == null)
+                return;
+
+            _receivedBroadcastMiddlewares.Add(routingMiddleware);
         }
 
         /// <summary>
@@ -100,9 +126,9 @@ namespace Atom.CommunicationSystem
         /// <param name="target"></param>
         /// <param name="networkPacket"></param>
         /// <param name="responseCallback"></param>
-        public void SendRequest(string listennerAddrss, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 1000)
+        public void SendRequest(string listennerAdress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 50000)
         {
-            _router.SendRequest(listennerAddrss, networkPacket, responseCallback, timeout_ms);
+            _router.SendRequest(listennerAdress, networkPacket, responseCallback, timeout_ms);
         }
 
         /// <summary>
@@ -116,23 +142,61 @@ namespace Atom.CommunicationSystem
         }
 
         /// <summary>
-        /// Sends a packet to <_fanout> listenners, selected randomly
+        /// Sends a packet to <_fanout> listenners, selected randomly (not a broadcast, the packets will just go to their receivers and won't be relayed)
         /// </summary>
         /// <param name="broadcastable"></param>
-        public void SendBroadcast(IBroadcastablePacket broadcastable, int fanoutOverride = -1)
+        public void SendMulticast(INetworkPacket packet, int fanoutOverride = -1)
         {
-            if (_networkHandling.Listenners.Count <= 0)
+            if (_networkHandling.Connections.Count <= 0)
                 return;
 
+            var calls_count = GetCurrentFanout(fanoutOverride);
+            var current = packet;
+             // security here. 
+            // it happens that broadcastable packet are forwared as multicast
+            // if broadcasterID and broadcastID have been cloned or haven't been set, the relayed broadcast from nodes will be filled with string.Empty and the packet multicasted will encounter bugs.
+            if (packet is IBroadcastablePacket)
+            {
+                var brdcst = packet as IBroadcastablePacket;
+                brdcst.broadcasterID = _networkHandling.LocalPeerInfo.peerAdress;
+                brdcst.broadcastID = Guid.NewGuid().ToString();
+            }
+            for (int i = 0; i < calls_count; ++i)
+            {
+                var index = _random.Next(_networkHandling.Connections.Count);
+                _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, current);
+                current = ((IClonablePacket)packet).ClonePacket(current);
+            }
+        }
+
+        /// <summary>
+        /// Sends a packet to <_fanout> listenners, selected randomly, that will be relayed until certain conditions are met (cycles, timeout, broadcast relay limit achieved over all network...)
+        /// </summary>
+        /// <param name="broadcastable"></param>
+        public void SendBroadcast(IBroadcastablePacket broadcastable, int fanoutOverride = -1, int cyclesRange = -1)
+        {
+            if (_networkHandling.Connections.Count <= 0)
+                return;
+
+            // the work is now done by the packet router as it is the solo entry point for transport layer 
+            // it is more secure to handle ids down that system cause if they aare unset for some reason,
+            // it will screw up their ability to be received as they will be blocked by the broadcaster middleware of the receiver
+            // (if two or 3 broadcastable packet arrives with a string.Empty id, all other broadcasts with string.Empty id will be ignored as well
+
+            broadcastable.broadcasterID = _networkHandling.LocalPeerInfo.peerID;
             broadcastable.broadcastID = Guid.NewGuid().ToString();
-            var current = broadcastable;
+
+            INetworkPacket current = broadcastable;
 
             var calls_count = GetCurrentFanout(fanoutOverride);
             for (int i = 0; i < calls_count; ++i)
             {
-                var index = _random.Next(_networkHandling.Listenners.Count);
-                _router.Send(_networkHandling.Listenners.ElementAt(index).Value.peerAdress, current);
-                current = (IBroadcastablePacket)broadcastable.GetForwardablePacket(current);
+                var index = _random.Next(_networkHandling.Connections.Count);
+                _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, current);
+
+                // cloning packet is done here cause we are in a local environment simulating network packets
+                // the receiver is disposing packet and we surely don't want any strange reference bugs if multiple nodes share an instance of the same packet
+                current = broadcastable.ClonePacket(current);
             }
         }
 
@@ -142,9 +206,6 @@ namespace Atom.CommunicationSystem
         /// <param name="packet"></param>
         public void RelayBroadcast(IBroadcastablePacket broadcastable, int fanoutOverride = -1)
         {
-            if (!UpdateAndCheckBroadcastIsForwardable(broadcastable))
-                return;
-
             // allow other service to handle whatever they need when a broadcast is received and (accepted)
             BroadcasterEventHandler.BroadcastPacketRelayed(broadcastable);
 
@@ -155,40 +216,18 @@ namespace Atom.CommunicationSystem
               to remove TryRegisterPeer(packet.Sender);
  */
             // broadcast cannot be relayed if the node doesn't have any listenners to send it to
-            if (_networkHandling.Listenners.Count <= 0)
+            if (_networkHandling.Connections.Count <= 0)
                 return;
 
             var calls_count = GetCurrentFanout(fanoutOverride);
 
             for (int i = 0; i < calls_count; ++i)
             {
-                var count_break = 0;
-                var index = 0;
-                do
-                {
-                    index = _random.Next(_networkHandling.Listenners.Count);
-                    count_break++;
-
-                    if (count_break > calls_count * 2)
-                        break;
-                }
-
-                // there is a probability that a node receive a broadcast from its callers that has been issued by a node contained in the callers view
-                // so we don't want to send it back its message 
-                while (_networkHandling.Listenners.ElementAt(index).Value.peerID == broadcastable.broadcasterID);
+                var index = BroadcastingHelpers.GetRandomConnectionIndexForBroadcast(_networkHandling.Connections, broadcastable.broadcasterID, broadcastable.senderID, calls_count * 2);
 
                 // create a new packet from the received and forwards it to the router
-                var relayedPacket = broadcastable.GetForwardablePacket(broadcastable);
-                _router.Send(_networkHandling.Listenners.ElementAt(index).Value.peerAdress, relayedPacket);
-
-                /* _nodeEntity.transportLayer.SendPacketBroadcast(
-                                    packet.Broadcaster,
-                                    AvalaiblePeers[index],
-                                    Protocol.HTTP,
-                                    packet.Payload,
-                                    // ICI on relaye bien l'identifiant unique du broadcast (ne pas confondre avec l'identifiant unique du message)
-                                    // cela permet d'éviter de relayer en boucle un broadcast
-                                    packet.BroadcastID);*/
+                var relayedPacket = broadcastable.ClonePacket(broadcastable);
+                _router.Send(_networkHandling.Connections.ElementAt(index).Value.peerAdress, relayedPacket);
             }
         }
 
@@ -197,7 +236,7 @@ namespace Atom.CommunicationSystem
             if (fanoutOverride > 0)
                 return fanoutOverride;
 
-            return _fanout > _networkHandling.Listenners.Count ? _networkHandling.Listenners.Count : _fanout;
+            return _fanout > _networkHandling.Connections.Count ? _networkHandling.Connections.Count : _fanout;
         }
 
         /// <summary>
@@ -208,10 +247,12 @@ namespace Atom.CommunicationSystem
         /// </summary>
         public void ClearRelayedBroadcastsBuffer()
         {
-
+            // we could imagine keeping the last broadcasts as they can be still alive at the time we delete it
+            // but that's not a big deal if broadcasts are relayed twice their cycles on a random node sometime
+            _relayedBroadcastsBuffer.Clear();
         }
 
-        private bool UpdateAndCheckBroadcastIsForwardable(IBroadcastablePacket packet)
+        private bool CheckBroadcastRelayCycles(IBroadcastablePacket packet)
         {
             if (_relayedBroadcastsBuffer.ContainsKey(packet.broadcastID))
             {

@@ -1,5 +1,5 @@
 ﻿using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,17 +15,17 @@ namespace Atom.Components.Handshaking
     /// </summary>
     public class HandshakingComponent : INodeComponent
     {
-        public NodeEntity context { get; set; }
-        [InjectComponent] private PacketRouter _packetRouter;
+        public NodeEntity controller { get; set; }
+        [Inject] private PacketRouter _packetRouter;
 
         public void OnInitialize()
         {
             _packetRouter.RegisterPacketHandler(typeof(HandshakePacket), (packet) =>
             {
                 var respondable = packet as IRespondable;
-                var response = (HandshakeResponsePacket)respondable.GetResponsePacket(respondable);
-                response.networkInfoCallersCount = (byte)context.networkHandling.Callers.Count;
-                response.networkInfoListennersCount = (byte)context.networkHandling.Listenners.Count;
+                var response = (HandshakeResponsePacket)(respondable.GetResponsePacket(respondable).packet);
+                //response.networkInfoCallersCount = (byte)context.networkHandling.Callers.Count;
+                response.networkInfoListennersCount = (byte)controller.networkHandling.Connections.Count;
 
                 _packetRouter.SendResponse(respondable, response);
             });
@@ -34,14 +34,16 @@ namespace Atom.Components.Handshaking
 
         public async Task<HandshakeResponsePacket> GetHandshakeAsync(PeerInfo peer)
         {
-            var taskCompletionSource = new TaskCompletionSource<HandshakeResponsePacket>();
+            var taskCompletionSource = new TaskCompletionSource<HandshakeResponsePacket>(TaskCreationOptions.RunContinuationsAsynchronously);
             //var cts = new CancellationTokenSource(99999);
 
-            var sentTime = DateTime.Now;
             _packetRouter.SendRequest(peer.peerAdress, new HandshakePacket(), (response) =>
             {
+                if (response == null)
+                    return;
+
                 var handshakeResponse = (HandshakeResponsePacket)response;
-                peer.ping = (DateTime.Now - sentTime).Milliseconds;
+                peer.UpdateAveragePing(handshakeResponse.requestPing);
 
                 if (taskCompletionSource.Task.IsCanceled)
                     return;
@@ -81,6 +83,9 @@ namespace Atom.Components.Handshaking
             var sentTime = DateTime.Now;
             _packetRouter.SendRequest(nodeEntity.name, new HandshakePacket(), (response) =>
             {
+                if (response == null)
+                    return;
+
                 float ping = (DateTime.Now - sentTime).Milliseconds;
                 taskCompletionSource.SetResult(ping);
             });

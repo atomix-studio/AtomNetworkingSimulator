@@ -1,12 +1,13 @@
 ﻿using Atom.CommunicationSystem;
 using Atom.Components.Handshaking;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using Atom.Helpers;
 
 namespace Atom.Components.Connecting
 {
@@ -16,11 +17,11 @@ namespace Atom.Components.Connecting
     /// </summary>
     public class ConnectingComponent : INodeComponent
     {
-        public NodeEntity context { get; set; }
-        [InjectComponent] private PacketRouter _packetRouter;
-        [InjectComponent] private PeerSamplingService _peerSampling;
-        [InjectComponent] private NetworkHandlingComponent _networkInfo;
-        [InjectComponent] private HandshakingComponent _handshaking;
+        public NodeEntity controller { get; set; }
+        [Inject] private PacketRouter _packetRouter;
+        [Inject] private PeerSamplingService _peerSampling;
+        [Inject] private NetworkHandlingComponent _networkInfo;
+        [Inject] private HandshakingComponent _handshaking;
 
         public void OnInitialize()
         {
@@ -28,34 +29,41 @@ namespace Atom.Components.Connecting
             _packetRouter.RegisterPacketHandler(typeof(ConnectionRequestPacket), (received) =>
             {
                 var respondable = (IRespondable)received;
-                var response = (ConnectionRequestResponsePacket)respondable.GetResponsePacket(respondable);
                 var connectionRequest = (ConnectionRequestPacket)received;
 
                 // is this node avalaible ?
                 // multiplying ping per 2 in this case to simulate the return as we dont want to ping the node now
-                var ping = (DateTime.Now - received.sentTime).Milliseconds * 2f;
                 PeerInfo peerInfo = new PeerInfo(received.senderID, respondable.senderAdress);
-                peerInfo.ComputeScore(ping, connectionRequest.networkInfoCallersCount, connectionRequest.networkInfoListennersCount);
+                peerInfo.SetScoreByDistance(controller.transform.position);
+                peerInfo.UpdateAveragePing(2 * received.GetReceptionDelayMs());
 
-                response.isAccepted = TryAcceptCaller(peerInfo);
+                if (CanAcceptConnectionWith(peerInfo, out var toRemove))
+                {
+                    var response = (ConnectionRequestResponsePacket)respondable.GetResponsePacket(respondable);
 
-                _packetRouter.SendResponse((IRespondable)received, response);
+                    response.isAccepted = true;
+                    _networkInfo.AddConnection(peerInfo);
+                    _packetRouter.SendResponse((IRespondable)received, response);
+
+                    if(toRemove != null)
+                        DisconnectFromPeer(toRemove);   
+                }
             });
 
             _packetRouter.RegisterPacketHandler(typeof(DisconnectFromPeerNotificationPacket), (packet) =>
             {
-                var adress = (packet as IRespondable).senderAdress;
-                var caller = _networkInfo.FindCallerByAdress(adress);
-                if (caller != null) 
-                {
-                    _networkInfo.RemoveCaller(caller);
-                    return;
-                }
+                var adress = (packet as DisconnectFromPeerNotificationPacket).senderAdress;
+                /* var caller = _networkInfo.FindCallerByAdress(adress);
+                 if (caller != null) 
+                 {
+                     _networkInfo.RemoveCaller(caller);
+                     return;
+                 }*/
 
-                var listenner = _networkInfo.FindListennerByAdress(adress);
-                if(listenner != null)
+                var connection = _networkInfo.FindConnectionByAdress(adress);
+                if (connection != null)
                 {
-                    _networkInfo.RemoveListenner(listenner);
+                    _networkInfo.RemoveConnection(connection);
                 }
             });
         }
@@ -64,103 +72,124 @@ namespace Atom.Components.Connecting
         /// A connection request aims to add the requested node in LISTENNERS view
         /// </summary>
         /// <param name="peerInfo"></param>
-        public void SendConnectionRequestTo(PeerInfo peerInfo)
+        public void SendConnectionRequestTo(PeerInfo peerInfo, PeerInfo removeOnSuccss = null)
         {
-            var sentTime = DateTime.Now;
-            _packetRouter.SendRequest(peerInfo.peerAdress, new ConnectionRequestPacket((byte)_networkInfo.Callers.Count, (byte)_networkInfo.Listenners.Count), (response) =>
+            //var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            if (_networkInfo.Connections.ContainsKey(peerInfo.peerID))
+                return;
+
+           /* peerInfo.pendingConnectionResponse = true;
+            _networkInfo.Connections.Add(peerInfo.peerID, peerInfo);*/
+
+            _packetRouter.SendRequest(peerInfo.peerAdress, new ConnectionRequestPacket((byte)_networkInfo.Connections.Count), (response) =>
             {
+                if (response == null)
+                {
+                   /* _networkInfo.Connections.Remove(peerInfo.peerID);*/
+                    peerInfo.Dispose();
+                    return;
+                }
+                //tcs.SetResult(false);
+
                 var connectionResponsePacket = (ConnectionRequestResponsePacket)response;
-                peerInfo.ping = (DateTime.Now - sentTime).Milliseconds;
-                // we want to be sure that the sure is up to date here because if its 0 the new connection could be replaced by a worst one at any time
-                peerInfo.ComputeScore(peerInfo.ping, context.NetworkViewsTargetCount, context.NetworkViewsTargetCount);
                 if (connectionResponsePacket.isAccepted)
                 {
-                    _networkInfo.AddListenner(peerInfo);
+
+                    peerInfo.UpdateAveragePing(2 * response.GetReceptionDelayMs());
+                    // we want to be sure that the sure is up to date here because if its 0 the new connection could be replaced by a worst one at any time
+                    peerInfo.SetScoreByDistance(controller.transform.position);
+                    peerInfo.UpdateAveragePing(connectionResponsePacket.requestPing);
+
+                    peerInfo.requestedByLocal = true;
+                    _networkInfo.AddConnection(peerInfo);
+
+                    if (removeOnSuccss != null)
+                        DisconnectFromPeer(removeOnSuccss);
                 }
+                else
+                {
+                    // for the sake of network traffic, connection request that aren't accepted are not sent. 
+                    // the requester will handle that code in the timeout (response == null)
+                    // in case of a misusage/modification of that logic later, I let this here
+                    //_networkInfo.Connections.Remove(peerInfo.peerID);
+                    peerInfo.Dispose();
+                }
+                //tcs.SetResult(connectionResponsePacket.isAccepted);
             });
+
+            //return await tcs.Task;
         }
 
-        public bool TryAcceptCaller(PeerInfo peerInfo)
-        {
-            if (_networkInfo.Callers.Count == 0)
-            {
-                _networkInfo.AddCaller(peerInfo);
-                return true;
-            }
-
-            if (_networkInfo.Callers.Count >= context.NetworkViewsTargetCount)
-            {
-                // trying to replace an existing worst caller by the requesting one
-                foreach (var caller in _networkInfo.Callers)
+        /*        public bool TryAcceptCaller(PeerInfo peerInfo)
                 {
-                    if (peerInfo.score > caller.Value.score)
+                    if (_networkInfo.Callers.Count == 0)
                     {
-                        // add random function
-                        // replacing the listenner by the new peer
-                        DisconnectFromCaller(caller.Value);
-
                         _networkInfo.AddCaller(peerInfo);
-
                         return true;
                     }
-                }
 
-                return false;
-            }
-
-            _networkInfo.AddCaller(peerInfo);
-            return true;
-        }
-
-        public bool TryAcceptListenner(PeerInfo peerInfo)
-        {
-            if (_networkInfo.Listenners.Count == 0)
-            {
-                _networkInfo.AddListenner(peerInfo);
-                return true;
-            }
-
-            if (_networkInfo.Listenners.Count >= context.NetworkViewsTargetCount)
-            {
-                // trying to replace an existing worst caller by the requesting one
-                foreach (var listenner in _networkInfo.Listenners)
-                {
-                    if (peerInfo.score > listenner.Value.score)
+                    if (_networkInfo.Callers.Count >= context.NetworkViewsTargetCount)
                     {
-                        // add random function
-                        // replacing the listenner by the new peer
+                        // trying to replace an existing worst caller by the requesting one
+                        foreach (var caller in _networkInfo.Callers)
+                        {
+                            if (peerInfo.score > caller.Value.score)
+                            {
+                                // add random function
+                                // replacing the listenner by the new peer
+                                DisconnectFromCaller(caller.Value);
 
-                        DisconnectFromListenner(listenner.Value);
+                                _networkInfo.AddCaller(peerInfo);
 
-                        _networkInfo.AddListenner(peerInfo);
+                                return true;
+                            }
+                        }
 
-                        return true;
+                        return false;
                     }
+
+                    _networkInfo.AddCaller(peerInfo);
+                    return true;
                 }
+        */
 
-                return false;
-            }
-
-            _networkInfo.AddListenner(peerInfo);
-            return true;
-        }
-
-        public bool CanAcceptListenner(PeerInfo peerInfo)
+        /// <summary>
+        /// Is there any room for this new peer OR this new peers fits better (better score) ?
+        /// </summary>
+        /// <param name="peerInfo"></param>
+        /// <returns></returns>
+        public bool CanAcceptConnectionWith(PeerInfo peerInfo, out PeerInfo toDisconnect)
         {
-            if (_networkInfo.Listenners.Count == 0)
+            toDisconnect = null;
+
+            if (peerInfo.peerAdress == _networkInfo.LocalPeerInfo.peerAdress)
+                return false;
+
+            if (_networkInfo.Connections.ContainsKey(peerInfo.peerID))
+                return false;
+
+            if (_networkInfo.Connections.Count == 0)
             {
                 return true;
             }
 
-            if (_networkInfo.Listenners.Count >= context.NetworkViewsTargetCount)
+            if (_networkInfo.Connections.Count >= controller.NetworkViewsTargetCount)
             {
                 // trying to replace an existing worst caller by the requesting one
-                foreach (var listenner in _networkInfo.Listenners)
+                foreach (var connection in _networkInfo.Connections)
                 {
-                    if (peerInfo.score > listenner.Value.score)
-                    {                        
+                    if (peerInfo.score > connection.Value.score)
+                    {
+                        toDisconnect = connection.Value;
                         return true;
                     }
+
+                   /* if (NodeRandom.Range(0f, 100f) > 97)
+                    {
+                        toDisconnect = connection.Value;
+                        return true;
+                    }*/
                 }
 
                 return false;
@@ -169,15 +198,17 @@ namespace Atom.Components.Connecting
             return true;
         }
 
-        public void DisconnectFromCaller(PeerInfo peerInfo)
-        {
-            _networkInfo.RemoveCaller(peerInfo);
-            _packetRouter.Send(peerInfo.peerAdress, new DisconnectFromPeerNotificationPacket());
-        }
 
-        public void DisconnectFromListenner(PeerInfo peerInfo)
+        /*
+                public void DisconnectFromCaller(PeerInfo peerInfo)
+                {
+                    _networkInfo.RemoveCaller(peerInfo);
+                    _packetRouter.Send(peerInfo.peerAdress, new DisconnectFromPeerNotificationPacket());
+                }
+        */
+        public void DisconnectFromPeer(PeerInfo peerInfo)
         {
-            _networkInfo.RemoveListenner(peerInfo);
+            _networkInfo.RemoveConnection(peerInfo);
             _packetRouter.Send(peerInfo.peerAdress, new DisconnectFromPeerNotificationPacket());
         }
 

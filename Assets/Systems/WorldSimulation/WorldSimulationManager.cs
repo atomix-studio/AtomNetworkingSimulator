@@ -1,27 +1,24 @@
+using Atom.Broadcasting.Consensus;
 using Atom.ClusterConnectionService;
 using Atom.CommunicationSystem;
+using Atom.DependencyProvider;
 using Sirenix.OdinInspector;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
+using static UnityEngine.EventSystems.EventTrigger;
 
+[Singleton]
 public class WorldSimulationManager : MonoBehaviour
 {
-    public static WorldSimulationManager Instance;
-
-    public bool DisplayGroupConnections;
-    public bool DisplayCallersConnections;
+    public bool DisplayBestConnection;
     public bool DisplayListennersConnections;
     public bool DisplaySelectedOnly;
-    [OnValueChanged("updateDisplayPackets")] public bool DisplayPackets;
-
-    private void updateDisplayPackets() => displayPackets = Instance.DisplayPackets;
-    public static bool displayPackets;
-
-    [OnValueChanged("updatePacketSpeed")] public float PacketSpeed = 100;
-    private void updatePacketSpeed() => packetSpeed = Instance.PacketSpeed; 
+    public bool DisplayPackets;
+    public bool TransportInstantaneously = true;
+    public float PacketSpeed = 25;
 
     [SerializeField] private NodeEntity _pf_NodeEntity;
 
@@ -42,8 +39,6 @@ public class WorldSimulationManager : MonoBehaviour
 
     // as we are simulating the network, the address (IP) is faked and saved in the world manager
     public static Dictionary<string, NodeEntity> nodeAddresses { get; private set; }
-    public static float packetSpeed { get; private set; } = 75;
-    public static ClusterInfo defaultCluster => Instance._defaultCluster;
 
     private int _nodeEntityIdGenerator = 0;
 
@@ -61,10 +56,7 @@ public class WorldSimulationManager : MonoBehaviour
 
     private void Awake()
     {
-        // cheap singleton for prototyping is goodenough
-        Instance = this;
         nodeAddresses = new Dictionary<string, NodeEntity>();
-
     }
 
     [Button]
@@ -77,10 +69,10 @@ public class WorldSimulationManager : MonoBehaviour
 
     private void Start()
     {
-        for (int i = 0; i < defaultCluster.BootNodes.Count; i++)
+        for (int i = 0; i < _defaultCluster.BootNodes.Count; i++)
         {
-            nodeAddresses.Add(defaultCluster.BootNodes[i].name, defaultCluster.BootNodes[i]);
-            defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = defaultCluster.BootNodes[i].name, peerAdress = defaultCluster.BootNodes[i].name, ping = 0, trust_coefficient = 0 });
+            nodeAddresses.Add(_defaultCluster.BootNodes[i].name, _defaultCluster.BootNodes[i]);
+            _defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = _defaultCluster.BootNodes[i].name, peerAdress = _defaultCluster.BootNodes[i].name, averagePing = 0, trust_coefficient = 0 });
         }
 
         GenerateEntities(_startNodeEntitiesCount, false);
@@ -130,6 +122,17 @@ public class WorldSimulationManager : MonoBehaviour
             _packetTimer = 1;
         }
 
+        if (DisplayBestConnection)
+        {
+
+            for (int i = 0; i < _currentAliveNodes.Count; ++i)
+            {
+                var best_con = _currentAliveNodes[i].networkHandling.GetBestConnection();
+                if (best_con != null)
+                    Debug.DrawLine(_currentAliveNodes[i].transform.position, nodeAddresses[best_con.peerAdress].transform.position, Color.magenta);
+            }
+        }
+
         if (!_autoSpawn)
             return;
 
@@ -149,6 +152,7 @@ public class WorldSimulationManager : MonoBehaviour
             DisconnectRandomNodeEntity();
             _despawnTimer = 0;
         }
+
     }
 
     public void GenerateNodeEntity(bool startAsleep)
@@ -166,7 +170,7 @@ public class WorldSimulationManager : MonoBehaviour
         newNodeEntity.name = "nodeEntity_" + _nodeEntityIdGenerator++;
         _currentAliveNodes.Add(newNodeEntity);
         nodeAddresses.Add(newNodeEntity.name, newNodeEntity);
-      
+
         newNodeEntity.transform.SetParent(this.transform);
         newNodeEntity.OnStart(_defaultCluster, startAsleep);
     }
@@ -182,29 +186,48 @@ public class WorldSimulationManager : MonoBehaviour
     }
 
     [Button]
-    private void SetAllSleeping(bool entity, bool transportlayer)
+    private void SleepAll()
     {
         foreach (var node in _currentAliveNodes)
         {
-            if (entity)
-                node.IsSleeping = true;
-
-            if (transportlayer)
-                node.transportLayer.IsSleeping = true;
+            node.IsSleeping = true;
+            node.transportLayer.IsSleeping = true;
+            node.GetNodeComponent<PacketRouter>().IsSleeping = true;
         }
     }
 
     [Button]
-    private void SetAllAwaken(bool entity, bool transportlayer)
+    private void AwakeTransportLayerAll()
     {
         foreach (var node in _currentAliveNodes)
         {
-            if (entity)
-                node.IsSleeping = false;
-
-            if (transportlayer)
-                node.transportLayer.IsSleeping = false;
+            node.transportLayer.IsSleeping = false;
+            node.GetNodeComponent<PacketRouter>().IsSleeping = false;
         }
+    }
+
+    [Button]
+    private void AwakeAll()
+    {
+        foreach (var node in _currentAliveNodes)
+        {
+            node.IsSleeping = false;
+            node.transportLayer.IsSleeping = false;
+            node.GetNodeComponent<PacketRouter>().IsSleeping = false;
+        }
+    }
+
+    [Button]
+    private void VotingTesting()
+    {
+        foreach (var node in _currentAliveNodes)
+        {
+            node.material.color = Color.black;
+        }
+
+        var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
+        startNode.GetNodeComponent<ConsensusRequestComponent>().StartColorVoting();
+        //startNode.peerSampling.BroadcastBenchmark();
     }
 
     [Button]
@@ -224,7 +247,7 @@ public class WorldSimulationManager : MonoBehaviour
     private void BroadcastDiscovery()
     {
         var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
-        startNode.peerSampling.BroadcastDiscoveryRequest();
+        startNode.peerSampling.TryBroadcastDiscoveryRequest();
     }
 
     [Button]

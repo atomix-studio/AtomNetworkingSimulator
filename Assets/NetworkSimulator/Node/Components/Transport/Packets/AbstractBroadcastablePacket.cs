@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Atom.CommunicationSystem
 {
-    public abstract class AbstractBroadcastablePacket : IBroadcastablePacket
+    public abstract class AbstractBroadcastablePacket : IBroadcastablePacket, IClonablePacket
     {
         #region Data set by router at send
         public short packetTypeIdentifier { get; set; }
@@ -17,7 +17,7 @@ namespace Atom.CommunicationSystem
         public string broadcastID { get; set; }
 
         #endregion
-        public abstract INetworkPacket GetForwardablePacket(INetworkPacket received);
+        public abstract INetworkPacket ClonePacket(INetworkPacket received);
 
         #region Dispose implementation
 

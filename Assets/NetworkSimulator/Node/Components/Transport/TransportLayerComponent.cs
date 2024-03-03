@@ -1,5 +1,5 @@
 ﻿using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using UnityEngine;
 using static UnityEngine.GraphicsBuffer;
 using UnityEngine.UIElements;
+using System.Net;
+using System.Threading;
 
 namespace Atom.Transport
 {
@@ -28,16 +30,17 @@ namespace Atom.Transport
 
 
         private Dictionary<INetworkPacket, NodeEntity> currentTravellingPacketTarget = new Dictionary<INetworkPacket, NodeEntity>();
-        private Dictionary<INetworkPacket, Vector3> currentTravellingPacketsPosition = new Dictionary<INetworkPacket, Vector3>();
+        private Dictionary<INetworkPacket, float> currentTravellingPacketsElapsedTime = new Dictionary<INetworkPacket, float>();
+        private Dictionary<INetworkPacket, float> currentTravellingPacketsTime = new Dictionary<INetworkPacket, float>();
         private Dictionary<INetworkPacket, Vector3> currentTravellingPacketsDestination = new Dictionary<INetworkPacket, Vector3>();
 
-        public NodeEntity context { get; set; }
-        private WorldSimulationManager _simulationManager;
+        //debug only
+        private Dictionary<INetworkPacket, NodeEntity> _sendBuffer = new Dictionary<INetworkPacket, NodeEntity>();
 
-        void Awake()
-        {
-            _simulationManager = WorldSimulationManager.Instance;
-        }
+
+        public NodeEntity controller { get; set; }
+        [Inject] private WorldSimulationManager _simulationManager;
+
         /// <summary>
         /// Initialize the routing of the packets received by the transport layer to a delegate routing service
         /// </summary>
@@ -54,15 +57,28 @@ namespace Atom.Transport
 
         public void OnInitialize()
         {
-            _nodeEntity = context;
-            _simulationManager = WorldSimulationManager.Instance;
+            _nodeEntity = controller;
         }
-
 
         public void Send(string address, INetworkPacket packet)
         {
+            if (IsSleeping)
+                return;
+
             var destination = WorldSimulationManager.nodeAddresses[address];
-            _addPacket(destination, packet);
+            WorldSimulationManager._totalPacketSent++;
+            WorldSimulationManager._totalPacketSentPerSecondCount++;
+
+            if (_simulationManager.TransportInstantaneously)
+            {
+                _sendBuffer.Add(packet, destination);
+
+                //destination.transportLayer.routerReceiveCallback.Invoke(packet);
+            }
+            else
+            {
+                _addPacket(destination, packet);
+            }
         }
 
         // add a packet to the collections that simulates the network travelling
@@ -70,14 +86,17 @@ namespace Atom.Transport
         {
             currentTravellingPacketTarget.Add(packet, target);
             currentTravellingPacketsDestination.Add(packet, target.transform.position);
-            currentTravellingPacketsPosition.Add(packet, transform.position);
+            float ttime = Vector3.Distance(target.transform.position, transform.position) / _simulationManager.PacketSpeed;
+            currentTravellingPacketsTime.Add(packet, ttime) ;
+            currentTravellingPacketsElapsedTime.Add(packet, 0);
         }
 
         private void _removePacket(INetworkPacket packet)
         {
             currentTravellingPacketTarget.Remove(packet);
             currentTravellingPacketsDestination.Remove(packet);
-            currentTravellingPacketsPosition.Remove(packet);
+            currentTravellingPacketsElapsedTime.Remove(packet);
+            currentTravellingPacketsTime.Remove(packet);
 
             // packets are disposed when their job is done 
             packet.DisposePacket();
@@ -85,35 +104,33 @@ namespace Atom.Transport
 
         private void _updateTravellingPackets()
         {
-            for (int i = 0; i < currentTravellingPacketsPosition.Count; ++i)
+            var pos = transform.position;
+            for (int i = 0; i < currentTravellingPacketsElapsedTime.Count; ++i)
             {
-                var packet = currentTravellingPacketsPosition.ElementAt(i);
-                var direction = currentTravellingPacketsDestination[packet.Key] - currentTravellingPacketsPosition[packet.Key];
-
+                var packet = currentTravellingPacketsElapsedTime.ElementAt(i);
+                var direction = currentTravellingPacketsDestination[packet.Key] - pos;
+                float ratio = currentTravellingPacketsElapsedTime[packet.Key] / currentTravellingPacketsTime[packet.Key];
                 // 
-                if (WorldSimulationManager.displayPackets)
-                    Debug.DrawLine(transform.position, currentTravellingPacketsPosition[packet.Key], Color.blue);
+                if (_simulationManager.DisplayPackets)
+                    Debug.DrawLine(transform.position, Vector3.Lerp(pos, currentTravellingPacketsDestination[packet.Key], ratio), Color.blue);
 
-                if (direction.magnitude < .1f)
+                if ( ratio >= 1f)
                 {
                     if (currentTravellingPacketTarget[packet.Key].gameObject.activeSelf)
                     {
                         WorldSimulationManager._totalPacketReceived++;
                         WorldSimulationManager._totalPacketReceivedPerSecondCount++;
 
-                        if (!IsSleeping)
-                            currentTravellingPacketTarget[packet.Key].transportLayer.routerReceiveCallback.Invoke(packet.Key);
+                        currentTravellingPacketTarget[packet.Key].transportLayer.routerReceiveCallback.Invoke(packet.Key);
                     }
 
-                    
                     _removePacket(packet.Key);
-                    packet.Key.DisposePacket();
                     i--;
                 }
                 else
                 {
                     direction.Normalize();
-                    currentTravellingPacketsPosition[packet.Key] += direction * Time.deltaTime * WorldSimulationManager.packetSpeed;
+                    currentTravellingPacketsElapsedTime[packet.Key] += Time.deltaTime * _simulationManager.PacketSpeed;
                 }
             }
         }
@@ -129,12 +146,22 @@ namespace Atom.Transport
 
         private void Update()
         {
-           /* for (int i = 0; i < travellingPackets.Count; ++i)
-                travellingPackets[i].OnUpdate();*/
+            /* for (int i = 0; i < travellingPackets.Count; ++i)
+                 travellingPackets[i].OnUpdate();*/
 
 
             _updateTravellingPackets();
 
+        }
+
+        private void LateUpdate()
+        {
+            foreach (var packet in _sendBuffer)
+            {
+                packet.Value.transportLayer.routerReceiveCallback.Invoke(packet.Key);
+            }
+
+            _sendBuffer.Clear();
         }
 
         public void SendPacket(NodeEntity target, string payload, List<NodeEntity> potentialPeers = null)

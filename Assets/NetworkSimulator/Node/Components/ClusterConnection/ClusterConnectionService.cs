@@ -1,19 +1,21 @@
 ﻿using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+using Atom.DependencyProvider;
+using Atom.Broadcasting;
 using Sirenix.OdinInspector;
 using System;
 using System.Linq;
+using System.Net;
 using UnityEngine;
 
 namespace Atom.ClusterConnectionService
 {
     public class ClusterConnectionService : INodeUpdatableComponent
     {
-        public NodeEntity context { get; set; }
-        [InjectComponent] private PeerSamplingService _samplingService;
-        [InjectComponent] private PacketRouter _packetRouter;
-        [InjectComponent] private BroadcasterComponent _broadcaster;
-        [InjectComponent] private NetworkHandlingComponent _networkHandling;
+        public NodeEntity controller { get; set; }
+        [Inject] private PeerSamplingService _samplingService;
+        [Inject] private PacketRouter _packetRouter;
+        [Inject] private BroadcasterComponent _broadcaster;
+        [Inject] private NetworkHandlingComponent _networkHandling;
 
         /// <summary>
         /// the maximum number of boot nodes a node can reach while joining the network
@@ -30,64 +32,68 @@ namespace Atom.ClusterConnectionService
             _packetRouter.RegisterPacketHandler(typeof(ClusterConnectionRequestPacket), (packet) =>
             {
                 var respondable = (packet as IRespondable);
-                _packetRouter.SendResponse(respondable, respondable.GetResponsePacket(respondable));
+                var response = (ClusterConnectionRequestResponsePacket)respondable.GetResponsePacket(respondable).packet;
+                response.potentialPeerInfos = new System.Collections.Generic.List<PeerInfo>() { controller.networkHandling.LocalPeerInfo };
+                response.potentialPeerInfos.AddRange(controller.networkHandling.Connections.Values.ToList());
+                response.potentialPeerInfos.AddRange(controller.networkHandling.KnownPeers.Values.ToList());
+                while(response.potentialPeerInfos.Count > 9)
+                {
+                    response.potentialPeerInfos.RemoveAt(UnityEngine.Random.Range(0, response.potentialPeerInfos.Count));   
+                }
+
+                _packetRouter.SendResponse(respondable, response);
             });
 
             _packetRouter.RegisterPacketHandler(typeof(ClusterConnectionRequestResponsePacket), null);
-
-            // the response packet doesn't have to be registered if its called with a send response.
-            // it will be routed to the caller id
-            _packetRouter.RegisterPacketHandler(typeof(SubscriptionPacket), (subscriptionReceivedPacket) =>
-            {
-                var respondable = (subscriptionReceivedPacket as IRespondable);
-                var subResponse = (SubscriptionResponsePacket)respondable.GetResponsePacket(respondable);
-
-                // the boot sends all the node he knows to allow the newcomer to make a first selection of the best peers from this list
-                subResponse.potentialPeerInfos = context.networkHandling.Callers.Values.ToList();
-                subResponse.potentialPeerInfos.Add(context.networkHandling.LocalPeerInfo);
-                subResponse.potentialPeerInfos.AddRange(context.networkHandling.Listenners.Values.ToList());
-                // the new peer will eventually propagate a discovery request to these new nodes to really deeply connect to the network
-
-                _packetRouter.SendResponse(respondable, subResponse);
-            });
-
-            _packetRouter.RegisterPacketHandler(typeof(SubscriptionResponsePacket), null);
         }
 
         public void ConnectToCluster(ClusterInfo clusterInfo)
         {
             _clusterInfo = clusterInfo;
             _isConnecting = true;
+            var nodesList = clusterInfo.BootNodes.ToList();
 
             int _btNodeCalls = 0;
-            foreach (var bootNode in clusterInfo.BootNodes)
+            while(_btNodeCalls < _maximumBootNodeCalls || nodesList.Count == 0)
             {
-                if (bootNode == context)
+                int index = UnityEngine.Random.Range(0, nodesList.Count);
+
+                if (nodesList[index] == controller)
                     continue;
 
                 _btNodeCalls++;
                 if (_btNodeCalls > _maximumBootNodeCalls)
                     break;
 
-                _broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
+                _broadcaster.SendRequest(nodesList[index].networkHandling.LocalPeerInfo.peerAdress, new ClusterConnectionRequestPacket(), (response) =>
                 {
-                    Debug.Log("Received cluster connection response. Sending new subscription request.");
+                    // means a timout or an error
+                    if(response == null)
+                    {
+                        Debug.LogError("Connection to cluster request timed out. Quitting isConnecting state.");
+                        _isConnecting = false;
+                        return;
+                    }
 
-                    _broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
+                    Debug.Log("Received cluster connection response. Sending new subscription request.");
+                    var clusterResponse = (ClusterConnectionRequestResponsePacket)response;
+                    // the datas goes to the peer sampling service at this moment.
+                    _samplingService.OnReceiveSubscriptionResponse(clusterResponse);
+                    _isConnecting = false;
+                    controller.IsConnectedAndReady = true;
+                   /* _broadcaster.SendRequest(bootNode.networkHandling.LocalPeerInfo.peerAdress, new SubscriptionPacket(), (response) =>
                     {
                         var subscriptionResponse = (SubscriptionResponsePacket)response;
 
-                        // the datas goes to the peer sampling service at this moment.
-                        _samplingService.OnReceiveSubscriptionResponse(subscriptionResponse);
-                        _isConnecting = false;
-                    });
+                       
+                    });*/
                 });
             }
         }
 
         public void OnUpdate()
         {
-            if (context.IsSleeping)
+            if (controller.IsSleeping)
                 return;
 
             if (_isConnecting)
@@ -95,7 +101,7 @@ namespace Atom.ClusterConnectionService
 
 
             // routine to check disconnctions
-            if (_networkHandling.Listenners.Count == 0)
+            if (_networkHandling.Connections.Count == 0)
             {
                 _disconnectedTimer += Time.deltaTime;
 

@@ -47,9 +47,6 @@ namespace Atom.CommunicationSystem
 
         public void Send(NodeEntity sender, NodeEntity target, string payload)
         {
-            WorldSimulationManager._totalPacketSent++;
-            WorldSimulationManager._totalPacketSentPerSecondCount++;
-
             _position = sender.transform.position;
             _startPosition = _position;
 

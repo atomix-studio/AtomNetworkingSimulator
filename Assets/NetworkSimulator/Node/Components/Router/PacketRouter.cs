@@ -1,32 +1,35 @@
-﻿using Assets.NetworkSimulator.Node.CommunicationSystem.Components.Router;
-using Atom.CommunicationSystem;
-using Atom.ComponentProvider;
+﻿using Atom.DependencyProvider;
 using Atom.Transport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Atom.CommunicationSystem
 {
+    public static class PacketRouterEventHandler
+    {
+     
+    }
     public class PacketRouter : MonoBehaviour, INodeUpdatableComponent
     {
-        public NodeEntity context { get; set; }
-        [InjectComponent] public TransportLayerComponent transportLayer { get; set; }
-        [InjectComponent] public NetworkHandlingComponent networkHandling { get; set; }
+        public NodeEntity controller { get; set; }
+        [Inject] public TransportLayerComponent transportLayer { get; set; }
+        [Inject] public NetworkHandlingComponent networkHandling { get; set; }
 
         private string _peerId;
        
+        private Action<INetworkPacket> _onReceiveExternal;
         private Dictionary<Type, short> _packetIdentifiers = new Dictionary<Type, short>();
         private Dictionary<short, Action<INetworkPacket>> _receivePacketHandlers = new Dictionary<short, Action<INetworkPacket>>();
         private Dictionary<long, INetworkPacketResponseAwaiter> _packetResponseAwaitersBuffer = new Dictionary<long, INetworkPacketResponseAwaiter>();
 
-        private Action<INetworkPacket> _onReceiveExternal;
-        private List<Func<INetworkPacket, bool>> _receivePacketMiddlewares;
-        private List<Func<INetworkPacket, bool>> _sendPacketMiddlewares;
+
+        private List<Func<INetworkPacket, bool>> _receivePacketMiddlewares = new List<Func<INetworkPacket, bool>>();
+        private List<Func<INetworkPacket, bool>> _sendPacketMiddlewares = new List<Func<INetworkPacket, bool>>();
+
+        private event Action<IResponse> _onResponseReceived;
+        private event Action<INetworkPacket> _onPacketReceived;
 
         private long _packetIdGenerator;
         protected long packetIdGenerator
@@ -38,6 +41,8 @@ namespace Atom.CommunicationSystem
         }
 
         private short _packetIdentifierGenerator = 0;
+
+        public bool IsSleeping = false;
 
         public PacketRouter()
         {
@@ -58,6 +63,7 @@ namespace Atom.CommunicationSystem
             _peerId = peerAdress;
         }
 
+        #region Middlewares and events registering
         public void RegisterPacketSendingMiddleware(Func<INetworkPacket, bool> routingMiddleware)
         {
             if (_sendPacketMiddlewares == null)
@@ -90,7 +96,12 @@ namespace Atom.CommunicationSystem
             _receivePacketMiddlewares.Add(routingMiddleware);
         }
 
+        public void RegisterOnResponseReceivedCallback(Action<IResponse> onResponseReceivedCallback) => _onResponseReceived += onResponseReceivedCallback;
+        public void UnregisterOnResponseReceivedCallback(Action<IResponse> onResponseReceivedCallback) => _onResponseReceived = onResponseReceivedCallback;
+        public void RegisterOnPacketReceivedCallback(Action<INetworkPacket> onPacketReceivedCallback) => _onPacketReceived += onPacketReceivedCallback;
+        public void UnregisterOnPacketReceivedCallback(Action<INetworkPacket> onPacketReceivedCallback) => _onPacketReceived -= onPacketReceivedCallback;
 
+        #endregion
         public async void OnUpdate()
         {
             
@@ -98,7 +109,7 @@ namespace Atom.CommunicationSystem
 
         void Update()
         {
-            if (context.IsSleeping)
+            if (IsSleeping)
                 return;
 
             if (_packetResponseAwaitersBuffer.Count == 0)
@@ -109,13 +120,11 @@ namespace Atom.CommunicationSystem
             {
                 var awaiter = _packetResponseAwaitersBuffer.ElementAt(i);
 
-                if (awaiter.Value.createdTime.AddMilliseconds(awaiter.Value.timeout) > now)
+                if (awaiter.Value.expirationTime < now)
                 {
                     // on timed-out, we callback the resquest with NULL value so the service can 
                     // implement its logic on this assertion
                     awaiter.Value.responseCallback?.Invoke(null);
-
-                    awaiter.Value.Dispose();
                     _packetResponseAwaitersBuffer.Remove(awaiter.Key);
                     i--;
                 }
@@ -134,7 +143,7 @@ namespace Atom.CommunicationSystem
             _receivePacketHandlers.Add(packetIdentifier, packetReceiveHandler);
 
             if (_packetIdentifiers.ContainsKey(packetType))
-                throw new Exception(packetType + " this " + context.gameObject);
+                throw new Exception(packetType + " this " + controller.gameObject);
             _packetIdentifiers.Add(packetType, packetIdentifier);
         }
 
@@ -168,11 +177,11 @@ namespace Atom.CommunicationSystem
         /// <param name="targetAddress"></param>
         /// <param name="networkPacket"></param>
         /// <summary>      
-        public void SendRequest(string targetAddress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 1000)
+        public void SendRequest(string targetAddress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 50000)
         {
             //transportLayer.SendPacket(target, networkPacket);
             onBeforeSendInternal(networkPacket);
-            _packetResponseAwaitersBuffer.Add(networkPacket.packetUniqueId, new INetworkPacketResponseAwaiter(responseCallback, timeout_ms));
+            _packetResponseAwaitersBuffer.Add(networkPacket.packetUniqueId, new INetworkPacketResponseAwaiter(DateTime.Now, DateTime.Now.AddMilliseconds(timeout_ms), responseCallback));
             transportLayer.Send(targetAddress, networkPacket);
 
 
@@ -187,47 +196,61 @@ namespace Atom.CommunicationSystem
             networkPacket.senderID = _peerId;
 
             if (networkPacket is IRespondable)
-                (networkPacket as IRespondable).senderAdress = context.networkHandling.LocalPeerInfo.peerAdress;
+                (networkPacket as IRespondable).senderAdress = networkHandling.LocalPeerInfo.peerAdress;
 
-            WorldSimulationManager._totalPacketSent++;
-            WorldSimulationManager._totalPacketSentPerSecondCount++;
+           /* // security here. 
+            // it happens that broadcastable packet are forwared as multicast
+            // if broadcasterID and broadcastID have been cloned or haven't been set, the relayed broadcast from nodes will be filled with string.Empty and the packet multicasted will encounter bugs.
+            if (networkPacket is IBroadcastablePacket)
+            {
+                var brdcst = networkPacket as IBroadcastablePacket;
+                brdcst.broadcasterID = networkHandling.LocalPeerInfo.peerAdress;
+                brdcst.broadcastID = Guid.NewGuid().ToString();
+            }*/
         }
 
-        private void onReceivePacket(INetworkPacket networkPacket)
+        private async void onReceivePacket(INetworkPacket networkPacket)
         {
+            if (IsSleeping)
+                return;
+
+            // middlewares can block the reception
             for(int i = 0; i < _receivePacketMiddlewares.Count; ++i)
             {
                 if (!_receivePacketMiddlewares[i](networkPacket))
                     return;
             }
 
+            _onPacketReceived?.Invoke(networkPacket);
+
             if (networkPacket is IResponse)
             {
-                var callerId = (networkPacket as IResponse).callerPacketUniqueId;
+                var resp = (IResponse)networkPacket;
+
+                var callerId = resp.callerPacketUniqueId;
                 if (_packetResponseAwaitersBuffer.TryGetValue(callerId, out var awaiter))
                 {
+                    resp.requestPing = (DateTime.Now - awaiter.creationTime).Milliseconds;
+                    _onResponseReceived?.Invoke(resp);  
+
                     awaiter.responseCallback(networkPacket);
                     _packetResponseAwaitersBuffer.Remove(callerId);
-                    awaiter.Dispose();
-                    //networkPacket.DisposePacket();
                     return;
                 }
 
                 // responses might be sent outside of a request awaiter (if implemented), so we have to check for a potential handler for the message outside of the awaiters
                 if (_receivePacketHandlers.ContainsKey(networkPacket.packetTypeIdentifier))
                 {
-                    _receivePacketHandlers[networkPacket.packetTypeIdentifier].Invoke(networkPacket);
-                    //networkPacket.DisposePacket();
+                    Debug.Log($"{networkPacket.GetType()} has been received by {controller} out of a request range.");
+                    _onResponseReceived?.Invoke(resp);
+
+                    _receivePacketHandlers[networkPacket.packetTypeIdentifier]?.Invoke(networkPacket);
                     return;
                 }
-
-                networkPacket.DisposePacket();
-                // else timed out, or something wrong in the logic
             }
             else
             {
                 _receivePacketHandlers[networkPacket.packetTypeIdentifier].Invoke(networkPacket);
-                //networkPacket.DisposePacket();
             }
         }
     }
