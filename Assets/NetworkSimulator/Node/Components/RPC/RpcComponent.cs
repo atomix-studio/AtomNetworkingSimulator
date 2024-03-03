@@ -1,18 +1,21 @@
 ﻿using Atom.Broadcasting;
 using Atom.CommunicationSystem;
 using Atom.DependencyProvider;
+using Atom.Serialization;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Atom.Components.RpcSystem
 {
-    public class RpcComponent : INodeComponent
+    public class RpcComponent : MonoBehaviour, INodeComponent
     {
         [Inject] private BroadcasterComponent _broadcaster;
         [Inject] private PacketRouter _packetRouter;
 
         // in a real node environment, rpcs would be a static collection, so as the registering method
-        private Dictionary<ushort, Delegate> _rpcs = new Dictionary<ushort, Delegate>();
+        private Dictionary<ushort, Delegate> _rpcHandlers = new Dictionary<ushort, Delegate>();
+        private Dictionary<string, ushort> _rpcIdentifiers = new Dictionary<string, ushort>();
 
         private ushort _rpcIdGenerator = 0;
 
@@ -26,14 +29,20 @@ namespace Atom.Components.RpcSystem
 
         public void RegisterRpc(string rpcMethodName, Delegate rpcReceivedDelegate)
         {
-
+            _rpcHandlers.Add(_rpcIdGenerator, rpcReceivedDelegate);
+            _rpcIdentifiers.Add(rpcMethodName, _rpcIdGenerator);
             _rpcIdGenerator++;
         }        
 
         public void SendRpc(PeerInfo target, string rpcMethodName, params object[] args)
         {
-            // get the packet from the npc
+            // get the packet from the rpc
+            var packet = new RpcPacket();
+            packet.RpcCode = _rpcIdentifiers[rpcMethodName];
+            packet.ArgumentsPayload = AtomSerializer.Serialize(args);
+
             // send it via packet router
+            _packetRouter.Send(target.peerAdress, packet);
         }
 
         public void SendRpcBroadcasted(string rpcMethodName, params object[] args)
