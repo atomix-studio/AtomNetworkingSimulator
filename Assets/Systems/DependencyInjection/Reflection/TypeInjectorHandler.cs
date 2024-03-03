@@ -44,12 +44,7 @@ namespace Atom.DependencyProvider
                 _binder = new DynamicMemberDelegateBinder();
                 _binder.createPropertyDelegatesAuto(propertyInfo);
             }
-/*
-            public void Inject(NodeComponentProvider provider, object instance)
-            {
-                _binder.setValueGeneric(instance, provider.Get(_reflectingType, false));
-            }
-*/
+
             /// <summary>
             /// container binded on the same instance as the injected
             /// </summary>

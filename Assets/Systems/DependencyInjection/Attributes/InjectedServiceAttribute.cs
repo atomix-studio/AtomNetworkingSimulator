@@ -16,6 +16,8 @@ namespace Atom.DependencyProvider
     {
         /// <summary>
         /// The type of controller this service will be
+        /// This information can also be provided to the dependency system by the controller type itself, within the InjectedController attribute parameters
+        /// The provider will simply merge the inputs from both sides
         /// </summary>
         public Type ControllerType { get; set; }
     }

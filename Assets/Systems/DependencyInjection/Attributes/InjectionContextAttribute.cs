@@ -21,7 +21,8 @@ namespace Atom.DependencyProvider
         public Type ForceInheritedTypesInjectionInContext { get; set; }
 
         /// <summary>
-        /// Another way of doing the same thing
+        /// Forcing all the types added in this array to be instantiated at the time the InjectionContext object will be created.
+        /// All this instances will be stored in the injectionContext container (and injected if needed in the injection context or whatever service it will control if the context is also a controller)
         /// </summary>
         public Type[] ForceRequiredTypesInjectionInContext { get; set; }
 

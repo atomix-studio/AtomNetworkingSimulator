@@ -129,7 +129,7 @@ public class WorldSimulationManager : MonoBehaviour
             {
                 var best_con = _currentAliveNodes[i].networkHandling.GetBestConnection();
                 if (best_con != null)
-                    Debug.DrawRay(_currentAliveNodes[i].transform.position, nodeAddresses[best_con.peerAdress].transform.position, Color.magenta);
+                    Debug.DrawLine(_currentAliveNodes[i].transform.position, nodeAddresses[best_con.peerAdress].transform.position, Color.magenta);
             }
         }
 

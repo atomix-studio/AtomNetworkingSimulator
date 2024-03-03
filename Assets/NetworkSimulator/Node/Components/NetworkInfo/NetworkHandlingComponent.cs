@@ -115,7 +115,7 @@ namespace Atom.CommunicationSystem
 
         public void AddConnection(PeerInfo peerInfo)
         {
-            Debug.Log($"{this} adding new listenner => {peerInfo.peerAdress}");
+            //Debug.Log($"{this} adding new listenner => {peerInfo.peerAdress}");
 
             TryRemoveKnownPeer(peerInfo);
 
@@ -137,7 +137,7 @@ namespace Atom.CommunicationSystem
 
         public void RemoveConnection(PeerInfo peerInfo)
         {
-            Debug.Log($"{this} removing listenner => {peerInfo.peerAdress}");
+            //Debug.Log($"{this} removing listenner => {peerInfo.peerAdress}");
 
             TryAddKnownPeer(peerInfo);
             _connectionsDebug.Remove(peerInfo);

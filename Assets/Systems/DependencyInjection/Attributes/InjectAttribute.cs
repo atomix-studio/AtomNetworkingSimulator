@@ -12,6 +12,19 @@ namespace Atom.DependencyProvider
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class InjectAttribute : Attribute
     {
+        [Flags]
+        public enum InjectingOptions
+        {
+            None = 0,
+
+            /// <summary>
+            /// Will allow the provider to search for an instance of the component type in the scene with a GameObject.Find()
+            /// This will work only if the inject type inherits from component.
+            /// It will return a runtime error if not the case (... work in progress attribute validation)
+            /// </summary>
+            AllowFindGameObject = 0,
+        }
+
         public enum DependencyScopes
         {
             /// <summary>
@@ -32,7 +45,11 @@ namespace Atom.DependencyProvider
             GameObject = 2,
         }
 
+        public InjectingOptions InjectionOptions { get; set; }
+
         public DependencyScopes DependencyScope { get; set; }
+
+        public ITypeInjectorDefinition TypeInjectorDefinition { get; set; } = null;
 
         public InjectAttribute() { DependencyScope = DependencyScopes.DefaultSelf; }
 
@@ -40,9 +57,11 @@ namespace Atom.DependencyProvider
         /// Dependency scope parameter provides a rule for the provider when it creates the instances of the required classes.        /// 
         /// </summary>
         /// <param name="dependencyScope"></param>
-        public InjectAttribute(DependencyScopes dependencyScope)
+        public InjectAttribute(DependencyScopes dependencyScope = DependencyScopes.DefaultSelf, InjectingOptions injectionOptions = InjectingOptions.None, ITypeInjectorDefinition injectorDefinition = null)
         {
             DependencyScope = dependencyScope;
+            InjectionOptions = injectionOptions;
+            TypeInjectorDefinition = injectorDefinition;
         }
 
     }
