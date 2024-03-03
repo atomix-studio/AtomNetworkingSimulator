@@ -8,6 +8,10 @@ using UnityEngine;
 
 namespace Atom.Components.Gossip
 {
+    /// <summary>
+    /// Basically, gossip component is a buffer for datas that have to be shared 
+    /// Other systems can relay datas a 'gossipable datas' by giving GossipComponent a packet 
+    /// </summary>
     public class GossipComponent : MonoBehaviour, INodeComponent
     {
         public NodeEntity controller { get ; set ; }
@@ -15,7 +19,7 @@ namespace Atom.Components.Gossip
         /// <summary>
         /// number of gossip ticks per minute
         /// </summary>
-        [SerializeField] private float _gossipRate = 90;
+        [SerializeField] private float _gossipRate = 3;
 
         private float _timer = 0;
 

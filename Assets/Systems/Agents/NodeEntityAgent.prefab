@@ -220,6 +220,7 @@ MonoBehaviour:
     _peerID: 
     _peerAdress: 
     _requestedByLocal: 0
+    _pendingAcceptation: 0
     _ping: 0
     _score: 0
     _trust_coefficient: 0
@@ -240,6 +241,6 @@ MonoBehaviour:
   debugColorConsensus:
     LocalSelection: -1
     _alreadyVoted: []
-  _voteTimeOut: 2
+  _voteTimeOut: 8
   _gossipFrequency: 2
   debugAggregate: 00000000000000000000000000000000

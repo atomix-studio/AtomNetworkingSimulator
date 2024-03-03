@@ -143,7 +143,8 @@ namespace Atom.CommunicationSystem
             _receivePacketHandlers.Add(packetIdentifier, packetReceiveHandler);
 
             if (_packetIdentifiers.ContainsKey(packetType))
-                throw new Exception(packetType + " this " + controller.gameObject);
+                throw new Exception($"A packet of type {packetType} has already been register in the router.");
+
             _packetIdentifiers.Add(packetType, packetIdentifier);
         }
 

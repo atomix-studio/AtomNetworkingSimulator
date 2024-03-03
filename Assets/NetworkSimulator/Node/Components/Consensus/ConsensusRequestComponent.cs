@@ -149,6 +149,8 @@ namespace Atom.Broadcasting.Consensus
 
         private void Gossip(RunningConsensusData data)
         {
+            /// FROM HERE, the packet should be given to the gossip component that will handle the sending
+
             _hasPending = false;
 
             var colorConsensusGossip = data.packet.ClonePacket(data.packet); //new ColorVotingConsensusPacket(debugColorConsensus);

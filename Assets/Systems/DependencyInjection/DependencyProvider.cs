@@ -90,7 +90,11 @@ namespace Atom.DependencyProvider
             _initializeCollections();
 
             // should it be able to handle classes from other assembly than base UnityCsharp ?
-            _assemblyTypes = typeof(DependencyProvider).Assembly.GetTypes().ToList();
+           // _assemblyTypes = typeof(DependencyProvider).Assembly.GetTypes().ToList();
+
+            /// assembly targeted by the dependency provider should be selected within a ScriptableObject 
+            _assemblyTypes = AppDomain.CurrentDomain.GetAssemblies().SelectMany(t => t.GetTypes()).ToList();
+
             var all_types = new List<Type>();
             all_types.AddRange(_assemblyTypes);
 

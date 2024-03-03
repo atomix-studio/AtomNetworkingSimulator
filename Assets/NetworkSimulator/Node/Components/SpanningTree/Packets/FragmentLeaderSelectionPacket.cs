@@ -9,7 +9,13 @@ namespace Atom.Components.GraphNetwork
 {
     public class FragmentLeaderSelectionPacket : AbstractNetworkPacket, IRespondable
     {
+        public FragmentLeaderSelectionPacket(short fragmentLevel)
+        {
+            this.fragmentLevel = fragmentLevel;
+        }
+
         public string senderAdress { get ; set ; }
+        public short fragmentLevel { get ; set ; }
 
         public INetworkPacket packet => this;
 
