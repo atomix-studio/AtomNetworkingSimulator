@@ -565,15 +565,7 @@ namespace Atom.DependencyProvider
                 }
                 catch (Exception ex)
                 {
-                   /* if (typeInjector.injectAttribute.InjectionOptions.HasFlag(InjectAttribute.InjectingOptions.AllowFindGameObject))
-                    {
-                        comp = (Component)GameObject.FindObjectOfType(componentType);
-                        if (comp != null)
-                        {
-                            container.InjectedDependencies.Add(componentType, comp);
-                            return comp;
-                        }
-                    }*/
+                    Debug.LogError("Service provider exception => "  + ex);
                 }
                
             }

@@ -23,6 +23,14 @@ namespace Atom.CommunicationSystem
             this.last_updated = DateTime.Now;    
         }
 
+        public PeerInfo(PeerInfo clone)
+        {
+            this.peerID = clone.peerID;
+            this.peerAdress = clone.peerAdress;
+            this.last_updated = DateTime.Now;
+        }
+
+
         [SerializeField] private string _peerID;
         [SerializeField] private string _peerAdress;
         [SerializeField] private bool _requestedByLocal;
