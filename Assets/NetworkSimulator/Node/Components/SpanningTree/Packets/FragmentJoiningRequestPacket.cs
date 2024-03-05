@@ -9,13 +9,13 @@ namespace Atom.Components.GraphNetwork
 {
     public class FragmentJoiningRequestPacket : AbstractNetworkPacket, IRespondable
     {
-        public FragmentJoiningRequestPacket(short fragmentLevel)
+        public FragmentJoiningRequestPacket(int fragmentLevel)
         {
             this.fragmentLevel = fragmentLevel;
         }
 
         public string senderAdress { get ; set ; }
-        public short fragmentLevel { get ; set ; }
+        public int fragmentLevel { get ; set ; }
 
         public INetworkPacket packet => this;
 
@@ -36,5 +36,6 @@ namespace Atom.Components.GraphNetwork
 
         public string FragmentOwnerId { get; set; }
         public string FragmentOwnerAdress { get; set; }
+        public int FragmentLevel { get; set; }
     }
 }

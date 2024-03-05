@@ -729,7 +729,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c0693c0a07ce8c4a8dce569310fc843, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DisplayGroupConnections: 0
+  DisplayBestConnection: 0
+  DisplayGHSTree: 0
   DisplayListennersConnections: 1
   DisplaySelectedOnly: 0
   DisplayPackets: 0
@@ -737,7 +738,7 @@ MonoBehaviour:
   PacketSpeed: 100
   _pf_NodeEntity: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
     type: 3}
-  _startNodeEntitiesCount: 100
+  _startNodeEntitiesCount: 20
   _maxNodeEntitiesCount: 100
   _incomingConnectionsPerMinute: 100
   _incomingDisconnectionsPerMinute: 0

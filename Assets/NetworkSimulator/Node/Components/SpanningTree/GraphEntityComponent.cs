@@ -16,7 +16,7 @@ namespace Atom.Components.GraphNetwork
     public class GraphFragmentData
     {
         public string FragmentOwnerId  = string.Empty; // PEER ID OF THE FRAGMENT LEAD
-        public short FragmentLevel = 0;
+        public int FragmentLevel = 0;
 
         public List<PeerInfo> FragmentMembers  = new List<PeerInfo>();
 
@@ -93,6 +93,8 @@ namespace Atom.Components.GraphNetwork
 
                     var validation = (FragmentJoiningRequestValidated)response;
                     _fragmentData.FragmentOwnerId = validation.FragmentOwnerId;
+                    _fragmentData.FragmentLevel = validation.FragmentLevel;
+
                 });
         }
 
@@ -125,6 +127,7 @@ namespace Atom.Components.GraphNetwork
                 var response = (FragmentJoiningRequestValidated)packet.GetResponsePacket(packet);
                 response.FragmentOwnerAdress = _networkHandling.LocalPeerInfo.peerAdress;
                 response.FragmentOwnerId = _networkHandling.LocalPeerInfo.peerID;
+                response.FragmentLevel = _fragmentData.FragmentLevel;
                 _packetRouter.SendResponse(packet, response);
 
                 ContinueProcedure();
