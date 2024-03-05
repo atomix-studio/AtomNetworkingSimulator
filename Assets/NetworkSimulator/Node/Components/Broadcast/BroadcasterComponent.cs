@@ -69,7 +69,7 @@ namespace Atom.Broadcasting
         /// </summary>
         /// <param name="packetType"></param>
         /// <param name="packetReceiveHandler"></param>
-        public void RegisterPacketHandlerWithMiddleware(Type packetType, Action<INetworkPacket> packetReceiveHandler)
+        public void RegisterPacketHandlerWithMiddleware(Type packetType, Action<INetworkPacket> packetReceiveHandler, bool relayBroadcastAutomatically = false)
         {
             _router.RegisterPacketHandler(packetType, (receivedPacket) =>
             {
@@ -87,9 +87,15 @@ namespace Atom.Broadcasting
                             return;
                     }
 
-                }
+                    packetReceiveHandler?.Invoke(receivedPacket);
 
-                packetReceiveHandler?.Invoke(receivedPacket);
+                    if (relayBroadcastAutomatically)
+                        RelayBroadcast(broadcastable);
+                }
+                else
+                {
+                    packetReceiveHandler?.Invoke(receivedPacket);
+                }
             },
             true);
         }

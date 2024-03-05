@@ -14,6 +14,7 @@ using static UnityEngine.EventSystems.EventTrigger;
 public class WorldSimulationManager : MonoBehaviour
 {
     public bool DisplayBestConnection;
+    public bool DisplayGHSTree;
     public bool DisplayListennersConnections;
     public bool DisplaySelectedOnly;
     public bool DisplayPackets;
@@ -130,6 +131,15 @@ public class WorldSimulationManager : MonoBehaviour
                 var best_con = _currentAliveNodes[i].networkHandling.GetBestConnection();
                 if (best_con != null)
                     Debug.DrawLine(_currentAliveNodes[i].transform.position, nodeAddresses[best_con.peerAdress].transform.position, Color.magenta);
+            }
+        }
+
+        if (DisplayGHSTree)
+        {
+
+            for (int i = 0; i < _currentAliveNodes.Count; ++i)
+            {
+                _currentAliveNodes[i].graphEntityComponent.DisplayDebugConnectionLines();
             }
         }
 

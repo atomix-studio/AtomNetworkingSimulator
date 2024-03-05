@@ -551,15 +551,31 @@ namespace Atom.DependencyProvider
 
             if (_injectorHandlers.TryGetValue(container.InjectionContextType, out var handler) && handler.TryGetValue(componentType, out var typeInjector))
             {
-                if (typeInjector.injectAttribute.InjectionOptions.HasFlag(InjectAttribute.InjectingOptions.AllowFindGameObject))
+                try
                 {
-                    comp = (Component)GameObject.FindObjectOfType(componentType);
-                    if (comp != null)
+                    if (typeInjector.injectAttribute.InjectionOptions.HasFlag(InjectAttribute.InjectingOptions.AllowFindGameObject))
                     {
-                        container.InjectedDependencies.Add(componentType, comp);
-                        return comp;
+                        comp = (Component)GameObject.FindObjectOfType(componentType);
+                        if (comp != null)
+                        {
+                            container.InjectedDependencies.Add(componentType, comp);
+                            return comp;
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                   /* if (typeInjector.injectAttribute.InjectionOptions.HasFlag(InjectAttribute.InjectingOptions.AllowFindGameObject))
+                    {
+                        comp = (Component)GameObject.FindObjectOfType(componentType);
+                        if (comp != null)
+                        {
+                            container.InjectedDependencies.Add(componentType, comp);
+                            return comp;
+                        }
+                    }*/
+                }
+               
             }
 
             comp = casted.gameObject.AddComponent(componentType);

@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 
 namespace Atom.Components.GraphNetwork
 {
-    public class FragmentLeaderSelectionPacket : AbstractNetworkPacket, IRespondable
+    public class FragmentJoiningRequestPacket : AbstractNetworkPacket, IRespondable
     {
-        public FragmentLeaderSelectionPacket(short fragmentLevel)
+        public FragmentJoiningRequestPacket(short fragmentLevel)
         {
             this.fragmentLevel = fragmentLevel;
         }
@@ -21,17 +21,20 @@ namespace Atom.Components.GraphNetwork
 
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
-            return new FragmentLeaderValidationPacket();
+            return new FragmentJoiningRequestValidated();
         }
     }
 
     // callback from a leader to tell a node it has received and accepted to become the new fragment leader
-    public class FragmentLeaderValidationPacket : AbstractNetworkPacket, IResponse
+    public class FragmentJoiningRequestValidated : AbstractNetworkPacket, IResponse
     {
         public long callerPacketUniqueId { get ; set ; }
 
         public INetworkPacket packet => this;
 
         public int requestPing { get ; set ; }
+
+        public string FragmentOwnerId { get; set; }
+        public string FragmentOwnerAdress { get; set; }
     }
 }

@@ -12,6 +12,7 @@ using Atom.Components.Connecting;
 using Sirenix.Utilities;
 using UnityEditor.Rendering.LookDev;
 using Atom.DependencyProvider.Samples;
+using Atom.Components.GraphNetwork;
 
 [InjectionContext(ForceInheritedTypesInjectionInContext = typeof(INodeComponent))]
 public class NodeEntity : MonoBehaviour
@@ -20,6 +21,7 @@ public class NodeEntity : MonoBehaviour
     public TransportLayerComponent transportLayer { get; set; }
     public PeerSamplingService peerSampling { get; set; }
     public NetworkHandlingComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }
+    public GraphEntityComponent graphEntityComponent { get; set; }
 
     [SerializeField] private NetworkHandlingComponent _networkInfo;
     [SerializeField] private BootNodeHandling _bootNodeHandling;

@@ -9,6 +9,18 @@ using UnityEngine;
 
 namespace Atom.Components.RpcSystem
 {
+    /// <summary>
+    /// INTRODUCTION :
+    /// "Remote Procedure Call is a software communication protocol that one program can use to request a service 
+    /// from a program located in another computer on a network without having to understand the network's details."
+    /// 
+    /// 
+    /// So the Remote Procedure Call Component allows any system implementation from a Node to register and use remote calls in the network 
+    /// without the extra workload of actually designing and registering a specific packet.
+    /// 
+    /// RPC's are by essence at a higher level from packets, they will be less efficient as they require extra dynamic serialization work.
+    /// All low-level/optimized network calls should be directly done by using the packet system (used by all the core components of the Node)
+    /// </summary>
     public class RpcComponent : MonoBehaviour, INodeComponent
     {
         [Inject] private BroadcasterComponent _broadcaster;
@@ -27,15 +39,38 @@ namespace Atom.Components.RpcSystem
             _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(BroadcastedRpcPacket), OnReceivedBroadcastableRpcPacket);
             _packetRouter.RegisterPacketHandler(typeof(RpcPacket), OnReceivedRpcPacket);
 
-            RegisterRpc("Rpc_benchmark", (Action<string>)Rpc_benchmark);
+            // rpc benchmarking (and sample)
+            // the action<string> needs to be casted to the method 
+            RegisterRpc((Action<string>)Rpc_benchmark);
         }
 
-        public void RegisterRpc(string rpcMethodName, Delegate rpcReceivedDelegate)
+        /// <summary>
+        /// Registers a simple Remote procedure call 
+        /// </summary>
+        /// <param name="rpcMethodName"></param>
+        /// <param name="rpcReceivedDelegate"></param>
+        public void RegisterRpc(Delegate rpcReceivedDelegate)
         {
             _rpcHandlers.Add(_rpcIdGenerator, rpcReceivedDelegate);
-            _rpcIdentifiers.Add(rpcMethodName, _rpcIdGenerator);
+            _rpcIdentifiers.Add(rpcReceivedDelegate.Method.Name, _rpcIdGenerator);
             _rpcIdGenerator++;
-        }        
+        }
+
+        /// <summary>
+        /// Registers a remote procedure call that automacitally handle a response as from its rpc method callback (response from the target)
+        /// </summary>
+        /// <param name="rpcReceivedDelegate"></param>
+        public void RegisterRPCRequest(Delegate rpcReceivedDelegate)
+        {
+            _rpcHandlers.Add(_rpcIdGenerator, rpcReceivedDelegate);
+            _rpcIdentifiers.Add(rpcReceivedDelegate.Method.Name, _rpcIdGenerator);
+            _rpcIdGenerator++;
+        }
+
+        public void SendRpcRequest()
+        {
+
+        }
 
         public void SendRpc(PeerInfo target, string rpcMethodName, params object[] args)
         {
@@ -62,7 +97,9 @@ namespace Atom.Components.RpcSystem
         public void SendRpcGossip(string rpcMethodName, params object[] args)
         {
             // get the packet from the npc
-            // send it via packet router
+            // get gossip packet
+
+            // send it to gossip component, that will buffers it until next gossip turn
         }
 
         private void OnReceivedBroadcastableRpcPacket(INetworkPacket packet)
@@ -95,11 +132,6 @@ namespace Atom.Components.RpcSystem
         public void Rpc_benchmark(string sender)
         {
             Debug.Log("Received rpc from " + sender);
-        }
-
-        private void ReceiveRpcBenchmark(bool state, float value)
-        {
-
         }
 
         #endregion
