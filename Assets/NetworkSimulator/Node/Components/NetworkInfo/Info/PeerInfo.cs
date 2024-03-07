@@ -16,7 +16,7 @@ namespace Atom.CommunicationSystem
     {
         public PeerInfo() { }
 
-        public PeerInfo(string senderID, string peerAdress)
+        public PeerInfo(long senderID, string peerAdress)
         {
             this.peerID = senderID;
             this.peerAdress = peerAdress;
@@ -31,7 +31,7 @@ namespace Atom.CommunicationSystem
         }
 
 
-        [SerializeField] private string _peerID;
+        [SerializeField] private long _peerID;
         [SerializeField] private string _peerAdress;
         [SerializeField] private bool _requestedByLocal;
         [SerializeField] private bool _pendingAcceptation;
@@ -41,7 +41,7 @@ namespace Atom.CommunicationSystem
         [SerializeField] private DateTime _last_updated;
         private bool _disposed = false;
 
-        public string peerID {  get => _peerID; set => _peerID = value; } 
+        public long peerID {  get => _peerID; set => _peerID = value; } 
         public string peerAdress { get => _peerAdress; set => _peerAdress = value; }
 
         /// <summary>

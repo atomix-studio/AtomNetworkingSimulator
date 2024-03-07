@@ -15,14 +15,14 @@ namespace Atom.Components.GraphNetwork
     [Serializable]
     public class GraphFragmentData
     {
-        public string FragmentOwnerId  = string.Empty; // PEER ID OF THE FRAGMENT LEAD
+        public long FragmentOwnerId = -1; // PEER ID OF THE FRAGMENT LEAD
         public int FragmentLevel = 0;
 
-        public List<PeerInfo> FragmentMembers  = new List<PeerInfo>();
+        public List<PeerInfo> FragmentMembers = new List<PeerInfo>();
 
-        public PeerInfo MinimumOutgoingEdgePeer  = null;
+        public (PeerInfo, PeerInfo) MinimumOutgoingEdgePeer = (null, null);
 
-        public GraphFragmentData(short fragmentLevel, string fragmentLeaderId)
+        public GraphFragmentData(short fragmentLevel, long fragmentLeaderId)
         {
             FragmentLevel = fragmentLevel;
             FragmentOwnerId = fragmentLeaderId;
@@ -60,9 +60,10 @@ namespace Atom.Components.GraphNetwork
         }
 
         [Button]
-        private void StartSpanningTreeCreationWithBroadcast()
+        public void StartSpanningTreeCreationWithBroadcast()
         {
             _broadcaster.SendBroadcast(new SpanningTreeCreationBroadcastPacket());
+            OnSpanningTreeCreationBroadcastPacketReceived(new SpanningTreeCreationBroadcastPacket());
         }
 
         private void OnSpanningTreeCreationBroadcastPacketReceived(SpanningTreeCreationBroadcastPacket packet)
@@ -79,23 +80,7 @@ namespace Atom.Components.GraphNetwork
             // every node create a local fragment where she is the leader and the single member
 
             // at the first level, finding the Minimum outgoing edge is pretty straght-forward as we only need to iterate over connections and find the highest score (which in AtomNetworking context represented the minimum outgoing edge)
-            var moe = _networkHandling.GetBestConnection();
-            _fragmentData.MinimumOutgoingEdgePeer = moe;
-
-            _packetRouter.SendRequest(
-                moe.peerAdress,
-                new FragmentJoiningRequestPacket(_fragmentData.FragmentLevel),
-                (response) =>
-                {
-                    // timeout
-                    if (response == null)
-                        return;
-
-                    var validation = (FragmentJoiningRequestValidated)response;
-                    _fragmentData.FragmentOwnerId = validation.FragmentOwnerId;
-                    _fragmentData.FragmentLevel = validation.FragmentLevel;
-
-                });
+            StartCoroutine(MoeSearching());
         }
 
         private void OnJoiningFragmentRequestReceived(FragmentJoiningRequestPacket packet)
@@ -103,27 +88,28 @@ namespace Atom.Components.GraphNetwork
             if (_fragmentData.FragmentMembers.Exists(t => t.peerID == packet.senderID))
                 return;
 
-            if(_fragmentData.FragmentOwnerId != _networkHandling.LocalPeerInfo.peerID)
+            if (_fragmentData.FragmentOwnerId != _networkHandling.LocalPeerInfo.peerID)
             {
                 Debug.Log($"Request received by {packet.senderID} but not a leader {_networkHandling.LocalPeerInfo.peerID}");
             }
             // absorbtion if the requester is lower level
             if (packet.fragmentLevel < _fragmentData.FragmentLevel)
             {
-                Debug.Log(_networkHandling.LocalPeerInfo.peerID + "absorbing" + packet.senderAdress);
+                Debug.Log(_networkHandling.LocalPeerInfo.peerAdress + "absorbing" + packet.senderAdress);
 
                 // the members from the fragment of the requester are added to the local fragment
 
                 // respond ?
                 if (_networkHandling.Connections.TryGetValue(packet.senderID, out var joinerInfo))
                 {
-                    _fragmentData.FragmentMembers.Add(_networkHandling.Connections[packet.senderID]);
+                    _fragmentData.FragmentMembers.AddRange(WorldSimulationManager.nodeAddresses[packet.senderAdress].graphEntityComponent._fragmentData.FragmentMembers);
                 }
                 else
                 {
-                    var peerInfo = new PeerInfo(packet.senderID, packet.senderAdress);
-                    _fragmentData.FragmentMembers.Add(peerInfo);
+                    //   var peerInfo = new PeerInfo(packet.senderID, packet.senderAdress);
+                    _fragmentData.FragmentMembers.AddRange(WorldSimulationManager.nodeAddresses[packet.senderAdress].graphEntityComponent._fragmentData.FragmentMembers);
                 }
+
                 var response = (FragmentJoiningRequestValidated)packet.GetResponsePacket(packet);
                 response.FragmentOwnerAdress = _networkHandling.LocalPeerInfo.peerAdress;
                 response.FragmentOwnerId = _networkHandling.LocalPeerInfo.peerID;
@@ -133,23 +119,22 @@ namespace Atom.Components.GraphNetwork
                 ContinueProcedure();
             }
             else
-            {
-                if (_fragmentData.MinimumOutgoingEdgePeer == null)
+            {               
+                if (packet.senderID == _fragmentData.MinimumOutgoingEdgePeer.Item2.peerID)
                 {
-                    _fragmentData.MinimumOutgoingEdgePeer = _networkHandling.GetBestConnection();
-                }
-
-                if (packet.senderID == _fragmentData.MinimumOutgoingEdgePeer.peerID)
-                {
-                    Debug.Log(_networkHandling.LocalPeerInfo.peerID + "merging" + packet.senderAdress);
+                    Debug.LogError(_networkHandling.LocalPeerInfo.peerAdress + "merging" + packet.senderAdress);
 
                     // merging if the requester is also the local best connection
                     var mergedEntityFragmentLeader = WorldSimulationManager.nodeAddresses[packet.senderAdress];
                     mergedEntityFragmentLeader.graphEntityComponent._fragmentData.FragmentLevel++;
                     mergedEntityFragmentLeader.graphEntityComponent._fragmentData.FragmentOwnerId = _fragmentData.FragmentOwnerId;
-                    mergedEntityFragmentLeader.graphEntityComponent._fragmentData.FragmentMembers.Add(new PeerInfo(_networkHandling.LocalPeerInfo));
+                    var mergedMembers = new List<PeerInfo>(mergedEntityFragmentLeader.graphEntityComponent._fragmentData.FragmentMembers);
 
-                    _fragmentData.FragmentMembers.Add(new PeerInfo( mergedEntityFragmentLeader.networkHandling.LocalPeerInfo));
+                    // mergedEntityFragmentLeader.graphEntityComponent._fragmentData.FragmentMembers.Add(new PeerInfo(_networkHandling.LocalPeerInfo));
+                    mergedEntityFragmentLeader.graphEntityComponent._fragmentData.FragmentMembers.AddRange(_fragmentData.FragmentMembers);
+
+                    //_fragmentData.FragmentMembers.Add(new PeerInfo( mergedEntityFragmentLeader.networkHandling.LocalPeerInfo));
+                    _fragmentData.FragmentMembers.AddRange(mergedMembers);
                     _fragmentData.FragmentLevel++;
 
                     // create a new fragment level + 1 with all members from the two merging fragments
@@ -173,9 +158,9 @@ namespace Atom.Components.GraphNetwork
             // every fragment node will check its connections and see if there is a connection that is from another fragment 
 
             // simplified version for now, without messaging but direct calculus
-            var outerConnections = new List<PeerInfo>();
+            var outerConnections = new List<(PeerInfo, PeerInfo)>();
 
-            for (int i = 0; i < _fragmentData.FragmentMembers.Count; ++i)
+            /*for (int i = 0; i < _fragmentData.FragmentMembers.Count; ++i)
             {
                 var crtmember = WorldSimulationManager.nodeAddresses[_fragmentData.FragmentMembers[i].peerAdress];
                 for (int j = 0; j < crtmember.networkHandling.Connections.Count; ++j)
@@ -185,32 +170,76 @@ namespace Atom.Components.GraphNetwork
                     if (conmember.graphEntityComponent._fragmentData.FragmentOwnerId != _fragmentData.FragmentOwnerId)
                         outerConnections.Add(connpinfo.Value);
                 }
+            }*/
+
+            for (int i = 0; i < WorldSimulationManager.nodeAddresses.Count; ++i)
+            {
+                var crtmember = WorldSimulationManager.nodeAddresses.ElementAt(i);
+                if(crtmember.Value.graphEntityComponent._fragmentData.FragmentOwnerId == _fragmentData.FragmentOwnerId)
+                {
+                    // local moe
+                    var crtOuterConnections = new List<(PeerInfo, PeerInfo)>();
+
+                    for (int j = 0; j < crtmember.Value.networkHandling.Connections.Count; ++j)
+                    {
+                        var connpinfo = crtmember.Value.networkHandling.Connections.ElementAt(j);
+                        var conmember = WorldSimulationManager.nodeAddresses[connpinfo.Value.peerAdress];
+                        if (conmember.graphEntityComponent._fragmentData.FragmentOwnerId != _fragmentData.FragmentOwnerId)
+                        {
+                            crtOuterConnections.Add(new (crtmember.Value.networkHandling.LocalPeerInfo, connpinfo.Value));
+                        }
+                    }
+
+                    if(crtOuterConnections.Count > 0)
+                    {
+                        crtOuterConnections.Sort((a, b) => a.Item2.score.CompareTo(b.Item2.score));
+                        outerConnections.Add(crtOuterConnections[0]);
+                    }
+                }
             }
 
             if (outerConnections.Count > 0)
             {
                 var best = float.MinValue;
-                PeerInfo bestInfo = null;
+                PeerInfo bestOuterMoe = null;
+                PeerInfo bestInnerMoe = null;
                 for (int i = 0; i < outerConnections.Count; ++i)
                 {
-                    var score = outerConnections[i].score;
+                    var score = outerConnections[i].Item2.score;
                     if (score > best)
                     {
                         best = score;
-                        bestInfo = outerConnections[i];
+                        // in-fragment node for the min outgoing edge
+                        bestInnerMoe = outerConnections[i].Item1;
+                        // outèfragment node for the min outgoing edge
+                        bestOuterMoe = outerConnections[i].Item2;
                     }
                 }
 
                 // bestInfo is moe
-                _fragmentData.MinimumOutgoingEdgePeer = bestInfo;
+                _fragmentData.MinimumOutgoingEdgePeer = new (bestInnerMoe, bestOuterMoe);
 
                 // sending join request and the algorithm will go on
-                _packetRouter.SendRequest(
-                    _fragmentData.MinimumOutgoingEdgePeer.peerAdress,
+                var node = WorldSimulationManager.nodeAddresses[bestInnerMoe.peerAdress];
+                node.graphEntityComponent.SendFragmentJoiningRequest(bestOuterMoe);
+
+                
+            }
+            else
+            {
+                Debug.Log("No outer connection found from fragment " + _fragmentData.FragmentOwnerId);
+            }
+        }
+
+        public void SendFragmentJoiningRequest(PeerInfo outgoingEdgeNodeInfo)
+        {
+            _packetRouter.SendRequest(
+                    outgoingEdgeNodeInfo.peerAdress,
                     new FragmentJoiningRequestPacket(_fragmentData.FragmentLevel),
                     (response) =>
                     {
                         // timeout
+                        Debug.Log("fragment joining request timed out.");
                         if (response == null)
                             return;
 
@@ -218,11 +247,23 @@ namespace Atom.Components.GraphNetwork
                         _fragmentData.FragmentOwnerId = validation.FragmentOwnerId;
                     });
 
-            }
-            else
+        }
+
+        private IEnumerator MoeSearching()
+        {
+            float interval = UnityEngine.Random.Range(.75f, 1.2f);
+            var wfs = new WaitForSeconds(interval);
+
+            while (_fragmentData.FragmentOwnerId == _networkHandling.LocalPeerInfo.peerID)
             {
-                Debug.Log("No outer connection found from fragment " + _fragmentData.FragmentOwnerId);
+                yield return wfs;
+                ContinueProcedure();
             }
+        }
+
+        public void StopSearching()
+        {
+            StopAllCoroutines();
         }
 
         public void DisplayDebugConnectionLines()
@@ -231,10 +272,17 @@ namespace Atom.Components.GraphNetwork
                 return;
 
             var pos = controller.transform.position;
-            for (int i = 1; i < _fragmentData.FragmentMembers.Count; ++i)
-            {
-                Debug.DrawLine(pos, WorldSimulationManager.nodeAddresses[_fragmentData.FragmentMembers[i].peerAdress].transform.position);
-            }
+
+            if (_fragmentData.FragmentOwnerId == _networkHandling.LocalPeerInfo.peerID)
+                for (int i = 1; i < _fragmentData.FragmentMembers.Count; ++i)
+                {
+                    Debug.DrawLine(pos, WorldSimulationManager.nodeAddresses[_fragmentData.FragmentMembers[i].peerAdress].transform.position, Color.magenta);
+                }
+            else
+                for (int i = 1; i < _fragmentData.FragmentMembers.Count; ++i)
+                {
+                    Debug.DrawLine(pos, WorldSimulationManager.nodeAddresses[_fragmentData.FragmentMembers[i].peerAdress].transform.position, Color.green);
+                }
         }
 
 #if UNITY_EDITOR

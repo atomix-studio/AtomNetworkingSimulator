@@ -16,7 +16,7 @@ namespace Atom.CommunicationSystem
         #region Data set by router at send
         public short packetTypeIdentifier { get; set; }
         public long packetUniqueId { get; set; }
-        public string senderID { get; set; }
+        public long senderID { get; set; }
         public DateTime sentTime { get; set; }
         #endregion
 

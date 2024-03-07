@@ -44,9 +44,9 @@ namespace Atom.Broadcasting
 
         // variables
         private System.Random _random;
-        private Dictionary<string, int> _relayedBroadcastsBuffer;
+        private Dictionary<long, int> _relayedBroadcastsBuffer;
 
-        public Dictionary<string, int> relayedBroadcastsBuffer => _relayedBroadcastsBuffer;
+        public Dictionary<long, int> relayedBroadcastsBuffer => _relayedBroadcastsBuffer;
         private List<Func<IBroadcastablePacket, bool>> _receivedBroadcastMiddlewares = new List<Func<IBroadcastablePacket, bool>>();
 
         public NodeEntity controller { get; set; }
@@ -54,7 +54,7 @@ namespace Atom.Broadcasting
         public void OnInitialize()
         {
             _random = new System.Random((int)DateTime.Now.Ticks % int.MaxValue);
-            _relayedBroadcastsBuffer = new Dictionary<string, int>();
+            _relayedBroadcastsBuffer = new Dictionary<long, int>();
 
             RegisterPacketHandlerWithMiddleware(typeof(BroadcastBenchmarkPacket), (received) =>
             {
@@ -164,9 +164,10 @@ namespace Atom.Broadcasting
             if (packet is IBroadcastablePacket)
             {
                 var brdcst = packet as IBroadcastablePacket;
-                brdcst.broadcasterID = _networkHandling.LocalPeerInfo.peerAdress;
-                brdcst.broadcastID = Guid.NewGuid().ToString();
+                brdcst.broadcasterID = _networkHandling.LocalPeerInfo.peerID;
+                brdcst.broadcastID = _random.Next(-int.MaxValue, int.MaxValue);
             }
+
             for (int i = 0; i < calls_count; ++i)
             {
                 var index = _random.Next(_networkHandling.Connections.Count);
@@ -190,7 +191,7 @@ namespace Atom.Broadcasting
             // (if two or 3 broadcastable packet arrives with a string.Empty id, all other broadcasts with string.Empty id will be ignored as well
 
             broadcastable.broadcasterID = _networkHandling.LocalPeerInfo.peerID;
-            broadcastable.broadcastID = Guid.NewGuid().ToString();
+            broadcastable.broadcastID = NodeRandom.UniqueID();// Guid.NewGuid().ToString();
 
             INetworkPacket current = broadcastable;
 

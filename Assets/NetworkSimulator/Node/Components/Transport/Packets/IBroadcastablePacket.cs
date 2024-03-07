@@ -9,9 +9,9 @@ namespace Atom.CommunicationSystem
 {
     public interface IBroadcastablePacket  : INetworkPacket, IClonablePacket
     {
-        public string broadcasterID { get; set; }   
+        public long broadcasterID { get; set; }   
 
         // identifier of the broadcaster
-        public string broadcastID { get; set; }
+        public long broadcastID { get; set; }
     }
 }

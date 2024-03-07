@@ -13,6 +13,7 @@ using Sirenix.Utilities;
 using UnityEditor.Rendering.LookDev;
 using Atom.DependencyProvider.Samples;
 using Atom.Components.GraphNetwork;
+using System;
 
 [InjectionContext(ForceInheritedTypesInjectionInContext = typeof(INodeComponent))]
 public class NodeEntity : MonoBehaviour
@@ -95,7 +96,7 @@ public class NodeEntity : MonoBehaviour
 
     public void OnStart(ClusterInfo clusterInfo, bool sleeping)
     {
-        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = System.Guid.NewGuid().ToString(), peerAdress = this.name, averagePing = 0, trust_coefficient = 0 });
+        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = (long)BitConverter.ToInt64(System.Guid.NewGuid().ToByteArray()), peerAdress = this.name, averagePing = 0, trust_coefficient = 0 });
 
         GetNodeComponent<ClusterConnectionService>().ConnectToCluster(clusterInfo);
         IsSleeping = sleeping;
@@ -206,7 +207,7 @@ public class NodeEntity : MonoBehaviour
         if (IsSleeping)
             return;
 
-        CurrentPingSimulatorMultiplier = Mathf.PerlinNoise(Random.Range(-10, 10), Random.Range(-10, 10)) * _pingSimulatorStability;
+        CurrentPingSimulatorMultiplier = Mathf.PerlinNoise(UnityEngine.Random.Range(-10, 10), UnityEngine.Random.Range(-10, 10)) * _pingSimulatorStability;
 
         for (int i = 0; i < _updatableComponents.Count; ++i)
             _updatableComponents[i].OnUpdate();

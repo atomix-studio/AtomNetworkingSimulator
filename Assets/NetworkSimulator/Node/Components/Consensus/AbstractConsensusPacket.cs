@@ -11,15 +11,15 @@ namespace Atom.Broadcasting.Consensus
     {
         public short packetTypeIdentifier { get; set; }
         public long packetUniqueId { get; set; }
-        public string senderID { get; set; }
+        public long senderID { get; set; }
         public DateTime sentTime { get; set; }
-        public string broadcasterID { get; set; }
-        public string broadcastID { get; set; }
+        public long broadcasterID { get; set; }
+        public long broadcastID { get; set; }
 
         public DateTime concensusStartedTime { get; set; }
         // should we set an expiration time here instead ?
 
-        public string consensusId { get; set; }
+        public long consensusId { get; set; }
         public int consensusVersion { get; set; }
 
         public abstract void Aggregate(IConsensusPacket packet);

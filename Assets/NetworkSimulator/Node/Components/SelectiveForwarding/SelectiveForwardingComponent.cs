@@ -27,7 +27,7 @@ namespace Atom.Broadcasting.SelectiveForwarding
         }
 
         [Button]
-        public void SendSelectiveForwardingToNodeByID(string nodeId)
+        public void SendSelectiveForwardingToNodeByID(long nodeId)
         {
             ForwardSinglecastAsync(_networkHandling.Connections.ElementAt(0).Value.peerAdress, new SinglecastPacket(_networkHandling.LocalPeerInfo.peerAdress, _networkHandling.LocalPeerInfo.peerID, nodeId, 0));
         }

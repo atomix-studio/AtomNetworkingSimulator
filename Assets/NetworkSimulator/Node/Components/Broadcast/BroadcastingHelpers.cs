@@ -10,7 +10,7 @@ namespace Atom.Broadcasting
 {
     public static  class BroadcastingHelpers
     {
-        public static int GetRandomConnectionIndexForBroadcast(Dictionary<string, PeerInfo> connections, string broadcasterId, string senderId, int breakCondition)
+        public static int GetRandomConnectionIndexForBroadcast(Dictionary<long, PeerInfo> connections, long broadcasterId, long senderId, int breakCondition)
         {
             var count_break = 0;
             var index = 0;

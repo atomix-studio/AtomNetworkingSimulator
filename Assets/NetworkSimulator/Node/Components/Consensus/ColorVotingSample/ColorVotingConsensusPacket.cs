@@ -18,7 +18,7 @@ namespace Atom.Broadcasting.Consensus
         // a class variable not used in packet but used to holds the aggregated datas
         public int[] AggregatedSelections { get; set; } = new int[4];
         [SerializerIgnore] public int LocalSelection = -1;
-        public List<string> _alreadyVoted = new List<string>();
+        public List<long> _alreadyVoted = new List<long>();
 
         public ColorVotingConsensusPacket() { }
 
@@ -34,7 +34,7 @@ namespace Atom.Broadcasting.Consensus
             return forwardable;
         }
 
-        public ColorVotingConsensusPacket(short packetIdentifier, string senderID, DateTime sentTime, string broadcastID, string broadcasterID, int colorSelection, DateTime consensusStartedTime, string consensusId, int consensusVersion, int[] aggregatedSelections)
+        public ColorVotingConsensusPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID, int colorSelection, DateTime consensusStartedTime, long consensusId, int consensusVersion, int[] aggregatedSelections)
         {
             this.packetTypeIdentifier = packetIdentifier;
             this.senderID = senderID;

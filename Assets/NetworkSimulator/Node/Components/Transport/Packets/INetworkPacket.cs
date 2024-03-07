@@ -6,7 +6,7 @@ namespace Atom.CommunicationSystem
     {
         public short packetTypeIdentifier { get; set; }
         public long packetUniqueId { get; set; }
-        public string senderID { get; set; }    
+        public long senderID { get; set; }    
         public DateTime sentTime { get; set; }
 
         /// <summary>

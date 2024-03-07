@@ -73,7 +73,7 @@ public class WorldSimulationManager : MonoBehaviour
         for (int i = 0; i < _defaultCluster.BootNodes.Count; i++)
         {
             nodeAddresses.Add(_defaultCluster.BootNodes[i].name, _defaultCluster.BootNodes[i]);
-            _defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = _defaultCluster.BootNodes[i].name, peerAdress = _defaultCluster.BootNodes[i].name, averagePing = 0, trust_coefficient = 0 });
+            _defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = i, peerAdress = _defaultCluster.BootNodes[i].name, averagePing = 0, trust_coefficient = 0 });
         }
 
         GenerateEntities(_startNodeEntitiesCount, false);
@@ -258,6 +258,23 @@ public class WorldSimulationManager : MonoBehaviour
     {
         var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
         startNode.peerSampling.TryBroadcastDiscoveryRequest();
+    }
+
+    [Button]
+    private void StartGraphcreation()
+    {
+        var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
+        startNode.graphEntityComponent.StartSpanningTreeCreationWithBroadcast();
+
+    }
+
+    [Button]
+    private void StopGraphCreation()
+    {
+        foreach (var node in _currentAliveNodes)
+        {
+            node.graphEntityComponent.StopSearching();
+        }
     }
 
     [Button]

@@ -20,7 +20,7 @@ namespace Atom.CommunicationSystem
             this.broadcasterAdress = broadcasterAdress;
         }
 
-        public NetworkDiscoveryBroadcastPacket(short packetIdentifier, string senderID, DateTime sentTime, string broadcastID, string broadcasterID, string broadcasterAdress)
+        public NetworkDiscoveryBroadcastPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID, string broadcasterAdress)
         {
             this.packetTypeIdentifier = packetIdentifier;
             this.senderID = senderID;

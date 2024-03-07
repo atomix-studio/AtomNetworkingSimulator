@@ -13,7 +13,7 @@ namespace Atom.Broadcasting.SelectiveForwarding
     /// </summary>
     public class SinglecastPacket : AbstractNetworkPacket, IRespondable
     {
-        public SinglecastPacket(string casterAdress, string casterID, string targetID, int cycles)
+        public SinglecastPacket(string casterAdress, long casterID, long targetID, int cycles)
         {            
             this.casterAdress = casterAdress;
             this.casterID = casterID;
@@ -22,14 +22,14 @@ namespace Atom.Broadcasting.SelectiveForwarding
         }
 
         public string casterAdress { get; set; }
-        public string casterID { get; set; }
+        public long casterID { get; set; }
 
         public string senderAdress { get ; set ; }
 
         public INetworkPacket packet => this;
 
         // we simulate the case of we want to find a node by its id
-        public string targetID { get; set; }
+        public long targetID { get; set; }
         public int cycles { get; set; }
 
 

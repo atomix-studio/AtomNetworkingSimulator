@@ -494,7 +494,7 @@ PrefabInstance:
     - target: {fileID: 5173503354320299876, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
       propertyPath: _localPeerInfo._peerID
-      value: BT1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5173503354320299876, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
@@ -738,7 +738,7 @@ MonoBehaviour:
   PacketSpeed: 100
   _pf_NodeEntity: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
     type: 3}
-  _startNodeEntitiesCount: 20
+  _startNodeEntitiesCount: 45
   _maxNodeEntitiesCount: 100
   _incomingConnectionsPerMinute: 100
   _incomingDisconnectionsPerMinute: 0
@@ -828,7 +828,7 @@ PrefabInstance:
     - target: {fileID: 5173503354320299876, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
       propertyPath: _localPeerInfo._peerID
-      value: BT2
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5173503354320299876, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
@@ -990,7 +990,7 @@ PrefabInstance:
     - target: {fileID: 5173503354320299876, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
       propertyPath: _localPeerInfo._peerID
-      value: BT3
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5173503354320299876, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}

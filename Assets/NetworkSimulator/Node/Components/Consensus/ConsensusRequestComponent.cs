@@ -16,7 +16,7 @@ namespace Atom.Broadcasting.Consensus
         public NodeEntity controller { get; set; }
         [Inject] private BroadcasterComponent _broadcaster;
 
-        private Dictionary<string, RunningConsensusData> _runningConsensuses = new Dictionary<string, RunningConsensusData>();
+        private Dictionary<long, RunningConsensusData> _runningConsensuses = new Dictionary<long, RunningConsensusData>();
         [SerializeField, ReadOnly] private ColorVotingConsensusPacket debugColorConsensus;
 
         [SerializeField] private float _voteTimeOut = 30; // secondes
@@ -26,7 +26,7 @@ namespace Atom.Broadcasting.Consensus
         private bool _hasPending = false;
 
         public int[] debugAggregate = new int[4];
-        private List<string> _endingConsensusesBuffer = new List<string>();
+        private List<long> _endingConsensusesBuffer = new List<long>();
 
         public void OnUpdate()
         {
@@ -161,7 +161,7 @@ namespace Atom.Broadcasting.Consensus
 
         public void StartBroadcastConsensusPacket(IConsensusPacket consensusPacket)
         {
-            consensusPacket.consensusId = System.Guid.NewGuid().ToString();
+            consensusPacket.consensusId = NodeRandom.UniqueID(); // System.Guid.NewGuid().ToString();
             consensusPacket.consensusVersion = 0; // obvious but for the sake of explicity
 
             _runningConsensuses.Add(consensusPacket.consensusId, new RunningConsensusData() { hasUpdate = false, packet = consensusPacket });

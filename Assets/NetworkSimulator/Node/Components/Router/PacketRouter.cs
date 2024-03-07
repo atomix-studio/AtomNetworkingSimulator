@@ -17,7 +17,7 @@ namespace Atom.CommunicationSystem
         [Inject] public TransportLayerComponent transportLayer { get; set; }
         [Inject] public NetworkHandlingComponent networkHandling { get; set; }
 
-        private string _peerId;
+        private long _peerId;
        
         private Action<INetworkPacket> _onReceiveExternal;
         private Dictionary<Type, short> _packetIdentifiers = new Dictionary<Type, short>();
@@ -58,7 +58,7 @@ namespace Atom.CommunicationSystem
             this.transportLayer.SetRoutingCallback(_onReceiveExternal);
         }
 
-        public void InitPeerAdress(string peerAdress)
+        public void InitPeerAdress(long peerAdress)
         {
             _peerId = peerAdress;
         }

@@ -34,7 +34,7 @@ namespace Atom.Components.GraphNetwork
 
         public int requestPing { get ; set ; }
 
-        public string FragmentOwnerId { get; set; }
+        public long FragmentOwnerId { get; set; }
         public string FragmentOwnerAdress { get; set; }
         public int FragmentLevel { get; set; }
     }

@@ -52,12 +52,12 @@ namespace Atom.CommunicationSystem
         /// <summary>
         /// Peers that the local node can sends data to
         /// </summary>
-        public Dictionary<string, PeerInfo> Connections { get; set; }
+        public Dictionary<long, PeerInfo> Connections { get; set; }
 
         /// <summary>
         /// A collection of known peers which are note in the listenners or the callers.
         /// </summary>
-        public Dictionary<string, PeerInfo> KnownPeers { get; set; }
+        public Dictionary<long, PeerInfo> KnownPeers { get; set; }
 
         //[SerializeField] private List<PeerInfo> _callersDebug;
         [SerializeField] private List<PeerInfo> _connectionsDebug;
@@ -68,8 +68,8 @@ namespace Atom.CommunicationSystem
         public void OnInitialize()
         {
             //Callers = new Dictionary<string, PeerInfo>();
-            Connections = new Dictionary<string, PeerInfo>();
-            KnownPeers = new Dictionary<string, PeerInfo>();
+            Connections = new Dictionary<long, PeerInfo>();
+            KnownPeers = new Dictionary<long, PeerInfo>();
             //_callersDebug = new List<PeerInfo>();
             _connectionsDebug = new List<PeerInfo>();
             _networkScoreBuffer.Add(0);
