@@ -53,6 +53,8 @@ public class NodeEntity : MonoBehaviour
 
     public bool IsBoot => _isBoot;
     public long LocalNodeId => networkHandling.LocalPeerInfo.peerID;
+    public string LocalNodeAdress => networkHandling.LocalPeerInfo.peerAdress;
+
     public Material material => _material;
 
     private float _timerBetweenTryConnection;

@@ -262,6 +262,7 @@ namespace Atom.CommunicationSystem
                 if (Connections.TryGetValue(response.senderID, out peerInfo))
                 {
                     peerInfo.UpdateAveragePing((response as IResponse).requestPing);
+                    peerInfo.SetScoreByDistance(controller.transform.position);
 
                     // updating overall score of the network at instant T
                     UpdateNetworkScore();
@@ -284,6 +285,7 @@ namespace Atom.CommunicationSystem
             }
 
             peerInfo.SetScoreByDistance(controller.transform.position);
+            peerInfo.UpdateAveragePing(handshakeResponse.requestPing);
 
             return true;
         }

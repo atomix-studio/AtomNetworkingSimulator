@@ -98,6 +98,10 @@ namespace Atom.CommunicationSystem
                 averagePing += _pings[i];
             }
             averagePing /= _pings.Count;
+
+            //this.score = 1000f / averagePing;
+
+            this.last_updated = DateTime.Now;
         }
 
         public void SetScore(float score)

@@ -109,29 +109,14 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
             var accept_connection = UnityEngine.Random.Range(0, 100) > chances; // here a real random function / use peer counting to get datas of the global network
             if (accept_connection)
             {
-                //if listenners full => checking score to find if broadcaster is better than any listenner
-                //var temp_broadcasterPeerInfo = new PeerInfo(discoveryPacket.broadcastID, discoveryPacket.broadcasterAdress);
-                /*await _networkInfo.UpdatePeerInfoAsync(temp_broadcasterPeerInfo);
-                // temp_broadcastPeerInfo is updated at this point*/
-
                 // replace here by an actual ping request to get a score
                 var temp_broadcasterPeerInfo = new PeerInfo(discoveryPacket.broadcasterID, discoveryPacket.broadcasterAdress);
+                              
                 temp_broadcasterPeerInfo.SetScoreByDistance(controller.transform.position);
 
                 if (_networkInfo.Connections.Count >= controller.NetworkViewsTargetCount)
                 {
-                   /* if (_connecting.CanAcceptConnectionWith(temp_broadcasterPeerInfo))
-                    {
-                        // the node has room for new incoming connections (callers)
-                        // he notify the broadcaster that a connection is avalaible
-                        var responsePacket = new NetworkDiscoveryPotentialConnectionNotificationPacket();
-                        responsePacket.listennerID = _networkInfo.LocalPeerInfo.peerID;
-                        responsePacket.listennerAdress = _networkInfo.LocalPeerInfo.peerAdress;
-
-                        _broadcaster.Send(temp_broadcasterPeerInfo.peerAdress, responsePacket);
-                        _discoveryBroadcastTimer = DelayBetweenDiscoveryRequests;
-                        return;
-                    }*/
+                    //await _networkInfo.UpdatePeerInfoAsync(temp_broadcasterPeerInfo);
 
                     if (_connecting.CanAcceptConnectionWith(temp_broadcasterPeerInfo, out var swappedPeer))
                     {
@@ -144,32 +129,11 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
 
                     _discoveryBroadcastCooldown = DelayBetweenDiscoveryRequests;
                     return;
-                }
-           
-                //else if listenners not full, accept directly than handshake ?
+                }           
             }
 
             _broadcaster.RelayBroadcast((IBroadcastablePacket)packet);
         });
-
-        /*_broadcaster.RegisterPacketHandlerWithMiddleware(typeof(NetworkDiscoveryPotentialConnectionNotificationPacket), (packet) =>
-        {
-            var resp = (NetworkDiscoveryPotentialConnectionNotificationPacket)packet;
-
-            var newPeerInfo = new PeerInfo(resp.listennerID, resp.listennerAdress);
-            newPeerInfo.SetScoreByDistance(context.transform.position);
-            newPeerInfo.ping = (DateTime.Now - packet.sentTime).Milliseconds;
-            //var pingReceived = await _networkInfo.UpdatePeerInfoAsync(newPeerInfo);
-            *//*if (!pingReceived)
-                return;*//*
-
-            // when receiving broadcast responses, the local node have to tryadd the new peer 
-            // if he cant add the peer bases
-            if (_connecting.CanAcceptConnectionWith(newPeerInfo, out var swappedPeer))
-            {                
-                _connecting.SendConnectionRequestTo(newPeerInfo);
-            }
-        });*/
     }
 
     // this method is firing only on first connection to network, as a response from cluster boot nodes
@@ -225,40 +189,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
             controller.OnReceiveGroupRequest(packet.Broadcaster);
             RelayBroadcast(packet);
         });
-
-        /*       context.transportLayer.RegisterEndpoint("NEW_SUBSCRIPTION_REQUEST", (subscriberPacket) =>
-               {
-                   _transportLayer.SendPacket(subscriberPacket.Sender, "NEW_SUBSCRIPTION_REQUEST_RESPONSE", AvalaiblePeers);
-               });
-
-               context.transportLayer.RegisterEndpoint("NEW_SUBSCRIPTION_REQUEST_RESPONSE", (packetResponse) =>
-               {
-                   var potentialPeers = packetResponse._potentialPeers;
-                   potentialPeers.Sort((a, b) => Vector3.Distance(a.transform.position, transform.position).CompareTo(Vector3.Distance(b.transform.position, transform.position)));
-                   for (int i = 0; i < potentialPeers.Count; i++)
-                   {
-                       if (AvalaiblePeers.Count < PartialViewMaximumCount)
-                       {
-                           TryRegisterPeer(potentialPeers[i]);
-                       }
-                       else
-                       {
-                           for (int j = 0; j < AvalaiblePeers.Count; ++j)
-                           {
-                               // if better peer is found
-                               if (GetPeerScore(AvalaiblePeers[j]) < GetPeerScore(potentialPeers[i]))
-                               {
-                                   UnregisterPeer(AvalaiblePeers[j]);
-                                   TryRegisterPeer(potentialPeers[i]);
-                                   break;
-                               }
-                           }
-                       }
-                   }
-
-                   BroadcastDiscoveryRequest();
-               });
-       */
+                
         controller.transportLayer.RegisterEndpoint("BROADCAST_DISCOVERY", OnReceive_DiscoveryBroadcast);
         controller.transportLayer.RegisterEndpoint("BROADCAST_DISCOVERY_RESPONSE", OnReceive_DiscoveryBroadcastReponse);
     }

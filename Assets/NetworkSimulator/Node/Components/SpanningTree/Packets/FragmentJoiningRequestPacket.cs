@@ -17,17 +17,14 @@ namespace Atom.Components.GraphNetwork
         }
 
         public string senderAdress { get ; set ; }
-
         public int joinerfragmentLevel { get ; set ; }
         public long joinerFragmentId { get ; set ; }
-        public List<long> oldFragmentIds { get ; set ; }
-
 
         public INetworkPacket packet => this;
 
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
-            return new FragmentJoiningRequestValidated();
+            return null;
         }
     }
 
@@ -41,14 +38,25 @@ namespace Atom.Components.GraphNetwork
     }
 
     // callback from a leader to tell a node it has received and accepted to become the new fragment leader
-    public class FragmentJoiningRequestValidated : AbstractNetworkPacket, IResponse
+    public class FragmentJoiningRequestValidated : AbstractNetworkPacket
     {
-        public long callerPacketUniqueId { get ; set ; }
+        public FragmentJoiningRequestValidated(long senderId, string senderAdress)
+        {
+            this.senderId = senderId;
+            this.senderAdress = senderAdress;
+        }
 
-        public INetworkPacket packet => this;
+        public FragmentJoiningRequestValidated(long senderId, string senderAdress, long fragmentId, int fragmentLevel, GraphOperations graphOperation)
+        {
+            this.senderId = senderId;
+            this.senderAdress = senderAdress;
+            FragmentId = fragmentId;
+            FragmentLevel = fragmentLevel;
+            this.graphOperation = graphOperation;
+        }
 
-        public int requestPing { get ; set ; }
-
+        public long senderId { get ; set ; }
+        public string senderAdress { get; set; }
         public long FragmentId { get; set; }
         public int FragmentLevel { get; set; }
 

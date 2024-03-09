@@ -194,7 +194,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 17912471}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -50, y: 0, z: -50}
+  m_LocalPosition: {x: -125, y: 0, z: -125}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -733,8 +733,8 @@ MonoBehaviour:
   DisplayGHSTree: 0
   DisplayListennersConnections: 1
   DisplaySelectedOnly: 0
-  DisplayPackets: 0
-  TransportInstantaneously: 1
+  DisplayPackets: 1
+  TransportInstantaneously: 0
   PacketSpeed: 100
   _pf_NodeEntity: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
     type: 3}
@@ -755,6 +755,7 @@ MonoBehaviour:
   - {fileID: 584273122}
   DebugSelectedNodeEntity: {fileID: 0}
   SelectedIndex: 0
+  SpawnSize: {x: -50, y: 50}
 --- !u!4 &1173228168
 Transform:
   m_ObjectHideFlags: 0

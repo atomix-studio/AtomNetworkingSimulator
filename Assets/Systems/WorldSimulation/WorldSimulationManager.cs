@@ -54,6 +54,7 @@ public class WorldSimulationManager : MonoBehaviour
     public static int _totalPacketReceivedPerSecondCount = 0;
     public static float _packetTimer = 1;
 
+    public Vector2 SpawnSize = new Vector2(-50, 50);
 
     private void Awake()
     {
@@ -168,13 +169,13 @@ public class WorldSimulationManager : MonoBehaviour
     public void GenerateNodeEntity(bool startAsleep)
     {
         var newNodeEntity = PoolManager.Instance.SpawnGo(_pf_NodeEntity.gameObject, transform.position).GetComponent<NodeEntity>();
-        if (NavMesh.SamplePosition(new Vector3(Random.Range(-50, 50), 0, Random.Range(-50, 50)), out var hit, 50, 0))
+        if (NavMesh.SamplePosition(new Vector3(Random.Range(SpawnSize.x, SpawnSize.y), 0, Random.Range(SpawnSize.x, SpawnSize.y)), out var hit, 50, 0))
         {
             newNodeEntity.transform.position = hit.position;
         }
         else
         {
-            newNodeEntity.transform.position = new Vector3(Random.Range(-50, 50), 0, Random.Range(-50, 50));
+            newNodeEntity.transform.position = new Vector3(Random.Range(SpawnSize.x, SpawnSize.y), 0, Random.Range(SpawnSize.x, SpawnSize.y));
         }
 
         newNodeEntity.name = "nodeEntity_" + _nodeEntityIdGenerator++;
