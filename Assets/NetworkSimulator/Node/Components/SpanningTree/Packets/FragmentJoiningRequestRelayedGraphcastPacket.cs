@@ -19,6 +19,7 @@ namespace Atom.Components.GraphNetwork
 
         public long originId { get; set; }
         public string originAdress { get; set; }
+
         public int joinerfragmentLevel { get; set; }
         public long joinerFragmentId { get; set; }
 

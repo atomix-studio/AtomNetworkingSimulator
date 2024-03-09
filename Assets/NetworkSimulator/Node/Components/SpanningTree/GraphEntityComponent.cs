@@ -119,13 +119,19 @@ namespace Atom.Components.GraphNetwork
 
                     if(rel.joinerfragmentLevel < _fragmentData.FragmentLevel || rel.joinerFragmentId == _fragmentData.MinimumOutgoingEdge.OuterFragmentId)
                     {
-                        Debug.LogError($"{rel.originAdress} requested a join over the fragment {LocalFragmentId} that has been relayed by {rel.broadcasterID}. What to do here ?");
+                        Debug.LogError($"{rel.originAdress} requested a join over the fragment {LocalFragmentId}. {rel.broadcasterID} should become MOE/Leader for this connection to happen.");
+                        if(rel.broadcasterID > rel.originId)
+                        {
+                            // the broadcaster (the inner fragment node that received the request) has a higher id so he is able to handle a leader switch
+                            Debug.LogError($"Leader switching from {LocalFragmentId} to {rel.broadcasterID}");
+                            _graphcaster.SendGraphcast(new FragmentLeaderSelectingPacket(LocalFragmentId, rel.broadcasterID, rel.originId));
+                        }
 
-                        var relayed = new FragmentJoiningRequestPacket(rel.joinerfragmentLevel, rel.joinerFragmentId);
+                        /*var relayed = new FragmentJoiningRequestPacket(rel.joinerfragmentLevel, rel.joinerFragmentId);
                         relayed.senderAdress = rel.originAdress;
                         relayed.senderID = rel.originId;
 
-                        OnJoiningFragmentRequestReceived(relayed);
+                        OnJoiningFragmentRequestReceived(relayed);*/
                     }
                     return;
                 }
@@ -403,10 +409,19 @@ namespace Atom.Components.GraphNetwork
 
         // the join is sent by the inner node of the minimum outgoing edge which connects the two fragments
         // if accepted, the sending node will become a graph edge
-        public void SendFragmentJoiningRequest(PeerInfo outgoingEdgeNodeInfo)
+        public async void SendFragmentJoiningRequest(PeerInfo outgoingEdgeNodeInfo)
         {
             _outgoingJoiningRequestPeerId = outgoingEdgeNodeInfo.peerID;
             _packetRouter.Send(outgoingEdgeNodeInfo.peerAdress, new FragmentJoiningRequestPacket(_fragmentData.FragmentLevel, _fragmentData.FragmentID));
+
+            await Task.Delay(3000);
+
+            Debug.LogError($"{controller.LocalNodeAdress} : joining request timed out . Recomputing moe and resending new.");
+            if(_outgoingJoiningRequestPeerId != -1)
+            {
+                _outgoingJoiningRequestPeerId = -1;
+                FindMoeAndSendJoinRequest();
+            }
         }
 
         private void OnFragmentJoiningRequestResponseReceived(FragmentJoiningRequestValidated response)
