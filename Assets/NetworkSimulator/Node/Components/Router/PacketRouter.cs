@@ -15,7 +15,7 @@ namespace Atom.CommunicationSystem
     {
         public NodeEntity controller { get; set; }
         [Inject] public TransportLayerComponent transportLayer { get; set; }
-        [Inject] public NetworkHandlingComponent networkHandling { get; set; }
+        [Inject] public NetworkConnectionsComponent networkHandling { get; set; }
 
         private long _peerId;
        

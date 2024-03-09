@@ -21,10 +21,10 @@ public class NodeEntity : MonoBehaviour
     public BroadcasterComponent broadcaster { get; set; }
     public TransportLayerComponent transportLayer { get; set; }
     public PeerSamplingService peerSampling { get; set; }
-    public NetworkHandlingComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }
+    public NetworkConnectionsComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }
     public GraphEntityComponent graphEntityComponent { get; set; }
 
-    [SerializeField] private NetworkHandlingComponent _networkInfo;
+    [SerializeField] private NetworkConnectionsComponent _networkInfo;
     [SerializeField] private BootNodeHandling _bootNodeHandling;
 
     private List<INodeUpdatableComponent> _updatableComponents = new List<INodeUpdatableComponent>();
@@ -52,6 +52,7 @@ public class NodeEntity : MonoBehaviour
     public float CurrentPingSimulatorMultiplier = 1;
 
     public bool IsBoot => _isBoot;
+    public long LocalNodeId => networkHandling.LocalPeerInfo.peerID;
     public Material material => _material;
 
     private float _timerBetweenTryConnection;

@@ -261,7 +261,15 @@ public class WorldSimulationManager : MonoBehaviour
     }
 
     [Button]
-    private void StartGraphcreation()
+    private void StartGraphcreationSingleCast()
+    {
+        var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
+        startNode.graphEntityComponent.StartSpanningTreeCreationWithOneCast();
+
+    }
+
+    [Button]
+    private void StartGraphcreationBroadcasted()
     {
         var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
         startNode.graphEntityComponent.StartSpanningTreeCreationWithBroadcast();
@@ -274,6 +282,15 @@ public class WorldSimulationManager : MonoBehaviour
         foreach (var node in _currentAliveNodes)
         {
             node.graphEntityComponent.StopSearching();
+        }
+    }
+
+    [Button]
+    private void ResetGraph()
+    {
+        foreach (var node in _currentAliveNodes)
+        {
+            node.graphEntityComponent.ResetGraphEdges();
         }
     }
 

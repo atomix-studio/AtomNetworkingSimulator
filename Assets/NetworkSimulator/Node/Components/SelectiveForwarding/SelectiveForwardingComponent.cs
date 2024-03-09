@@ -17,7 +17,7 @@ namespace Atom.Broadcasting.SelectiveForwarding
     {
         public NodeEntity context { get; set; }
         [Inject] private PacketRouter _packetRouter;
-        [Inject] private NetworkHandlingComponent _networkHandling;
+        [Inject] private NetworkConnectionsComponent _networkHandling;
 
         public void OnInitialize()
         {

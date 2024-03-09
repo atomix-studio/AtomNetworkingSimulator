@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace Atom.Components.GraphNetwork
 {
+    [Serializable]
     public class FragmentJoiningRequestPacket : AbstractNetworkPacket, IRespondable
     {
         public FragmentJoiningRequestPacket(int fragmentLevel, long fragmentId)
@@ -19,6 +20,8 @@ namespace Atom.Components.GraphNetwork
 
         public int joinerfragmentLevel { get ; set ; }
         public long joinerFragmentId { get ; set ; }
+        public List<long> oldFragmentIds { get ; set ; }
+
 
         public INetworkPacket packet => this;
 
@@ -26,6 +29,15 @@ namespace Atom.Components.GraphNetwork
         {
             return new FragmentJoiningRequestValidated();
         }
+    }
+
+
+    public enum GraphOperations
+    {
+        Absorbed,
+        Merged,
+        // when a join is received but the local node has already this node as edge
+        RefreshExistingEdge
     }
 
     // callback from a leader to tell a node it has received and accepted to become the new fragment leader
@@ -39,6 +51,8 @@ namespace Atom.Components.GraphNetwork
 
         public long FragmentId { get; set; }
         public int FragmentLevel { get; set; }
+
+        public GraphOperations graphOperation { get; set; } 
 
     }
 }

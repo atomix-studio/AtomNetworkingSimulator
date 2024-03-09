@@ -15,7 +15,7 @@ namespace Atom.ClusterConnectionService
         [Inject] private PeerSamplingService _samplingService;
         [Inject] private PacketRouter _packetRouter;
         [Inject] private BroadcasterComponent _broadcaster;
-        [Inject] private NetworkHandlingComponent _networkHandling;
+        [Inject] private NetworkConnectionsComponent _networkHandling;
 
         /// <summary>
         /// the maximum number of boot nodes a node can reach while joining the network

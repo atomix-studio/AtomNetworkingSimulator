@@ -16,7 +16,7 @@ namespace Atom.Components.Connecting
     {
         public NodeEntity controller { get; set; }
         [Inject] private BroadcasterComponent _broadcaster;
-        [Inject] private NetworkHandlingComponent _networkHandling;
+        [Inject] private NetworkConnectionsComponent _networkHandling;
 
         protected float broadcastChances = 3;
         protected float refreshCooldown = 5;
@@ -30,6 +30,7 @@ namespace Atom.Components.Connecting
             _broadcaster.RegisterBroadcastReceptionMiddleware(BootNodeBroadcastMiddleware);
         }
 
+        // boot node have a special routine that will randomly refresh their known nodes when they relay a broadcast
         private bool BootNodeBroadcastMiddleware(IBroadcastablePacket packet)
         {
             if (_middlewareCooldown > 0)

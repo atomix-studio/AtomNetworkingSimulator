@@ -17,7 +17,7 @@ namespace Atom.CommunicationSystem
     /// It keeps datas about old connections in case he needs to try to reconnect to them.
     /// </summary>
     [Serializable]
-    public class NetworkHandlingComponent : MonoBehaviour, INodeUpdatableComponent
+    public class NetworkConnectionsComponent : MonoBehaviour, INodeUpdatableComponent
     {
         public NodeEntity controller { get; set; }
         [Inject] private HandshakingComponent _handshaking;

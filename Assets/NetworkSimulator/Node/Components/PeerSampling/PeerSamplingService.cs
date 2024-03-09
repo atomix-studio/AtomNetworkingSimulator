@@ -42,7 +42,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
 {
     public NodeEntity controller { get; set; }
     [Inject] private TransportLayerComponent _transportLayer;
-    [Inject] private NetworkHandlingComponent _networkInfo;
+    [Inject] private NetworkConnectionsComponent _networkInfo;
     [Inject] private BroadcasterComponent _broadcaster;
     [Inject] private HandshakingComponent _handshaking;
     [Inject] private ConnectingComponent _connecting;
@@ -103,7 +103,8 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
                 return;
             }
 
-            //float listennerRatio = ListennersTargetCount / _networkInfo.Listenners.Count;
+            // chances to accept a new connection depend on the network size cause the network size will influence directly the number of 
+            // discovery request received by a node.
             float chances = NodeMath.Map(WorldSimulationManager.nodeAddresses.Count, 0, 100000, 60, 99.999f);
             var accept_connection = UnityEngine.Random.Range(0, 100) > chances; // here a real random function / use peer counting to get datas of the global network
             if (accept_connection)
@@ -113,6 +114,7 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
                 /*await _networkInfo.UpdatePeerInfoAsync(temp_broadcasterPeerInfo);
                 // temp_broadcastPeerInfo is updated at this point*/
 
+                // replace here by an actual ping request to get a score
                 var temp_broadcasterPeerInfo = new PeerInfo(discoveryPacket.broadcasterID, discoveryPacket.broadcasterAdress);
                 temp_broadcasterPeerInfo.SetScoreByDistance(controller.transform.position);
 
