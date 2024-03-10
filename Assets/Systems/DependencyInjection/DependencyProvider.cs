@@ -553,6 +553,8 @@ namespace Atom.DependencyProvider
             {
                 try
                 {
+                    Debug.Log($"Type injector of type {typeInjector.reflectingType}. Injecting attribute ?: {typeInjector.injectAttribute}");
+
                     if (typeInjector.injectAttribute.InjectionOptions.HasFlag(InjectAttribute.InjectingOptions.AllowFindGameObject))
                     {
                         comp = (Component)GameObject.FindObjectOfType(componentType);
