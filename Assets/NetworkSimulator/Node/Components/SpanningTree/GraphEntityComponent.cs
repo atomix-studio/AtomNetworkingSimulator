@@ -38,7 +38,6 @@ namespace Atom.Components.GraphNetwork
         [SerializeField] private float _leaderUpdateSpan = 6;
 
         [SerializeField] private GraphFragmentData _fragmentData;
-        public bool IsPendingOutgoingEdge = false;
 
         public long LocalFragmentId => _fragmentData.FragmentID;
         public int LocalFragmentLevel => _fragmentData.FragmentLevel;
@@ -51,10 +50,10 @@ namespace Atom.Components.GraphNetwork
             }
         }
 
-        [SerializeField] private List<GraphEdge> _graphEdges = new List<GraphEdge>();
         [ShowInInspector, ReadOnly] private long _outgoingJoiningRequestPeerId = -1;
-        [ShowInInspector, ReadOnly] private List<FragmentJoiningRequestPacket> _incomingJoiningRequestBuffer = new List<FragmentJoiningRequestPacket>();
         [ShowInInspector, ReadOnly] private NodeGraphState _nodeGraphState;
+        //[ShowInInspector, ReadOnly] private List<FragmentJoiningRequestPacket> _incomingJoiningRequestBuffer = new List<FragmentJoiningRequestPacket>();
+        [SerializeField] private List<GraphEdge> _graphEdges = new List<GraphEdge>();
 
         public List<GraphEdge> graphEdges => _graphEdges;
 
@@ -203,6 +202,9 @@ namespace Atom.Components.GraphNetwork
                                 else
                                 {
                                     Debug.LogError($"What to do know ? {LocalFragmentId}");
+
+                                    SendFragmentJoiningRequest(_fragmentData.MinimumOutgoingEdge.OuterFragmentNode);
+
                                 }
                             }
                         });
@@ -230,7 +232,6 @@ namespace Atom.Components.GraphNetwork
             // graph cast absorbed + local fragment to set absorbed nodes fragment level adn id
             _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(joiningRequestPacket.senderID, _fragmentData.FragmentLevel, _fragmentData.OldFragmentIDs));
 
-            IsPendingOutgoingEdge = false;
             _fragmentData.MinimumOutgoingEdge = null;
 
             StartCoroutine(_waitAndSendFragmentJoiningRequestPacket());
@@ -257,7 +258,6 @@ namespace Atom.Components.GraphNetwork
             var response = new FragmentJoiningRequestValidated(controller.LocalNodeId, controller.LocalNodeAdress);
 
             _createGraphEdge(joiningRequestPacket.senderID, joiningRequestPacket.senderAdress);
-            IsPendingOutgoingEdge = false;
 
             // the node then reply to the requester that the merge happens
             // the requester wil update itself and graphcast to its local network before creating the connection
@@ -354,7 +354,7 @@ namespace Atom.Components.GraphNetwork
         private void _leaderUpdate()
         {
             _leaderUpdateTimer += Time.deltaTime;
-            if (_leaderUpdateTimer > _leaderLeaseDuration)
+            if (_leaderUpdateTimer > _leaderUpdateSpan)
             {
                 // heartbeat graphcast
                 _graphcaster.SendGraphcast(new LeaderHeartbeatPacket(LocalFragmentLevel));
@@ -617,16 +617,25 @@ namespace Atom.Components.GraphNetwork
         // if accepted, the sending node will become a graph edge
         public async void SendFragmentJoiningRequest(PeerInfo outgoingEdgeNodeInfo)
         {
-            _outgoingJoiningRequestPeerId = outgoingEdgeNodeInfo.peerID;
-            _packetRouter.Send(outgoingEdgeNodeInfo.peerAdress, new FragmentJoiningRequestPacket(_fragmentData.FragmentLevel, _fragmentData.FragmentID));
-
-            await Task.Delay(3000);
-
-            Debug.LogError($"{controller.LocalNodeAdress} : joining request timed out . Recomputing moe and resending new.");
-            if (_outgoingJoiningRequestPeerId != -1)
+            if(_outgoingJoiningRequestPeerId == -1)
             {
+                _outgoingJoiningRequestPeerId = outgoingEdgeNodeInfo.peerID;
+                _packetRouter.Send(outgoingEdgeNodeInfo.peerAdress, new FragmentJoiningRequestPacket(_fragmentData.FragmentLevel, _fragmentData.FragmentID));
+
+                await Task.Delay(1500);
+
+                Debug.LogError($"{controller.LocalNodeAdress} : joining request timed out . Recomputing moe and resending new.");
+                if (_outgoingJoiningRequestPeerId != -1)
+                {
+                    _outgoingJoiningRequestPeerId = -1;
+                    FindMoeAndSendJoinRequest();
+                }
+            }
+            else
+            {
+                await Task.Delay(1500);
                 _outgoingJoiningRequestPeerId = -1;
-                FindMoeAndSendJoinRequest();
+                SendFragmentJoiningRequest(outgoingEdgeNodeInfo);
             }
         }
 
@@ -639,8 +648,6 @@ namespace Atom.Components.GraphNetwork
             var validation = (FragmentJoiningRequestValidated)response;
             // create the connection with the peer that asnwered psitively to our join request
             _createGraphEdge(response.senderID, response.senderAdress);
-
-            IsPendingOutgoingEdge = false;
 
             _fragmentData.OldFragmentIDs.Add(_fragmentData.FragmentID);
 
@@ -776,7 +783,6 @@ namespace Atom.Components.GraphNetwork
             // at creation every node is its own fragment leader
             _fragmentData = new GraphFragmentData(0, _networkHandling.LocalPeerInfo.peerID);
             _fragmentData.FragmentMembers.Add(_networkHandling.LocalPeerInfo);
-            IsPendingOutgoingEdge = true;
         }
 
         public void DisplayDebugConnectionLines()
