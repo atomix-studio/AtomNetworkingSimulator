@@ -583,32 +583,41 @@ namespace Atom.Components.GraphNetwork
                     }
                 }
 
-                var oldLeaderId = LocalFragmentId;
                 // bestInfo is moe
                 _fragmentData.MinimumOutgoingEdge = new MinimumOutgoingEdge(outerConnections[bestIndex].Item1, outerConnections[bestIndex].Item2, outerFragmentId[bestIndex], outerFragmentLevel[bestIndex]);
 
-                // if leader is not MOE, it send a graphcast for leader swap to the actual inner MOE
-                if (_fragmentData.MinimumOutgoingEdge.InnerFragmentNode.peerID != controller.LocalNodeId)
-                {
-                    // giving up on the lead
-                    _fragmentData.FragmentID = _fragmentData.MinimumOutgoingEdge.InnerFragmentNode.peerID;
-                    _nodeGraphState = NodeGraphState.Follower;
-
-                    // from this point, the network has no more leader.
-                    // if the message doesn't achieve the new leader, an election will eventually occur
-                    _graphcaster.SendGraphcast(new FragmentLeaderSelectingPacket(oldLeaderId, _fragmentData.MinimumOutgoingEdge.InnerFragmentNode.peerID, _fragmentData.MinimumOutgoingEdge.OuterFragmentNode.peerID));
-                }
-                // if local node / leader is already the MOE, it will just send the request
-                else
-                {
-                    SendFragmentJoiningRequest(_fragmentData.MinimumOutgoingEdge.OuterFragmentNode);
-                }
+                ExecuteNextFragmentJoiningRequest(LocalFragmentId);
             }
             else
             {
                 _fragmentData.MinimumOutgoingEdge = null;
                 Debug.Log("No outer connection found from fragment " + _fragmentData.FragmentID);
             }
+        }
+
+        private void ExecuteNextFragmentJoiningRequest(long oldLeaderId)
+        {
+            // if leader is not MOE, it send a graphcast for leader swap to the actual inner MOE
+            if (_fragmentData.MinimumOutgoingEdge.InnerFragmentNode.peerID != controller.LocalNodeId)
+            {
+                RelayLeaderRoleToCurrentMinimumOutgoingEdge(oldLeaderId);
+            }
+            // if local node / leader is already the MOE, it will just send the request
+            else
+            {
+                SendFragmentJoiningRequest(_fragmentData.MinimumOutgoingEdge.OuterFragmentNode);
+            }
+        }
+
+        private void RelayLeaderRoleToCurrentMinimumOutgoingEdge(long oldLeaderId)
+        {
+            // giving up on the lead
+            _fragmentData.FragmentID = _fragmentData.MinimumOutgoingEdge.InnerFragmentNode.peerID;
+            _nodeGraphState = NodeGraphState.Follower;
+
+            // from this point, the network has no more leader.
+            // if the message doesn't achieve the new leader, an election will eventually occur
+            _graphcaster.SendGraphcast(new FragmentLeaderSelectingPacket(oldLeaderId, _fragmentData.MinimumOutgoingEdge.InnerFragmentNode.peerID, _fragmentData.MinimumOutgoingEdge.OuterFragmentNode.peerID));
         }
         #endregion
 
@@ -623,12 +632,21 @@ namespace Atom.Components.GraphNetwork
                 _packetRouter.Send(outgoingEdgeNodeInfo.peerAdress, new FragmentJoiningRequestPacket(_fragmentData.FragmentLevel, _fragmentData.FragmentID));
 
                 await Task.Delay(1500);
+                _outgoingJoiningRequestPeerId = -1;
 
-                Debug.LogError($"{controller.LocalNodeAdress} : joining request timed out . Recomputing moe and resending new.");
-                if (_outgoingJoiningRequestPeerId != -1)
+                if (_fragmentData.MinimumOutgoingEdge == null || _fragmentData.MinimumOutgoingEdge.hasExpired)
                 {
-                    _outgoingJoiningRequestPeerId = -1;
-                    FindMoeAndSendJoinRequest();
+                    var result = await FindMinimumOutgoingEdgeTask();
+
+                    if (result)
+                    {
+                        ExecuteNextFragmentJoiningRequest(LocalFragmentId);
+                    }
+                    return;
+                }
+                else
+                {
+                    SendFragmentJoiningRequest(outgoingEdgeNodeInfo);
                 }
             }
             else
