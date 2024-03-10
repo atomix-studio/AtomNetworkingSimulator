@@ -1,5 +1,6 @@
 ﻿using Atom.Broadcasting;
 using Atom.CommunicationSystem;
+using Atom.Components.GraphNetwork;
 using Atom.DependencyProvider;
 using Atom.Serialization;
 using Sirenix.OdinInspector;
@@ -24,6 +25,7 @@ namespace Atom.Components.RpcSystem
     public class RpcComponent : MonoBehaviour, INodeComponent
     {
         [Inject] private BroadcasterComponent _broadcaster;
+        [Inject] private GraphcasterComponent _graphcaster;
         [Inject] private PacketRouter _packetRouter;
 
         // in a real node environment, rpcs would be a static collection, so as the registering method
@@ -92,6 +94,17 @@ namespace Atom.Components.RpcSystem
 
             // send it via broadcaster
             _broadcaster.SendBroadcast(packet);
+        }
+
+        public void SendRpcGraphcasted(string rpcMethodName, params object[] args)
+        {
+            // get the packet from the rpc
+            var packet = new BroadcastedRpcPacket();
+            packet.RpcCode = _rpcIdentifiers[rpcMethodName];
+            packet.ArgumentsPayload = AtomSerializer.SerializeDynamic(packet.RpcCode, args);
+
+            // send it via broadcaster
+            _graphcaster.SendGraphcast(packet);
         }
 
         public void SendRpcGossip(string rpcMethodName, params object[] args)
