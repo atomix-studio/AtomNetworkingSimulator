@@ -27,6 +27,8 @@ namespace Atom.Components.GraphNetwork
 
         public NodeEntity controller { get; set; }
 
+        private DateTime _lastReceivedGraphcast;
+
         public void OnInitialize()
         {
             _relayedGraphcastsBuffer = new Dictionary<long, int>();
@@ -48,6 +50,10 @@ namespace Atom.Components.GraphNetwork
         {
             _packetRouter.RegisterPacketHandler(packetType, (receivedPacket) =>
             {
+                // the graphcaster keeps in memory this data 
+                // it will be used to detect if a node has became isolated from the graph and should begin a REJOIN procedure (graph recovery component)
+                _lastReceivedGraphcast = DateTime.Now; 
+
                 // the router checks for packet that are IBroadcastable and ensure they haven't been too much relayed
                 // if the packet as reached is maximum broadcast cycles on the node and the router receives it one more time
                 if (receivedPacket is IBroadcastablePacket)

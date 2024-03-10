@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Atom.Components.GraphNetwork
 {
-    public class GraphReparationService
+    public class GraphRecoveryComponent
     {
     }
 }
