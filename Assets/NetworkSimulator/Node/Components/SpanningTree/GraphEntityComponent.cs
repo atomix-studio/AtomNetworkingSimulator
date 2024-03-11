@@ -40,8 +40,9 @@ namespace Atom.Components.GraphNetwork
         [SerializeField] private float _minimumOutgoingEdgeExpirationDelay = 2;
         [Space]
 
-        [ShowInInspector, ReadOnly] private long _outgoingJoiningRequestPeerId = -1;
         [ShowInInspector, ReadOnly] private NodeGraphState _nodeGraphState;
+        [ReadOnly, ShowInInspector] private long _currentPendingLeadId = -1;
+        [ShowInInspector, ReadOnly] private long _outgoingJoiningRequestPeerId = -1;
         [ShowInInspector, ReadOnly] private List<FragmentJoiningRequestPacket> _bufferedMergingRequestBuffer = new List<FragmentJoiningRequestPacket>();
         [SerializeField] private List<GraphEdge> _graphEdges = new List<GraphEdge>();
 
@@ -50,6 +51,7 @@ namespace Atom.Components.GraphNetwork
         private DateTime _leaderExpirationTime;
         private bool _isGraphRunning = false;
         private bool _isGraphCreationCompleted = false;
+        private DateTime _lastTakeLeadRequestReceived;
 
         public List<GraphEdge> graphEdges => _graphEdges;
         public bool isGraphRunning => _isGraphRunning;
@@ -79,7 +81,6 @@ namespace Atom.Components.GraphNetwork
             _graphcaster.RegisterGraphcast(typeof(FragmentJoiningRequestRelayedGraphcastPacket), (packet) => OnFragmentJoiningRelayedGraphcastPacketReceived((FragmentJoiningRequestRelayedGraphcastPacket)packet), false);
             _graphcaster.RegisterGraphcast(typeof(LeaderHeartbeatPacket), (packet) => OnLeaderHeartbeatPacketReceived((LeaderHeartbeatPacket)packet), true);
             _graphcaster.RegisterGraphcast(typeof(TakeLeadRequestPacket), (packet) => OnTakeLeadRequestPacketReceived((TakeLeadRequestPacket)packet), false);
-            _graphcaster.RegisterGraphcast(typeof(DiscardTakeLeadPacket), (packet) => OnNewLeadTakeControl((DiscardTakeLeadPacket)packet), false);
         }
 
         [Button]
@@ -454,9 +455,6 @@ namespace Atom.Components.GraphNetwork
 
         #region New leader election
 
-        [ReadOnly, ShowInInspector] private long _currentPendingLeadId = -1;
-        private DateTime _lastTakeLeadRequestReceived;
-
         private void OnTakeLeadRequestPacketReceived(TakeLeadRequestPacket packet)
         {
             _lastTakeLeadRequestReceived = DateTime.Now;
@@ -496,17 +494,9 @@ namespace Atom.Components.GraphNetwork
                 }
 
                 _graphcaster.RelayGraphcast(packet);
-
-                /*else if(packet.propectId < _currentPendingLeadId)
-                {
-                    _currentPendingLeadId = controller.LocalNodeId;
-                    _nodeGraphState = NodeGraphState.LeaderPropesct;
-                    _graphcaster.SendGraphcast(new TakeLeadRequestPacket(controller.LocalNodeId, controller.LocalNodeAdress));
-                }*/
             }
         }
 
-        private void OnNewLeadTakeControl(DiscardTakeLeadPacket packet) { }
         #endregion
 
         #region Minimum outgoing edge finding
@@ -586,10 +576,6 @@ namespace Atom.Components.GraphNetwork
         // connect to it
         private void SearchMinimumOutgoingEdgeAndRelayLead()
         {
-            /*if (_isSearchingMOE)
-                return;*/
-
-
             if (FragmentID != controller.LocalNodeId)
             {
                 Debug.LogError("MOE searching is limited to fragment leader");
@@ -828,19 +814,6 @@ namespace Atom.Components.GraphNetwork
             _packetRouter.SendResponse(nodeFragmentInfoRequestPacket, response);
         }
         #endregion
-/*
-        private IEnumerator MoeSearching()
-        {
-            float interval = UnityEngine.Random.Range(.75f, 1.2f);
-            var wfs = new WaitForSeconds(interval);
-            var wu = new WaitUntil(() => _outgoingJoiningRequestPeerId == -1);
-            while (FragmentID == _networkHandling.LocalPeerInfo.peerID)
-            {
-                yield return wfs;
-                SearchMinimumOutgoingEdgeAndRelayLead();
-                //yield return wu;
-            }
-        }*/
 
         #region Debug and visualization
         public void StopSearching()
@@ -894,14 +867,7 @@ namespace Atom.Components.GraphNetwork
                     Gizmos.color = Color.green;
                     Gizmos.DrawCube(controller.transform.position + Vector3.up * 2, Vector3.one);
                     Gizmos.color = Color.white;
-                }
-                /*else
-                {
-                    Gizmos.color = Color.cyan;
-                    Gizmos.DrawCube(controller.transform.position + Vector3.up * 2, Vector3.one * .6f);
-                    Gizmos.color = Color.white;
-
-                }*/
+                }               
             }
         }
 

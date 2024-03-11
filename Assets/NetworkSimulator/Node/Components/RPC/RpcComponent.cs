@@ -6,6 +6,7 @@ using Atom.Serialization;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Atom.Components.RpcSystem
@@ -62,18 +63,17 @@ namespace Atom.Components.RpcSystem
         /// Registers a remote procedure call that automacitally handle a response as from its rpc method callback (response from the target)
         /// </summary>
         /// <param name="rpcReceivedDelegate"></param>
-        public void RegisterRPCRequest(Delegate rpcReceivedDelegate)
+        public void RegisterRPCRequest(Delegate rpcReceivedDelegate, Delegate rpcResponseReceivedDelegate)
         {
-            _rpcHandlers.Add(_rpcIdGenerator, rpcReceivedDelegate);
-            _rpcIdentifiers.Add(rpcReceivedDelegate.Method.Name, _rpcIdGenerator);
-            _rpcIdGenerator++;
+            RegisterRpc(rpcReceivedDelegate);
+            RegisterRpc(rpcResponseReceivedDelegate);
         }
-
-        public void SendRpcRequest()
+/*
+        public async Task<object[]> SendRpcRequest(PeerInfo target, string rpcMethodName, params object[] args)
         {
 
         }
-
+*/
         public void SendRpc(PeerInfo target, string rpcMethodName, params object[] args)
         {
             // get the packet from the rpc
