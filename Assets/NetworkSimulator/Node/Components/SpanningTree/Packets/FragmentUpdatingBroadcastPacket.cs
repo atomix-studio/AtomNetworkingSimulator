@@ -11,11 +11,9 @@ namespace Atom.Components.GraphNetwork
     {
         public long newFragmentId { get; set; }
         public int newFragmentLevel { get; set; }
-        public List<long> outdatedFragmentIds { get; set; }
 
-        public FragmentUpdatingBroadcastPacket(long newFragmentId, int newFragmentLevel, List<long> outdatedFragmentIds)
+        public FragmentUpdatingBroadcastPacket(long newFragmentId, int newFragmentLevel)
         {
-            this.outdatedFragmentIds = outdatedFragmentIds;
             this.newFragmentId = newFragmentId;
             this.newFragmentLevel = newFragmentLevel;
         }

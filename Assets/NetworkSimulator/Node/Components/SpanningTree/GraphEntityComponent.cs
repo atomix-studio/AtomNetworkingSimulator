@@ -39,8 +39,6 @@ namespace Atom.Components.GraphNetwork
         // time before the node contacts the moe to refresh the data, or recomputes the moe
         [SerializeField] private float _minimumOutgoingEdgeExpirationDelay = 2;
         [Space]
-        [SerializeField] private GraphFragmentData _fragmentData;
-
 
         [ShowInInspector, ReadOnly] private long _outgoingJoiningRequestPeerId = -1;
         [ShowInInspector, ReadOnly] private NodeGraphState _nodeGraphState;
@@ -51,20 +49,21 @@ namespace Atom.Components.GraphNetwork
         private bool _isSearchingMOE = false;
         private DateTime _leaderExpirationTime;
         private bool _isGraphRunning = false;
+        private bool _isGraphCreationCompleted = false;
 
         public List<GraphEdge> graphEdges => _graphEdges;
         public bool isGraphRunning => _isGraphRunning;
+        public bool isGraphCreationCompleted => _isGraphCreationCompleted;
 
-        public long LocalFragmentId =>  _fragmentData.FragmentID;
-        public int LocalFragmentLevel => _fragmentData.FragmentLevel;
+        public long LocalFragmentId => FragmentID;
+        public int LocalFragmentLevel => FragmentLevel;
 
-        public bool IsMinimumOutgoinEdge
-        {
-            get
-            {
-                return _fragmentData != null && _fragmentData.MinimumOutgoingEdge != null && _fragmentData.MinimumOutgoingEdge.InnerFragmentNode.peerID == _networkHandling.LocalPeerInfo.peerID;
-            }
-        }
+        public long FragmentID = -1; // PEER ID OF THE FRAGMENT LEAD
+        public int FragmentLevel = 0;
+
+        public List<PeerInfo> FragmentMembers = new List<PeerInfo>();
+
+        public MinimumOutgoingEdge MinimumOutgoingEdge = null;
 
         public void OnInitialize()
         {
@@ -113,7 +112,7 @@ namespace Atom.Components.GraphNetwork
             // at the first level, finding the Minimum outgoing edge is pretty straght-forward as we only need to iterate over connections and find the highest score (which in AtomNetworking context represented the minimum outgoing edge)
             //StartCoroutine(MoeSearching());
             _isGraphRunning = true;
-            FindMoeAndSendJoinRequest();
+            SearchMinimumOutgoingEdgeAndRelayLead();
         }
 
         #region Fragment JOIN
@@ -134,14 +133,14 @@ namespace Atom.Components.GraphNetwork
                 {
                     Debug.Log($"A connection already exists with the JOINER edge {joiningRequestPacket.senderID}/{joiningRequestPacket.joinerFragmentId}. Refreshing connection to the requester {controller.LocalNodeId}/{LocalFragmentId}");
 
-                    var response = new FragmentJoiningRequestValidated(controller.LocalNodeId, controller.LocalNodeAdress, _fragmentData.FragmentID, _fragmentData.FragmentLevel, GraphOperations.RefreshExistingEdge);
+                    var response = new FragmentJoiningRequestValidated(controller.LocalNodeId, controller.LocalNodeAdress, FragmentID, FragmentLevel, GraphOperations.RefreshExistingEdge);
                     _packetRouter.Send(joiningRequestPacket.senderAdress, response);
 
                     return;
                 }
             }
 
-            if (_fragmentData.FragmentID != _networkHandling.LocalPeerInfo.peerID)
+            if (FragmentID != _networkHandling.LocalPeerInfo.peerID)
             {
                 Debug.Log($"Request received from {joiningRequestPacket.senderAdress} but local node is not a leader {_networkHandling.LocalPeerInfo.peerAdress}");
 
@@ -152,32 +151,28 @@ namespace Atom.Components.GraphNetwork
             }
 
             // absorbtion if the requester is lower level
-            if (joiningRequestPacket.joinerfragmentLevel < _fragmentData.FragmentLevel)
+            if (joiningRequestPacket.joinerfragmentLevel < FragmentLevel)
             {
                 AbsorbFragment(joiningRequestPacket);
             }
             else
             {
-                if (_fragmentData.MinimumOutgoingEdge == null)
+                if (MinimumOutgoingEdge == null)
                 {
                     _bufferedMergingRequestBuffer.Add(joiningRequestPacket);
-
-                    if (!_isSearchingMOE)
-                        FindMoeAndSendJoinRequest();
-                    // buffering ?
                     return;
                 }
 
-                if (joiningRequestPacket.joinerFragmentId == _fragmentData.MinimumOutgoingEdge.OuterFragmentId
-                    || joiningRequestPacket.senderID == _fragmentData.MinimumOutgoingEdge.OuterFragmentNode.peerID)
+                if (joiningRequestPacket.joinerFragmentId == MinimumOutgoingEdge.OuterFragmentId
+                    || joiningRequestPacket.senderID == MinimumOutgoingEdge.OuterFragmentNode.peerID)
                 {
                     MergeWithFragment(joiningRequestPacket);
                 }
                 else
                 {
-                    if (_fragmentData.MinimumOutgoingEdge.hasExpired)
+                    if (MinimumOutgoingEdge.hasExpired)
                     {
-                        TryRefreshOutgoingEdge();
+                        //TryRefreshOutgoingEdge();
                     }
                 }
             }
@@ -188,36 +183,36 @@ namespace Atom.Components.GraphNetwork
         private void TryRefreshOutgoingEdge()
         {
             // avoiding cycling call while refreshing is running
-            _fragmentData.MinimumOutgoingEdge.Refresh();
+            MinimumOutgoingEdge.Refresh();
 
             // if the outerframgent id dosn't correspond, the node checks if the current MOE is still alive and if the current MOE has still the same fragmentId, that could have changed over time
-            SendGetNodeFragmentInfoPacket(_fragmentData.MinimumOutgoingEdge.OuterFragmentNode.peerAdress, (response) =>
+            SendGetNodeFragmentInfoPacket(MinimumOutgoingEdge.OuterFragmentNode.peerAdress, (response) =>
             {
                 if (response == null)
                 {
                     // outgoing edge not responding, searching new outgoing edge
-                    FindMoeAndSendJoinRequest();
+                    SearchMinimumOutgoingEdgeAndRelayLead();
                     return;
                 }
 
                 var resp = (GetNodeFragmentInfoResponsePacket)response;
-                if (resp.graphFragmentData.FragmentID != _fragmentData.MinimumOutgoingEdge.OuterFragmentId || resp.graphFragmentData.FragmentLevel != _fragmentData.MinimumOutgoingEdge.OuterFragmentLevel)
+                if (resp.FragmentID != MinimumOutgoingEdge.OuterFragmentId || resp.FragmentLevel != MinimumOutgoingEdge.OuterFragmentLevel)
                 {
-                    FindMoeAndSendJoinRequest();
+                    SearchMinimumOutgoingEdgeAndRelayLead();
                     return;
                 }
                 else
                 {
                     if (_outgoingJoiningRequestPeerId == -1)
                     {
-                        Debug.LogError($"The outgoing edge {resp.graphFragmentData.FragmentID} hasn't changed. Trying to call the JOIN from this node.");
-                        SendFragmentJoiningRequest(_fragmentData.MinimumOutgoingEdge.OuterFragmentNode);
+                        Debug.LogError($"The outgoing edge {resp.FragmentID} hasn't changed. Trying to call the JOIN from this node.");
+                        SendFragmentJoiningRequest(MinimumOutgoingEdge.OuterFragmentNode);
                     }
                     else
                     {
                         Debug.LogError($"What to do know ? {LocalFragmentId}");
 
-                        SendFragmentJoiningRequest(_fragmentData.MinimumOutgoingEdge.OuterFragmentNode);
+                        SendFragmentJoiningRequest(MinimumOutgoingEdge.OuterFragmentNode);
 
                     }
                 }
@@ -228,21 +223,15 @@ namespace Atom.Components.GraphNetwork
         {
             Debug.Log(_networkHandling.LocalPeerInfo.peerAdress + "absorbing" + joiningRequestPacket.senderAdress);
 
-            if (_fragmentData.OldFragmentIDs.Contains(joiningRequestPacket.joinerFragmentId))
-            {
-                Debug.LogError("AbsorbFragment => Fragments have already been merge ? " + joiningRequestPacket.joinerFragmentId + "  " + LocalFragmentId);
-                return;
-            }
-
-            var response = new FragmentJoiningRequestValidated(controller.LocalNodeId, controller.LocalNodeAdress, _fragmentData.FragmentID, _fragmentData.FragmentLevel, GraphOperations.Absorbed);
+            var response = new FragmentJoiningRequestValidated(controller.LocalNodeId, controller.LocalNodeAdress, FragmentID, FragmentLevel, GraphOperations.Absorbed);
 
             _createGraphEdge(joiningRequestPacket.senderID, joiningRequestPacket.senderAdress);
             _packetRouter.Send(joiningRequestPacket.senderAdress, response);
 
             // graph cast absorbed + local fragment to set absorbed nodes fragment level adn id
-            _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(joiningRequestPacket.senderID, _fragmentData.FragmentLevel, _fragmentData.OldFragmentIDs));
+            _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(joiningRequestPacket.senderID, FragmentLevel));
 
-            _fragmentData.MinimumOutgoingEdge = null;
+            MinimumOutgoingEdge = null;
 
             StartCoroutine(_waitAndExecuteLeaderRoutine());
         }
@@ -253,16 +242,17 @@ namespace Atom.Components.GraphNetwork
             // in a merge between fragments, the node with the highest id between the two moe speaking becomes the new leader
             // if messages are crossing, the nodes will fall in the same state separately
 
-            if (_fragmentData.OldFragmentIDs.Contains(joiningRequestPacket.joinerFragmentId))
-            {
-                Debug.LogError("MergeWithFragment => Fragments have already been merge ? " + joiningRequestPacket.joinerFragmentId + "  " + LocalFragmentId);
-                return;
-            }
-            _fragmentData.MinimumOutgoingEdge = null;
+            /* if (_fragmentData.OldFragmentIDs.Contains(joiningRequestPacket.joinerFragmentId))
+             {
+                 Debug.LogError("MergeWithFragment => Fragments have already been merge ? " + joiningRequestPacket.joinerFragmentId + "  " + LocalFragmentId);
+                 return;
+             }*/
+
+            MinimumOutgoingEdge = null;
 
             // create a new fragment level + 1 with all members from the two merging fragments
             // respond MERGING
-            _fragmentData.FragmentLevel++;
+            FragmentLevel++;
             //_fragmentData.OldFragmentIDs.AddRange(joiningRequestPacket.oldFragmentIds);
 
             var response = new FragmentJoiningRequestValidated(controller.LocalNodeId, controller.LocalNodeAdress);
@@ -276,29 +266,34 @@ namespace Atom.Components.GraphNetwork
 
             if (controller.LocalNodeId > joiningRequestPacket.senderID)
             {
-                Debug.Log($"Merging leader swap from {_fragmentData.FragmentID} to {controller.LocalNodeId} ");
-                _fragmentData.OldFragmentIDs.Add(_fragmentData.FragmentID);
-                _fragmentData.FragmentID = controller.LocalNodeId;
+                Debug.Log($"Merging leader swap from {FragmentID} to {controller.LocalNodeId} ");
+                //_fragmentData.OldFragmentIDs.Add(_fragmentData.FragmentID);
+                // local node stay leader
+                FragmentID = controller.LocalNodeId;
 
                 response.FragmentId = controller.LocalNodeId;
-                response.FragmentLevel = _fragmentData.FragmentLevel;
+                response.FragmentLevel = FragmentLevel;
                 response.graphOperation = GraphOperations.Merged;
 
                 // local leader changing, this is graphCasted in the local fragment before the fragment is actually merged
-                _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(controller.LocalNodeId, _fragmentData.FragmentLevel, _fragmentData.OldFragmentIDs));
+                _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(controller.LocalNodeId, FragmentLevel));
             }
             else
             {
-                Debug.Log($"Merging leader swap from {_fragmentData.FragmentID} to {joiningRequestPacket.senderID} ");
-                _fragmentData.OldFragmentIDs.Add(_fragmentData.FragmentID);
-                _fragmentData.FragmentID = joiningRequestPacket.senderID;
+                Debug.Log($"Merging leader swap from {FragmentID} to {joiningRequestPacket.senderID} ");
+                //_fragmentData.OldFragmentIDs.Add(_fragmentData.FragmentID);
+
+                // lead given to the joiner (highest ID)
+                // the new lead will have to recompute the MOE that will with a high probability give the lead to another node 
+                FragmentID = joiningRequestPacket.senderID;
+                _nodeGraphState = NodeGraphState.Follower;
 
                 response.FragmentId = joiningRequestPacket.senderID;
-                response.FragmentLevel = _fragmentData.FragmentLevel;
+                response.FragmentLevel = FragmentLevel;
                 response.graphOperation = GraphOperations.Merged;
 
                 // local leader changing, this is graphCasted in the local fragment before the fragment is actually merged
-                _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(joiningRequestPacket.senderID, _fragmentData.FragmentLevel, _fragmentData.OldFragmentIDs));
+                _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(joiningRequestPacket.senderID, FragmentLevel));
             }
 
             StartCoroutine(_waitAndExecuteLeaderRoutine());
@@ -307,19 +302,21 @@ namespace Atom.Components.GraphNetwork
         // if a node receive a JOIN but its node lead/moe, it will follows it to the leader via cast
         private void OnFragmentJoiningRelayedGraphcastPacketReceived(FragmentJoiningRequestRelayedGraphcastPacket rel)
         {
-            if (_fragmentData.FragmentID == controller.LocalNodeId)
+            if (FragmentID == controller.LocalNodeId)
             {
-                if (_fragmentData.MinimumOutgoingEdge == null)
+                if (MinimumOutgoingEdge == null)
                 {
                     Debug.LogError($"{rel.originAdress} requested a join over the fragment {LocalFragmentId} that has been relayed by {rel.broadcasterID}. No minimum outgoing edge here so recomputing.");
 
-                    FindMoeAndSendJoinRequest();
+                    SearchMinimumOutgoingEdgeAndRelayLead();
                     return;
                 }
 
-                if (rel.joinerfragmentLevel < _fragmentData.FragmentLevel || rel.joinerFragmentId == _fragmentData.MinimumOutgoingEdge.OuterFragmentId)
+                if (rel.joinerfragmentLevel < FragmentLevel
+                    || rel.originId == MinimumOutgoingEdge.OuterFragmentNode.peerID
+                    || rel.joinerFragmentId == MinimumOutgoingEdge.OuterFragmentId)
                 {
-                    Debug.LogError($"{rel.originAdress} requested a join over the fragment {LocalFragmentId}. {rel.broadcasterID} should become MOE/Leader for this connection to happen.");
+                    //Debug.LogError($"{rel.originAdress} requested a join over the fragment {LocalFragmentId}. {rel.broadcasterID} should become MOE/Leader for this connection to happen.");
                     //if(rel.broadcasterID > rel.originId)
                     {
                         // the broadcaster is the node within the fragment that received the JOIN message
@@ -327,7 +324,11 @@ namespace Atom.Components.GraphNetwork
                         // only the node that is the MOE at a time can be leader of the fragment
                         // so the current leader will pass the relay to the broadcaster, who will handle the joining logic
                         Debug.LogError($"Leader switching from {LocalFragmentId} to {rel.broadcasterID}");
-                        _graphcaster.SendGraphcast(new FragmentLeaderSelectingPacket(LocalFragmentId, rel.broadcasterID, rel.originId));
+
+                        _nodeGraphState = NodeGraphState.Follower;
+                        var oldfragmentId = FragmentID;
+                        FragmentID = rel.broadcasterID;
+                        _graphcaster.SendGraphcast(new FragmentLeaderSelectingPacket(oldfragmentId, rel.broadcasterID, rel.originId));
                     }
                 }
                 return;
@@ -356,13 +357,13 @@ namespace Atom.Components.GraphNetwork
                 case NodeGraphState.LeaderPropesct:
                     if (DateTime.Now > _lastTakeLeadRequestReceived.AddSeconds(4))
                     {
-                        Debug.LogError($"{controller.LocalNodeAdress} is the new leader of fragment {_fragmentData.FragmentID}");
+                        Debug.LogError($"{controller.LocalNodeAdress} is the new leader of fragment {FragmentID}");
                         _leaderUpdateTimer = 0;
-                        _fragmentData.FragmentID = controller.LocalNodeId;
+                        FragmentID = controller.LocalNodeId;
                         _nodeGraphState = NodeGraphState.Leader;
                         // replace here by dedicated take lead packet
-                        _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(controller.LocalNodeId, _fragmentData.FragmentLevel, _fragmentData.OldFragmentIDs));
-                        FindMoeAndSendJoinRequest();
+                        _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(controller.LocalNodeId, FragmentLevel));
+                        SearchMinimumOutgoingEdgeAndRelayLead();
                     }
                     break;
             }
@@ -370,13 +371,17 @@ namespace Atom.Components.GraphNetwork
 
         private void _leaderUpdate()
         {
-            if (_fragmentData.MinimumOutgoingEdge == null && !_isSearchingMOE)
+            if (!_isGraphCreationCompleted)
             {
-                FindMoeAndSendJoinRequest();
-            }
-            else if (_fragmentData.MinimumOutgoingEdge != null && _fragmentData.MinimumOutgoingEdge.hasExpired)
-            {
-                TryRefreshOutgoingEdge();
+                if (MinimumOutgoingEdge == null)
+                {
+                    if (!_isSearchingMOE)
+                        SearchMinimumOutgoingEdgeAndRelayLead();
+                }
+                else if (MinimumOutgoingEdge.hasExpired)
+                {
+                    TryRefreshOutgoingEdge();
+                }
             }
 
             _leaderUpdateTimer += Time.deltaTime;
@@ -510,7 +515,7 @@ namespace Atom.Components.GraphNetwork
             /*if (_isSearchingMOE)
                 return false;
 */
-            if (_fragmentData.FragmentID != controller.LocalNodeId)
+            if (FragmentID != controller.LocalNodeId)
             {
                 Debug.LogError("MOE searching is limited to fragment leader");
                 return false;
@@ -535,7 +540,7 @@ namespace Atom.Components.GraphNetwork
                 {
                     var connpinfo = n.Value.networkHandling.Connections.ElementAt(j);
                     var conmember = WorldSimulationManager.nodeAddresses[connpinfo.Value.peerAdress];
-                    if (conmember.graphEntityComponent._fragmentData.FragmentID != _fragmentData.FragmentID)
+                    if (conmember.graphEntityComponent.FragmentID != FragmentID)
                     {
                         outerConnections.Add(new(n.Value.networkHandling.LocalPeerInfo, connpinfo.Value));
                         outerFragmentId.Add(conmember.graphEntityComponent.LocalFragmentId);
@@ -560,16 +565,17 @@ namespace Atom.Components.GraphNetwork
                 }
 
                 // bestInfo is moe
-                _fragmentData.MinimumOutgoingEdge = new MinimumOutgoingEdge(outerConnections[bestIndex].Item1, outerConnections[bestIndex].Item2, outerFragmentId[bestIndex], outerFragmentLevel[bestIndex], _minimumOutgoingEdgeExpirationDelay);
+                MinimumOutgoingEdge = new MinimumOutgoingEdge(outerConnections[bestIndex].Item1, outerConnections[bestIndex].Item2, outerFragmentId[bestIndex], outerFragmentLevel[bestIndex], _minimumOutgoingEdgeExpirationDelay);
                 _isSearchingMOE = false;
 
                 return true;
             }
             else
             {
-                _fragmentData.MinimumOutgoingEdge = null;
-                Debug.Log("No outer connection found from fragment " + _fragmentData.FragmentID);
+                MinimumOutgoingEdge = null;
+                Debug.Log("No outer connection found from fragment " + FragmentID);
                 _isSearchingMOE = false;
+                _isGraphCreationCompleted = true;
 
                 return false;
             }
@@ -578,19 +584,19 @@ namespace Atom.Components.GraphNetwork
         [Button]
         // finding the MOE of the updated fragment
         // connect to it
-        private void FindMoeAndSendJoinRequest()
+        private void SearchMinimumOutgoingEdgeAndRelayLead()
         {
             /*if (_isSearchingMOE)
                 return;*/
 
-            _isSearchingMOE = true;
 
-            if (_fragmentData.FragmentID != controller.LocalNodeId)
+            if (FragmentID != controller.LocalNodeId)
             {
                 Debug.LogError("MOE searching is limited to fragment leader");
                 return;
             }
 
+            _isSearchingMOE = true;
             // finding the moe in a fragment is handled by a special broadcast that is issued to the fragment only
             // every fragment node will check its connections and see if there is a connection that is from another fragment 
 
@@ -608,7 +614,7 @@ namespace Atom.Components.GraphNetwork
                 {
                     var connpinfo = n.Value.networkHandling.Connections.ElementAt(j);
                     var conmember = WorldSimulationManager.nodeAddresses[connpinfo.Value.peerAdress];
-                    if (conmember.graphEntityComponent._fragmentData.FragmentID != _fragmentData.FragmentID)
+                    if (conmember.graphEntityComponent.FragmentID != FragmentID)
                     {
                         outerConnections.Add(new(n.Value.networkHandling.LocalPeerInfo, connpinfo.Value));
                         outerFragmentId.Add(conmember.graphEntityComponent.LocalFragmentId);
@@ -635,14 +641,15 @@ namespace Atom.Components.GraphNetwork
                 }
 
                 // bestInfo is moe
-                _fragmentData.MinimumOutgoingEdge = new MinimumOutgoingEdge(outerConnections[bestIndex].Item1, outerConnections[bestIndex].Item2, outerFragmentId[bestIndex], outerFragmentLevel[bestIndex], _minimumOutgoingEdgeExpirationDelay);
+                MinimumOutgoingEdge = new MinimumOutgoingEdge(outerConnections[bestIndex].Item1, outerConnections[bestIndex].Item2, outerFragmentId[bestIndex], outerFragmentLevel[bestIndex], _minimumOutgoingEdgeExpirationDelay);
 
                 ExecuteNextFragmentJoiningRequest(LocalFragmentId);
             }
             else
             {
-                _fragmentData.MinimumOutgoingEdge = null;
-                Debug.Log("No outer connection found from fragment " + _fragmentData.FragmentID);
+                MinimumOutgoingEdge = null;
+                _isGraphCreationCompleted = true;
+                Debug.Log("No outer connection found from fragment " + FragmentID);
             }
         }
 
@@ -651,7 +658,7 @@ namespace Atom.Components.GraphNetwork
             /// gérer ici le buffering ?
 
             // if leader is not MOE, it send a graphcast for leader swap to the actual inner MOE
-            if (_fragmentData.MinimumOutgoingEdge.InnerFragmentNode.peerID != controller.LocalNodeId)
+            if (MinimumOutgoingEdge.InnerFragmentNode.peerID != controller.LocalNodeId)
             {
                 RelayLeaderRoleToCurrentMinimumOutgoingEdge(oldLeaderId);
             }
@@ -663,19 +670,19 @@ namespace Atom.Components.GraphNetwork
                     
                 }*/
 
-                SendFragmentJoiningRequest(_fragmentData.MinimumOutgoingEdge.OuterFragmentNode);
+                SendFragmentJoiningRequest(MinimumOutgoingEdge.OuterFragmentNode);
             }
         }
 
         private void RelayLeaderRoleToCurrentMinimumOutgoingEdge(long oldLeaderId)
         {
             // giving up on the lead
-            _fragmentData.FragmentID = _fragmentData.MinimumOutgoingEdge.InnerFragmentNode.peerID;
+            FragmentID = MinimumOutgoingEdge.InnerFragmentNode.peerID;
             _nodeGraphState = NodeGraphState.Follower;
 
             // from this point, the network has no more leader.
             // if the message doesn't achieve the new leader, an election will eventually occur
-            _graphcaster.SendGraphcast(new FragmentLeaderSelectingPacket(oldLeaderId, _fragmentData.MinimumOutgoingEdge.InnerFragmentNode.peerID, _fragmentData.MinimumOutgoingEdge.OuterFragmentNode.peerID));
+            _graphcaster.SendGraphcast(new FragmentLeaderSelectingPacket(oldLeaderId, MinimumOutgoingEdge.InnerFragmentNode.peerID, MinimumOutgoingEdge.OuterFragmentNode.peerID));
         }
         #endregion
 
@@ -687,25 +694,7 @@ namespace Atom.Components.GraphNetwork
             if (_outgoingJoiningRequestPeerId == -1)
             {
                 _outgoingJoiningRequestPeerId = outgoingEdgeNodeInfo.peerID;
-                _packetRouter.Send(outgoingEdgeNodeInfo.peerAdress, new FragmentJoiningRequestPacket(_fragmentData.FragmentLevel, _fragmentData.FragmentID));
-
-                /*await Task.Delay(1500);
-                _outgoingJoiningRequestPeerId = -1;
-
-                if (_fragmentData.MinimumOutgoingEdge == null || _fragmentData.MinimumOutgoingEdge.hasExpired)
-                {
-                    var result = await FindMinimumOutgoingEdgeTask();
-
-                    if (result)
-                    {
-                        ExecuteNextFragmentJoiningRequest(LocalFragmentId);
-                    }
-                    return;
-                }
-                else
-                {
-                    SendFragmentJoiningRequest(outgoingEdgeNodeInfo);
-                }*/
+                _packetRouter.Send(outgoingEdgeNodeInfo.peerAdress, new FragmentJoiningRequestPacket(FragmentLevel, FragmentID));
             }
             else
             {
@@ -725,19 +714,19 @@ namespace Atom.Components.GraphNetwork
             // create the connection with the peer that asnwered psitively to our join request
             _createGraphEdge(response.senderID, response.senderAdress);
 
-            _fragmentData.OldFragmentIDs.Add(_fragmentData.FragmentID);
+            //_fragmentData.OldFragmentIDs.Add(_fragmentData.FragmentID);
 
-            _fragmentData.FragmentLevel = validation.FragmentLevel;
-            _fragmentData.FragmentID = validation.FragmentId;
+            FragmentLevel = validation.FragmentLevel;
+            FragmentID = validation.FragmentId;
 
             // when a refreshing is received, the node will graphcast his known connections in case of they were also desynchronized from the graph
             if (validation.graphOperation == GraphOperations.RefreshExistingEdge)
             {
                 Debug.Log($" {controller.name} got existing edge refresh from {validation.senderID}");
-                _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(validation.FragmentId, validation.FragmentLevel, _fragmentData.OldFragmentIDs));
+                _graphcaster.SendGraphcast(new FragmentUpdatingBroadcastPacket(validation.FragmentId, validation.FragmentLevel));
             }
 
-            _fragmentData.MinimumOutgoingEdge = null;
+            MinimumOutgoingEdge = null;
             _outgoingJoiningRequestPeerId = -1;
         }
 
@@ -762,9 +751,9 @@ namespace Atom.Components.GraphNetwork
                 Debug.LogError("Received an update from outgoind joining request.");
             }
 
-            _fragmentData.FragmentLevel = fragmentUpdatingBroadcastPacket.newFragmentLevel;
-            _fragmentData.FragmentID = fragmentUpdatingBroadcastPacket.newFragmentId;
-            _fragmentData.OldFragmentIDs = fragmentUpdatingBroadcastPacket.outdatedFragmentIds;
+            FragmentLevel = fragmentUpdatingBroadcastPacket.newFragmentLevel;
+            FragmentID = fragmentUpdatingBroadcastPacket.newFragmentId;
+            //_fragmentData.OldFragmentIDs = fragmentUpdatingBroadcastPacket.outdatedFragmentIds;
             _leaderExpirationTime = DateTime.Now.AddSeconds(_leaderLeaseDuration);
 
             if (controller.LocalNodeId == fragmentUpdatingBroadcastPacket.newFragmentId)
@@ -772,12 +761,14 @@ namespace Atom.Components.GraphNetwork
                 if (_nodeGraphState == NodeGraphState.Leader)
                     return;
 
+                // just a reset to be sure its done good (if the searching fails it will at list try to recompute one 
+                MinimumOutgoingEdge = null;
                 _nodeGraphState = NodeGraphState.Leader;
 
                 // no leader selecting packet received but the local node appears to be a leader 
                 // might happen with complex network scenario with crossing messages
                 Debug.LogError("no leader selecting packet received but the local node appears to be a leader");
-                FindMoeAndSendJoinRequest();
+                SearchMinimumOutgoingEdgeAndRelayLead();
             }
             else
             {
@@ -788,8 +779,9 @@ namespace Atom.Components.GraphNetwork
 
         private void OnFragmentLeaderSelectingPacketReceived(FragmentLeaderSelectingPacket packet)
         {
-            _fragmentData.FragmentID = packet.NewLeaderId;
+            FragmentID = packet.NewLeaderId;
             //_fragmentData.MinimumOutgoingEdge.
+            _leaderExpirationTime = DateTime.Now.AddSeconds(_leaderLeaseDuration);
 
             if (controller.LocalNodeId == packet.NewLeaderId)
             {
@@ -807,11 +799,12 @@ namespace Atom.Components.GraphNetwork
                 else
                 {
                     Debug.LogError("New leader not connected to MOE anymore, recomputing MOE..");
-                    FindMoeAndSendJoinRequest();
+                    SearchMinimumOutgoingEdgeAndRelayLead();
                 }
             }
             else
             {
+                _currentPendingLeadId = -1;
                 _nodeGraphState = NodeGraphState.Follower;
             }
 
@@ -829,23 +822,25 @@ namespace Atom.Components.GraphNetwork
         private void OnGetNodeFragmentInfoPacketReceived(GetNodeFragmentInfoRequestPacket nodeFragmentInfoRequestPacket)
         {
             var response = (GetNodeFragmentInfoResponsePacket)nodeFragmentInfoRequestPacket.GetResponsePacket(nodeFragmentInfoRequestPacket);
-            response.graphFragmentData = _fragmentData;
+            response.FragmentLevel = FragmentLevel;
+            response.FragmentID = FragmentID;
+            response.MinimumOutgoingEdge = MinimumOutgoingEdge; 
             _packetRouter.SendResponse(nodeFragmentInfoRequestPacket, response);
         }
         #endregion
-
+/*
         private IEnumerator MoeSearching()
         {
             float interval = UnityEngine.Random.Range(.75f, 1.2f);
             var wfs = new WaitForSeconds(interval);
             var wu = new WaitUntil(() => _outgoingJoiningRequestPeerId == -1);
-            while (_fragmentData.FragmentID == _networkHandling.LocalPeerInfo.peerID)
+            while (FragmentID == _networkHandling.LocalPeerInfo.peerID)
             {
                 yield return wfs;
-                FindMoeAndSendJoinRequest();
+                SearchMinimumOutgoingEdgeAndRelayLead();
                 //yield return wu;
             }
-        }
+        }*/
 
         #region Debug and visualization
         public void StopSearching()
@@ -859,32 +854,33 @@ namespace Atom.Components.GraphNetwork
 
             _isSearchingMOE = false;
             // at creation every node is its own fragment leader
-            _fragmentData = new GraphFragmentData(0, _networkHandling.LocalPeerInfo.peerID);
-            _fragmentData.FragmentMembers.Add(_networkHandling.LocalPeerInfo);
+            FragmentID = _networkHandling.LocalPeerInfo.peerID;
+            FragmentLevel = 0;
+            _isGraphCreationCompleted = false;
             _nodeGraphState = NodeGraphState.Leader;
         }
 
         public void DisplayDebugConnectionLines()
         {
-            if (_fragmentData == null)
+            if (!isGraphRunning)
                 return;
 
-            var pos = controller.transform.position;
+            var pos = transform.position;
 
             for (int i = 0; i < _graphEdges.Count; ++i)
             {
                 var entity = WorldSimulationManager.nodeAddresses[_graphEdges[i].EdgeAdress];
-                Debug.DrawLine(entity.transform.position + Vector3.down * .5f, transform.position + Vector3.down * .5f, Color.red);
+                Debug.DrawLine(entity.transform.position + Vector3.down * .5f, pos + Vector3.down * .5f, Color.red);
             }
         }
 
 #if UNITY_EDITOR
         void OnDrawGizmos()
         {
-            if (_fragmentData == null)
+            if (!isGraphRunning)
                 return;
 
-            if (_fragmentData.FragmentID == _networkHandling.LocalPeerInfo.peerID)
+            if (FragmentID == _networkHandling.LocalPeerInfo.peerID)
             {
                 Gizmos.color = Color.red;
                 Gizmos.DrawCube(controller.transform.position + Vector3.up * 2, Vector3.one);

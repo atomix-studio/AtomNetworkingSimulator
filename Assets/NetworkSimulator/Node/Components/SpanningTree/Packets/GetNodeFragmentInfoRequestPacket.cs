@@ -26,6 +26,11 @@ namespace Atom.Components.GraphNetwork
         public INetworkPacket packet => this;
 
         public int requestPing { get; set; }
-        public GraphFragmentData graphFragmentData { get; set; }
+
+        public long FragmentID { get; set; }
+        public int FragmentLevel { get; set; }
+
+        public MinimumOutgoingEdge MinimumOutgoingEdge { get; set; }
+
     }
 }
