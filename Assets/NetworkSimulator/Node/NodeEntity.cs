@@ -97,9 +97,9 @@ public class NodeEntity : MonoBehaviour
         }
     }
 
-    public void OnStart(ClusterInfo clusterInfo, bool sleeping)
+    public void OnStart(ClusterInfo clusterInfo, bool sleeping, long id)
     {
-        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = (long)BitConverter.ToInt64(System.Guid.NewGuid().ToByteArray()), peerAdress = this.name, averagePing = 0, trust_coefficient = 0 });
+        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = id, peerAdress = this.name, averagePing = 0, trust_coefficient = 0 });
 
         GetNodeComponent<ClusterConnectionService>().ConnectToCluster(clusterInfo);
         IsSleeping = sleeping;

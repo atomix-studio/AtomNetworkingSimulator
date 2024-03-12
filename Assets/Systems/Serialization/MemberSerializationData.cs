@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Text;
+using UnityEngine;
 
 namespace Atom.Serialization
 {
@@ -34,7 +37,32 @@ namespace Atom.Serialization
 
         public MemberSerializationData(object arg)
         {
-            AtomMemberType = setMemberType(arg.GetType());
+            var arg_type = arg.GetType();
+            if (arg_type != typeof(string) && (arg_type.IsArray || typeof(IEnumerable).IsAssignableFrom(arg_type)))
+            {
+                IsCollection = true;
+
+                Debug.Log("do here");
+                var gen_args = arg_type.GetGenericArguments(); // use this...
+                if(gen_args != null)
+                {
+                    setMemberType(gen_args[0]);
+                    if(arg_type is IEnumerable enumerable)
+                    {
+                        int count = 0;
+                        foreach (var item in enumerable)
+                        {
+                            count++;
+                        }
+                        CollectionLength = count;
+                        Debug.Log(count);
+                    }
+                }
+            }
+            else
+            {
+                AtomMemberType = setMemberType(arg.GetType());
+            }
 
             if (AtomMemberType == AtomMemberTypes.Object)
             {
@@ -53,7 +81,7 @@ namespace Atom.Serialization
         }
 
         private byte[] _tempBytes;
-        public void Write(dynamic obj, ref byte[] _buffer, ref int writeIndex)
+        public void Write(object obj, ref byte[] _buffer, ref int writeIndex)
         {
             switch (AtomMemberType)
             {
@@ -74,32 +102,31 @@ namespace Atom.Serialization
                     _tempBytes = BitConverter.GetBytes((int)obj);
                     break;
                 case AtomMemberTypes.UInt:
-                    _tempBytes = BitConverter.GetBytes((short)obj);
-
+                    _tempBytes = BitConverter.GetBytes((uint)obj);
                     break;
                 case AtomMemberTypes.Long:
-                    _tempBytes = BitConverter.GetBytes((short)obj);
+                    _tempBytes = BitConverter.GetBytes((long)obj);
                     break;
                 case AtomMemberTypes.ULong:
-                    _tempBytes = BitConverter.GetBytes((short)obj);
+                    _tempBytes = BitConverter.GetBytes((ulong)obj);
                     break;
                 case AtomMemberTypes.Float:
-                    _tempBytes = BitConverter.GetBytes((short)obj);
+                    _tempBytes = BitConverter.GetBytes((float)obj);
                     break;
                 case AtomMemberTypes.Double:
-                    _tempBytes = BitConverter.GetBytes((short)obj);
+                    _tempBytes = BitConverter.GetBytes((double)obj);
                     break;
                 case AtomMemberTypes.Bool:
-                    _tempBytes = BitConverter.GetBytes((short)obj);
+                    _tempBytes = BitConverter.GetBytes((bool)obj);
                     break;
                 case AtomMemberTypes.Char:
-                    _tempBytes = BitConverter.GetBytes((short)obj);
+                    _tempBytes = BitConverter.GetBytes((char)obj);
                     break;
                 case AtomMemberTypes.String:
                     _tempBytes = Encoding.ASCII.GetBytes((string)obj);
                     break;
                 case AtomMemberTypes.Decimal:
-                    _tempBytes = //BitConverter.GetBytes((decimal)obj);
+                    _tempBytes = new byte[] { decimal.ToByte((decimal)obj)};
                     break;
                 case AtomMemberTypes.DateTime:
                     _tempBytes = Encoding.ASCII.GetBytes((string)((DateTime)obj).ToString());

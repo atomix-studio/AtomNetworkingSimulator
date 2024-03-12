@@ -8,10 +8,16 @@ namespace Atom.Serialization
     {
         private const int _serializationDepth = 3;
 
-        private static Dictionary<Type, GenericAtomSerializer> _genericSerializes = new Dictionary<Type, GenericAtomSerializer>();
+        private static Dictionary<Type, GenericAtomSerializer> _genericSerializers = new Dictionary<Type, GenericAtomSerializer>();
         private static Dictionary<ushort, DynamicAtomSerializer> _dynamicSerializers = new Dictionary<ushort, DynamicAtomSerializer>();
 
         // todo generation of binders for serializable classes/structs that can be used as is to deserialize a new instance or serialize to byte[] 
+
+        public static void Reset()
+        {
+            _genericSerializers.Clear();
+            _dynamicSerializers.Clear();
+        }
 
         #region Generic
 

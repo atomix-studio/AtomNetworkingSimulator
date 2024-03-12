@@ -11,8 +11,8 @@ namespace Atom.Components.GraphNetwork
         public long OuterFragmentLevel;
         public float ExpirationDelay;
 
-        private DateTime _expirationTime { get; set; }
-        public bool hasExpired => _expirationTime < DateTime.Now;
+        public DateTime expirationTime { get; set; }
+        public bool hasExpired => expirationTime < DateTime.Now;
 
         public MinimumOutgoingEdge(PeerInfo innerFragmentNode, PeerInfo outerFragmentNode, long outerFragmentId, int outerFragmentLevel, float expirationDelay)
         {
@@ -26,7 +26,7 @@ namespace Atom.Components.GraphNetwork
 
         public void Refresh()
         {
-            _expirationTime = DateTime.Now.AddSeconds(ExpirationDelay);
+            expirationTime = DateTime.Now.AddSeconds(ExpirationDelay);
         }
     }
 }

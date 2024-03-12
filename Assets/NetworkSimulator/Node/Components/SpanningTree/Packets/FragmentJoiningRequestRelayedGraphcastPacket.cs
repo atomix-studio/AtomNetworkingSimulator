@@ -9,19 +9,21 @@ namespace Atom.Components.GraphNetwork
 {
     public class FragmentJoiningRequestRelayedGraphcastPacket : AbstractBroadcastablePacket
     {
-        public FragmentJoiningRequestRelayedGraphcastPacket(long senderId, string senderAdress, int joinerfragmentLevel, long joinerFragmentId)
+        public FragmentJoiningRequestRelayedGraphcastPacket(string broadcasterAdress, long senderId, string senderAdress, int joinerfragmentLevel, long joinerFragmentId)
         {
             this.originId = senderId;
             this.originAdress = senderAdress;
             this.joinerfragmentLevel = joinerfragmentLevel;
             this.joinerFragmentId = joinerFragmentId;
+            this.broadcasterAdress = broadcasterAdress;
         }
 
         public long originId { get; set; }
         public string originAdress { get; set; }
-
         public int joinerfragmentLevel { get; set; }
         public long joinerFragmentId { get; set; }
+        public string broadcasterAdress { get; set; }
+
 
         public override INetworkPacket ClonePacket(INetworkPacket received)
         {

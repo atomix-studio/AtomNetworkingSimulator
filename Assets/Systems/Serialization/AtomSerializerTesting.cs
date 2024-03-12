@@ -32,7 +32,9 @@ namespace Atom.Serialization.Testing
         [Button]
         private void IOSomeParams()
         {
-            var bytes = AtomSerializer.SerializeDynamic(0, "Enzo", 18283842182462864, Encoding.ASCII.GetBytes("thisissomebytifiedstring"));
+            AtomSerializer.Reset();
+
+            var bytes = AtomSerializer.SerializeDynamic(0, "Enzo", 18283842182462864, new List<int> { 1 }, Encoding.ASCII.GetBytes("thisissomebytifiedstring"));
             var datas = AtomSerializer.DeserializeDynamic(0, bytes);
             for(int i = 0; i < datas.Length; i++)
             {

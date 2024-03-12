@@ -178,12 +178,13 @@ public class WorldSimulationManager : MonoBehaviour
             newNodeEntity.transform.position = new Vector3(Random.Range(SpawnSize.x, SpawnSize.y), 0, Random.Range(SpawnSize.x, SpawnSize.y));
         }
 
-        newNodeEntity.name = "nodeEntity_" + _nodeEntityIdGenerator++;
+        long id = _nodeEntityIdGenerator++;
+        newNodeEntity.name = "nodeEntity_" + id;
         _currentAliveNodes.Add(newNodeEntity);
         nodeAddresses.Add(newNodeEntity.name, newNodeEntity);
 
         newNodeEntity.transform.SetParent(this.transform);
-        newNodeEntity.OnStart(_defaultCluster, startAsleep);
+        newNodeEntity.OnStart(_defaultCluster, startAsleep, id);
     }
 
     public void DisconnectRandomNodeEntity()
