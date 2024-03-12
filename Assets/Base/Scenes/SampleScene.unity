@@ -1025,32 +1025,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2406c67b73716e945bd51a6da838a0d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1 &1965948815 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 5533586626479675272, guid: 09dc6b9d771e62b499c312e8b50d669d,
-    type: 3}
-  m_PrefabInstance: {fileID: 5533586626426286614}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1965948826
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1965948815}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1cb01426aa3ac8745b7dacd159df9275, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _leaderLeaseDuration: 12
-  _leaderUpdateSpan: 6
-  _minimumOutgoingEdgeExpirationDelay: 2
-  _useJoinRequestRedirection: 0
-  _graphEdges: []
-  FragmentID: -1
-  FragmentLevel: 0
-  FragmentMembers: []
 --- !u!1001 &2049059469
 PrefabInstance:
   m_ObjectHideFlags: 0

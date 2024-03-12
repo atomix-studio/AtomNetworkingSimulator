@@ -41,7 +41,7 @@ namespace Atom.Components.GraphNetwork
         // time before the node contacts the moe to refresh the data, or recomputes the moe
         [SerializeField] private float _minimumOutgoingEdgeExpirationDelay = 1;
 
-        [SerializeField] private bool _useJoinRequestRedirection = false;
+        [SerializeField] private float _takeLeadDelay = 1.5f;
         [Space]
 
         [Header("Generation variables debub")]
@@ -160,9 +160,12 @@ namespace Atom.Components.GraphNetwork
 
             if (FragmentID != _networkHandling.LocalPeerInfo.peerID)
             {
-                if (joiningRequestPacket.joinerfragmentLevel < FragmentLevel
-                    || joiningRequestPacket.joinerFragmentId == MinimumOutgoingEdge.OuterFragmentId
-                    || joiningRequestPacket.senderID == MinimumOutgoingEdge.OuterFragmentNode.peerID)
+                if (joiningRequestPacket.joinerfragmentLevel < FragmentLevel)
+                {
+                    RemoteAbsorbFragment(joiningRequestPacket.senderID, joiningRequestPacket.senderAdress);
+                }
+                else /*if (joiningRequestPacket.joinerFragmentId == MinimumOutgoingEdge.OuterFragmentId
+                    || joiningRequestPacket.senderID == MinimumOutgoingEdge.OuterFragmentNode.peerID)*/
                 {
                     Debug.Log($"Request received from {joiningRequestPacket.senderAdress} but local node is not a leader {_networkHandling.LocalPeerInfo.peerAdress}");
 
@@ -369,9 +372,9 @@ namespace Atom.Components.GraphNetwork
 
                 if (rel.originId == MinimumOutgoingEdge.OuterFragmentNode.peerID
                    || rel.joinerFragmentId == MinimumOutgoingEdge.OuterFragmentId)
-                   /* if (rel.joinerfragmentLevel < FragmentLevel
-                    || rel.originId == MinimumOutgoingEdge.OuterFragmentNode.peerID
-                    || rel.joinerFragmentId == MinimumOutgoingEdge.OuterFragmentId)*/
+                /* if (rel.joinerfragmentLevel < FragmentLevel
+                 || rel.originId == MinimumOutgoingEdge.OuterFragmentNode.peerID
+                 || rel.joinerFragmentId == MinimumOutgoingEdge.OuterFragmentId)*/
                 {
                     //Debug.LogError($"{rel.originAdress} requested a join over the fragment {LocalFragmentId}. {rel.broadcasterID} should become MOE/Leader for this connection to happen.");
                     //if(rel.broadcasterID > rel.originId)
@@ -424,7 +427,7 @@ namespace Atom.Components.GraphNetwork
                     _leaderUpdate();
                     break;
                 case NodeGraphState.LeaderPropesct:
-                    if (DateTime.Now > _lastTakeLeadRequestReceived.AddSeconds(4))
+                    if (DateTime.Now > _lastTakeLeadRequestReceived.AddSeconds(_takeLeadDelay))
                     {
                         Debug.LogError($"{controller.LocalNodeAdress} is the new leader of fragment {FragmentID}");
                         _leaderUpdateTimer = 0;
@@ -502,15 +505,7 @@ namespace Atom.Components.GraphNetwork
         }
 
         private void OnLeaderHeartbeatPacketReceived(LeaderHeartbeatPacket packet)
-        {
-            if (packet.FragmentId != LocalFragmentId)
-            {
-                Debug.Log($"Node {controller.LocalNodeAdress} received a leader heartbeat from {packet.broadcasterID} but the local node fragment doesn't correspond {LocalFragmentId}");
-
-                // what to do, resending a request as MOE to see what hapens ?
-                // return;
-            }
-
+        {           
             if (packet.broadcasterID != controller.LocalNodeId)
             {
                 // do I really wanne do that here ? probly not

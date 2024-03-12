@@ -38,19 +38,26 @@ namespace Atom.Serialization
         public MemberSerializationData(object arg)
         {
             var arg_type = arg.GetType();
-            if (arg_type != typeof(string) && (arg_type.IsArray || typeof(IEnumerable).IsAssignableFrom(arg_type)))
+            if(arg_type == typeof(string))
+            {
+                AtomMemberType = AtomMemberTypes.String;
+            }
+            else if (arg_type.IsArray)
             {
                 IsCollection = true;
-
-                Debug.Log("do here");
+                setMemberType(arg_type.GetElementType());
+            }
+            else if (typeof(IEnumerable).IsAssignableFrom(arg_type))
+            {
+                IsCollection = true;
                 var gen_args = arg_type.GetGenericArguments(); // use this...
-                if(gen_args != null)
+                if (gen_args != null)
                 {
                     setMemberType(gen_args[0]);
-                    if(arg_type is IEnumerable enumerable)
+                    if (arg_type as  IEnumerable != null)
                     {
                         int count = 0;
-                        foreach (var item in enumerable)
+                        foreach (var item in arg_type as IEnumerable)
                         {
                             count++;
                         }
@@ -58,7 +65,7 @@ namespace Atom.Serialization
                         Debug.Log(count);
                     }
                 }
-            }
+            }           
             else
             {
                 AtomMemberType = setMemberType(arg.GetType());
