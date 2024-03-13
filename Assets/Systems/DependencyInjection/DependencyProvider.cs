@@ -90,7 +90,7 @@ namespace Atom.DependencyProvider
             _initializeCollections();
 
             // should it be able to handle classes from other assembly than base UnityCsharp ?
-           // _assemblyTypes = typeof(DependencyProvider).Assembly.GetTypes().ToList();
+            // _assemblyTypes = typeof(DependencyProvider).Assembly.GetTypes().ToList();
 
             /// assembly targeted by the dependency provider should be selected within a ScriptableObject 
             _assemblyTypes = AppDomain.CurrentDomain.GetAssemblies().SelectMany(t => t.GetTypes()).ToList();
@@ -218,6 +218,7 @@ namespace Atom.DependencyProvider
                         break;
                     }
                 }
+
 
                 if (has_required_types && _requiredDependenciesTypes[type].Contains(field.FieldType))
                 {
@@ -549,27 +550,19 @@ namespace Atom.DependencyProvider
                 return comp;
             }
 
-            if (_injectorHandlers.TryGetValue(container.InjectionContextType, out var handler) && handler.TryGetValue(componentType, out var typeInjector))
+            if (_injectorHandlers.TryGetValue(container.InjectionContextType, out var handler)
+                && handler.TryGetValue(componentType, out var typeInjector)
+                && typeInjector.injectAttribute != null
+                && typeInjector.injectAttribute.InjectionOptions.HasFlag(InjectAttribute.InjectingOptions.AllowFindGameObject))
             {
-                try
-                {
-                    Debug.Log($"Type injector of type {typeInjector.reflectingType}. Injecting attribute ?: {typeInjector.injectAttribute}");
+                Debug.Log($"Type injector of type {typeInjector.reflectingType}. Injecting attribute ?: {typeInjector.injectAttribute}");
 
-                    if (typeInjector.injectAttribute.InjectionOptions.HasFlag(InjectAttribute.InjectingOptions.AllowFindGameObject))
-                    {
-                        comp = (Component)GameObject.FindObjectOfType(componentType);
-                        if (comp != null)
-                        {
-                            container.InjectedDependencies.Add(componentType, comp);
-                            return comp;
-                        }
-                    }
-                }
-                catch (Exception ex)
+                comp = (Component)GameObject.FindObjectOfType(componentType);
+                if (comp != null)
                 {
-                    Debug.LogError("Service provider exception => "  + ex);
+                    container.InjectedDependencies.Add(componentType, comp);
+                    return comp;
                 }
-               
             }
 
             comp = casted.gameObject.AddComponent(componentType);

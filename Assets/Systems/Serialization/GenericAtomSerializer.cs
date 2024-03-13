@@ -7,6 +7,7 @@ namespace Atom.Serialization
     {
         public Type SerializedType;
         public List<MemberSerializationData> SerializationDatas { get; set; }
+        public int byteLenght { get; private set; }
 
         public byte[] Serialize(object obj)
         {

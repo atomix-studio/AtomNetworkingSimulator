@@ -16,8 +16,6 @@
         Char, // 2
         String, // 4b ++
         Decimal, // 24
-        DateTime, // 8
-        DateSpan,
         Enum, // 4 ?
         Object, // dyn
     }

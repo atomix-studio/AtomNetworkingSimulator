@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using UnityEngine;
 
@@ -13,12 +15,18 @@ namespace Atom.Serialization
     public class MemberSerializationData
     {
         private const string _int16 = "System.Int16";
+        private const string _uint16 = "System.UInt16";
         private const string _int32 = "System.Int32";
+        private const string _uint32 = "System.UInt32";
         private const string _int64 = "System.Int64";
+        private const string _uint64 = "System.UInt64";
         private const string _byte = "System.Byte";
+        private const string _sbyte = "System.SByte";
         private const string _float = "System.Single";
         private const string _double = "System.Double";
+        private const string _decimal = "System.Decimal";
         private const string _bool = "System.Boolean";
+        private const string _char = "System.Char";
         private const string _string = "System.String";
         private const string _enum = "System.Enum";
         private const string _object = "System.Object";
@@ -33,12 +41,15 @@ namespace Atom.Serialization
         /// </summary>
         public GenericAtomSerializer GenericRecursiveBinder { get; set; } = null;
 
-        public int byteLenght { get; private set; }
+        public int fixedByteLength { get; private set; } = -1;
+        public int fixedParamsLength { get; private set; } = -1;
+
+        private byte[] _tempBytes;
 
         public MemberSerializationData(object arg)
         {
             var arg_type = arg.GetType();
-            if(arg_type == typeof(string))
+            if (arg_type == typeof(string))
             {
                 AtomMemberType = AtomMemberTypes.String;
             }
@@ -54,10 +65,11 @@ namespace Atom.Serialization
                 if (gen_args != null)
                 {
                     setMemberType(gen_args[0]);
-                    if (arg_type as  IEnumerable != null)
+
+                    if (arg_type is IEnumerable enumerable)
                     {
                         int count = 0;
-                        foreach (var item in arg_type as IEnumerable)
+                        foreach (var item in enumerable)
                         {
                             count++;
                         }
@@ -65,7 +77,7 @@ namespace Atom.Serialization
                         Debug.Log(count);
                     }
                 }
-            }           
+            }
             else
             {
                 AtomMemberType = setMemberType(arg.GetType());
@@ -76,18 +88,11 @@ namespace Atom.Serialization
                 // recursive serializer doesn't need identifiers as they are 'anonymous' in the sense
                 // that we won't ever need to access to it directly from the SerializerClass
                 GenericRecursiveBinder = new GenericAtomSerializer();
-                //byteLenght = GenericRecursiveBinder.byteLenght;
+                fixedByteLength = GenericRecursiveBinder.byteLenght;
             }
             else
-                byteLenght = getTypeLength(arg);
+                fixedByteLength = getFixeTypesLength();
         }
-
-        public dynamic Read(ref byte[] _buffer, ref int readIndex)
-        {
-            return null;
-        }
-
-        private byte[] _tempBytes;
         public void Write(object obj, ref byte[] _buffer, ref int writeIndex)
         {
             switch (AtomMemberType)
@@ -98,9 +103,8 @@ namespace Atom.Serialization
                     writeIndex++;
                     return;
 
-             
                 case AtomMemberTypes.Short:
-                    _tempBytes = BitConverter.GetBytes((short)obj);                   
+                    _tempBytes = BitConverter.GetBytes((short)obj);
                     break;
                 case AtomMemberTypes.UShort:
                     _tempBytes = BitConverter.GetBytes((ushort)obj);
@@ -130,17 +134,22 @@ namespace Atom.Serialization
                     _tempBytes = BitConverter.GetBytes((char)obj);
                     break;
                 case AtomMemberTypes.String:
-                    _tempBytes = Encoding.ASCII.GetBytes((string)obj);
+                    var str = (string)obj;
+                    short stringlength = (short)ASCIIEncoding.ASCII.GetByteCount(str);
+                    var stringlengthbytes = BitConverter.GetBytes(stringlength);
+                    var stringbytes = Encoding.ASCII.GetBytes((string)obj);
+
+                    _tempBytes = new byte[2 + stringlength];
+                    // fastest solution (more alloc)
+                    Buffer.BlockCopy(stringlengthbytes, 0, _tempBytes, 0, stringlengthbytes.Length);
+                    Buffer.BlockCopy(stringbytes, 0, _tempBytes, stringlengthbytes.Length, stringbytes.Length);
+                    /*
+                                        // least allocation solution 
+                                        _tempBytes = stringlengthbytes.Concat(stringbytes).ToArray();*/
                     break;
                 case AtomMemberTypes.Decimal:
-                    _tempBytes = new byte[] { decimal.ToByte((decimal)obj)};
-                    break;
-                case AtomMemberTypes.DateTime:
-                    _tempBytes = Encoding.ASCII.GetBytes((string)((DateTime)obj).ToString());
-                    break;
-                case AtomMemberTypes.DateSpan:
-                    _tempBytes = Encoding.ASCII.GetBytes((string)((TimeSpan)obj).ToString());
-                    break;
+                    _tempBytes = new byte[] { decimal.ToByte((decimal)obj) };
+                    break;                
                 case AtomMemberTypes.Enum:
                     _tempBytes = BitConverter.GetBytes((int)obj);
                     break;
@@ -155,29 +164,97 @@ namespace Atom.Serialization
             }
         }
 
+        public dynamic Read(ref byte[] _buffer, ref int readIndex)
+        {
+            int _oldReadIndex = readIndex;
+            switch (AtomMemberType)
+            {
+                case AtomMemberTypes.Byte:
+                case AtomMemberTypes.SByte:
+                    readIndex++;
+                    return _buffer[_oldReadIndex];
+
+                case AtomMemberTypes.Short:
+                    readIndex += 2;
+                    return BitConverter.ToInt16(_buffer, _oldReadIndex);
+
+                case AtomMemberTypes.UShort:
+                    readIndex += 2;
+                    return BitConverter.ToUInt16(_buffer, _oldReadIndex);
+                case AtomMemberTypes.Int:
+                    readIndex += 4;
+                    return BitConverter.ToInt32(_buffer, _oldReadIndex);
+                case AtomMemberTypes.UInt:
+                    readIndex += 4;
+                    return BitConverter.ToUInt32(_buffer, _oldReadIndex);
+                case AtomMemberTypes.Long:
+                    readIndex += 8;
+                    return BitConverter.ToInt64(_buffer, _oldReadIndex);
+                case AtomMemberTypes.ULong:
+                    readIndex += 8;
+                    return BitConverter.ToUInt64(_buffer, _oldReadIndex);
+                case AtomMemberTypes.Float:
+                    readIndex += 4;
+                    return BitConverter.ToSingle(_buffer, _oldReadIndex);
+                case AtomMemberTypes.Double:
+                    readIndex += 8;
+                    return BitConverter.ToDouble(_buffer, _oldReadIndex);
+                case AtomMemberTypes.Bool:
+                    readIndex += 1;
+                    return BitConverter.ToBoolean(_buffer, _oldReadIndex);
+                case AtomMemberTypes.Char:
+                    readIndex += 2;
+                    return BitConverter.ToChar(_buffer, _oldReadIndex);
+                case AtomMemberTypes.String:
+                    var strbyteLength = BitConverter.ToInt16(_buffer, readIndex);
+                    readIndex += 2;
+                    _oldReadIndex = readIndex;
+                    readIndex += strbyteLength;
+                    return Encoding.ASCII.GetString(_buffer, _oldReadIndex, strbyteLength);
+                case AtomMemberTypes.Decimal:
+                    throw new NotImplementedException("who would synchronize decimals over a network ? we are not launching rockets to neptune");                
+                case AtomMemberTypes.Enum:
+                    readIndex += 2;
+                    return BitConverter.ToUInt16(_buffer, _oldReadIndex);
+                case AtomMemberTypes.Object:
+                    readIndex += 2;
+                    return BitConverter.ToUInt16(_buffer, _oldReadIndex);
+            }
+
+            return null;
+        }
+
+        #region member type handling
         public AtomMemberTypes setMemberType(Type type)
         {
-            // to do finishing all primitive types
-           
+            if (type.IsByRef)
+                return AtomMemberTypes.Object;
+
             string tString = type.FullName;
             switch (tString)
             {
-                case _enum: return AtomMemberTypes.Enum;
-                case _int32: return AtomMemberTypes.Int;
-                case _float: return AtomMemberTypes.Float;
-                case _bool: return AtomMemberTypes.Bool;
-                case _string: return AtomMemberTypes.String;
-                case _int16: return AtomMemberTypes.Short;
-                case _int64: return AtomMemberTypes.Long;
                 case _byte: return AtomMemberTypes.Byte;
+                case _sbyte: return AtomMemberTypes.SByte;
+                case _int16: return AtomMemberTypes.Short;
+                case _uint16: return AtomMemberTypes.UShort;
+                case _int32: return AtomMemberTypes.Int;
+                case _uint32: return AtomMemberTypes.Int;
+                case _int64: return AtomMemberTypes.Long;
+                case _uint64: return AtomMemberTypes.ULong;
+                case _float: return AtomMemberTypes.Float;
                 case _double: return AtomMemberTypes.Double;
+                case _decimal: return AtomMemberTypes.Decimal;
+                case _bool: return AtomMemberTypes.Bool;
+                case _char: return AtomMemberTypes.Char;
+                case _string: return AtomMemberTypes.String;
+                case _enum: return AtomMemberTypes.Enum;
                 case _object: return AtomMemberTypes.Object;
             }
 
             throw new Exception($"Type not implemented exception {type}");
         }
 
-        public int getTypeLength(object obj)
+        public int getFixeTypesLength()
         {
             switch (AtomMemberType)
             {
@@ -193,15 +270,14 @@ namespace Atom.Serialization
                 case AtomMemberTypes.Double: return 8;
                 case AtomMemberTypes.Bool: return 1;
                 case AtomMemberTypes.Char: return 2;
-                case AtomMemberTypes.String: return System.Text.ASCIIEncoding.Unicode.GetByteCount((string)obj);
                 case AtomMemberTypes.Decimal: return 24;
-                case AtomMemberTypes.DateTime: return 8;
-                case AtomMemberTypes.DateSpan: return 16;
                 case AtomMemberTypes.Enum: return 4;
             }
 
             return 0;
         }
+        #endregion
+
     }
 }
 

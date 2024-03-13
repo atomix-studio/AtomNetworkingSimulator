@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Atom.Serialization
 {
@@ -7,7 +9,13 @@ namespace Atom.Serialization
         public ushort SerializedIdentifier;
         public List<MemberSerializationData> SerializationDatas { get; set; }
 
-        public int byteLenght { get; private set; }
+        /// <summary>
+        /// fixed size buffering is fastest, suitable for mesasges without string or collections/enumerables
+        /// </summary>
+        public bool fixedLength { get; private set; }
+
+        public int writtenBytesLenght { get; private set; }
+        public int readObjectsLength { get; private set; }
 
         private byte[] _writebuffer = new byte[2048];
         private object[] _readbuffer;
@@ -21,11 +29,11 @@ namespace Atom.Serialization
             for (int i = 0; i < args.Length; ++i)
             {
                 var md = new MemberSerializationData(args[i]);
-                length += md.byteLenght;
+                length += md.fixedByteLength;
                 SerializationDatas.Add(md);
             }
 
-            byteLenght = length;
+            writtenBytesLenght = length;
             //_writebuffer = new byte[byteLenght];
             _readbuffer = new object[args.Length];
         }
@@ -38,7 +46,7 @@ namespace Atom.Serialization
             {
                 SerializationDatas[i].Write(args[i], ref _writebuffer, ref writeIndex);
             }
-
+           
             return _writebuffer;
         }
 
