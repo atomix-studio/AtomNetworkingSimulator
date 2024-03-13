@@ -43,23 +43,27 @@ namespace Atom.Serialization
 
         public int fixedByteLength { get; private set; } = -1;
         public int fixedParamsLength { get; private set; } = -1;
-
+        public bool isDynamicSize { get; private set; } = false;
         private byte[] _tempBytes;
 
-        public MemberSerializationData(object arg)
+        public MemberSerializationData(Type arg_type)
         {
-            var arg_type = arg.GetType();
             if (arg_type == typeof(string))
             {
                 AtomMemberType = AtomMemberTypes.String;
+                isDynamicSize = true;
             }
             else if (arg_type.IsArray)
             {
+                // should be overridable (fixed arrays, but kinda dangerous)
+                isDynamicSize = true;
+
                 IsCollection = true;
                 setMemberType(arg_type.GetElementType());
             }
             else if (typeof(IEnumerable).IsAssignableFrom(arg_type))
             {
+                isDynamicSize = true;
                 IsCollection = true;
                 var gen_args = arg_type.GetGenericArguments(); // use this...
                 if (gen_args != null)
@@ -80,18 +84,23 @@ namespace Atom.Serialization
             }
             else
             {
-                AtomMemberType = setMemberType(arg.GetType());
+                AtomMemberType = setMemberType(arg_type);
             }
 
             if (AtomMemberType == AtomMemberTypes.Object)
             {
                 // recursive serializer doesn't need identifiers as they are 'anonymous' in the sense
                 // that we won't ever need to access to it directly from the SerializerClass
-                GenericRecursiveBinder = new GenericAtomSerializer();
+                GenericRecursiveBinder = new GenericAtomSerializer(arg_type);
+
                 fixedByteLength = GenericRecursiveBinder.byteLenght;
+                isDynamicSize = GenericRecursiveBinder.isDynamicSize;
             }
             else
+            {
                 fixedByteLength = getFixeTypesLength();
+                isDynamicSize = fixedByteLength == -1;
+            }
         }
         public void Write(object obj, ref byte[] _buffer, ref int writeIndex)
         {
@@ -274,7 +283,7 @@ namespace Atom.Serialization
                 case AtomMemberTypes.Enum: return 4;
             }
 
-            return 0;
+            return -1;
         }
         #endregion
 

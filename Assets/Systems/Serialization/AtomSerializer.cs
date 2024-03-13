@@ -21,8 +21,23 @@ namespace Atom.Serialization
 
         #region Generic
 
+        public static byte[] SerializeGeneric(object instance)
+        {
+            var type = instance.GetType();
+            if (_genericSerializers.TryGetValue(type, out var serializer))
+                return serializer.Serialize(instance);
 
+            _genericSerializers.Add(type, new GenericAtomSerializer(type));
+            return _genericSerializers[type].Serialize(instance);
+        }
 
+        public static object DeserializeGeneric(Type type, byte[] data)
+        {
+            if (_genericSerializers.TryGetValue(type, out var serializer))
+                return serializer.Deserialize(data);
+
+            throw new Exception($"Serializer with identifier {type} hasn't been generated yet. The serialize() should be called before the deserialize() at least once.");
+        }
         #endregion
 
         #region Dynamic 

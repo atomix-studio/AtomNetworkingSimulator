@@ -9,31 +9,38 @@ namespace Atom.Serialization
         public ushort SerializedIdentifier;
         public List<MemberSerializationData> SerializationDatas { get; set; }
 
-        /// <summary>
-        /// fixed size buffering is fastest, suitable for mesasges without string or collections/enumerables
-        /// </summary>
-        public bool fixedLength { get; private set; }
-
         public int writtenBytesLenght { get; private set; }
         public int readObjectsLength { get; private set; }
 
-        private byte[] _writebuffer = new byte[2048];
+        private byte[] _writebuffer;
         private object[] _readbuffer;
 
-        public DynamicAtomSerializer(ushort serializedIdentifier, object[] args)
+        public DynamicAtomSerializer(ushort serializedIdentifier, object[] args, int maxWriteBufferSize = 1024)
         {
             SerializedIdentifier = serializedIdentifier;
             SerializationDatas = new List<MemberSerializationData>();
 
-            int length = 0;
+            int byte_length = 0;
+            bool is_dyn_size = false;
             for (int i = 0; i < args.Length; ++i)
             {
-                var md = new MemberSerializationData(args[i]);
-                length += md.fixedByteLength;
+                var md = new MemberSerializationData(args[i].GetType());
+                byte_length += md.fixedByteLength;
+                if(md.isDynamicSize)
+                    is_dyn_size = true;
+
                 SerializationDatas.Add(md);
             }
 
-            writtenBytesLenght = length;
+            writtenBytesLenght = byte_length;
+            if(!is_dyn_size)
+            {
+                _writebuffer = new byte[writtenBytesLenght];
+            }
+            else
+            {
+                _writebuffer = new byte[maxWriteBufferSize];
+            }
             //_writebuffer = new byte[byteLenght];
             _readbuffer = new object[args.Length];
         }

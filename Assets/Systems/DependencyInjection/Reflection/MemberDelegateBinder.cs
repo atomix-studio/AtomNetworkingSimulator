@@ -283,6 +283,8 @@ namespace Atom.DependencyProvider
                     return getBindedValue<double>(instance);
                 case _object:
                     return getBindedValue<object>(instance, true);
+                case _char:
+                    break;
             }
 
             return null;
