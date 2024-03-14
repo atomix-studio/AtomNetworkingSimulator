@@ -17,11 +17,17 @@ namespace Atom.DependencyProvider
     public class MemberDelegateBinder<T>
     {
         private const string _int16 = "System.Int16";
+        private const string _uint16 = "System.UInt16";
         private const string _int32 = "System.Int32";
+        private const string _uint32 = "System.UInt32";
         private const string _int64 = "System.Int64";
+        private const string _uint64 = "System.UInt64";
         private const string _byte = "System.Byte";
+        private const string _sbyte = "System.SByte";
         private const string _float = "System.Single";
+        private const string _decimal = "System.Decimal";
         private const string _double = "System.Double";
+        private const string _char = "System.Char";
         private const string _bool = "System.Boolean";
         private const string _string = "System.String";
         private const string _enum = "System.Enum";
@@ -211,24 +217,6 @@ namespace Atom.DependencyProvider
             }
         }
 
-
-        /*        /// <summary>
-                ///  TODO
-                /// </summary>
-                /// <typeparam name="K"></typeparam>
-                /// <typeparam name="J"></typeparam>
-                /// <param name="methodInfo"></param>
-                public void createMethodDelegates<K, J>(MethodInfo methodInfo)
-                {
-                    if (methodInfo.ReturnType != null)
-                        Getter = (Func<K, J>)Delegate.CreateDelegate(typeof(Func<K, J>),
-                                                         methodInfo);
-
-                    if (methodInfo.GetParameters().Length == 1)
-                        Setter = (Action<K, J>)Delegate.CreateDelegate(typeof(Action<K, J>),
-                                                           methodInfo);
-                }
-        */
         /// <summary>
         /// Returns the value of the member on the given instance
         /// </summary>
@@ -264,30 +252,93 @@ namespace Atom.DependencyProvider
         {
             switch (MemberType)
             {
+                case _int16:
+                    return getBindedValue<short>(instance);
+                case _uint16:
+                    return getBindedValue<ushort>(instance);
                 case _enum:
                 case _int32:
                     return getBindedValue<int>(instance);
+                case _uint32:
+                    return getBindedValue<uint>(instance);
                 case _float:
                     return getBindedValue<float>(instance);
                 case _bool:
                     return getBindedValue<bool>(instance);
                 case _string:
                     return getBindedValue<string>(instance);
-                case _int16:
-                    return getBindedValue<short>(instance);
+                case _char:
+                    return getBindedValue<char>(instance);
                 case _int64:
                     return getBindedValue<long>(instance);
+                case _uint64:
+                    return getBindedValue<ulong>(instance);
                 case _byte:
                     return getBindedValue<byte>(instance);
+                case _sbyte:
+                    return getBindedValue<sbyte>(instance);
                 case _double:
                     return getBindedValue<double>(instance);
+                case _decimal:
+                    return getBindedValue<decimal>(instance);
                 case _object:
                     return getBindedValue<object>(instance, true);
-                case _char:
-                    break;
             }
 
             return null;
+        }
+
+        public void setValueDynamic(T instance, object value)
+        {
+            switch (MemberType)
+            {
+                case _int16:
+                    setValueGeneric<short>(instance, (short)value);
+                    break;
+                case _uint16:
+                    setValueGeneric<ushort>(instance, (ushort)value);
+                    break;
+                case _enum:
+                case _int32:
+                    setValueGeneric<int>(instance, (int)value);
+                    break;
+                case _uint32:
+                    setValueGeneric<uint>(instance, (uint)value);
+                    break;
+                case _float:
+                    setValueGeneric<float>(instance, (float)value);
+                    break;
+                case _bool:
+                    setValueGeneric<bool>(instance, (bool)value);
+                    break;
+                case _string:
+                    setValueGeneric<string>(instance, (string)value);
+                    break;
+                case _int64:
+                    setValueGeneric<long>(instance, (long)value);
+                    break;
+                case _uint64:
+                    setValueGeneric<ulong>(instance, (ulong)value);
+                    break;
+                case _byte:
+                    setValueGeneric<byte>(instance, (byte)value);
+                    break;
+                case _sbyte:
+                    setValueGeneric<sbyte>(instance, (sbyte)value);
+                    break;
+                case _double:
+                    setValueGeneric<double>(instance, (double)value);
+                    break;
+                case _decimal:
+                    setValueGeneric<decimal>(instance, (decimal)value);
+                    break;
+                case _char:
+                    setValueGeneric<char>(instance, (char)value);
+                    break;
+                case _object:
+                    setValueGeneric<object>(instance, value);
+                    break;
+            }
         }
 
         /// <summary>

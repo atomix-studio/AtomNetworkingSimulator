@@ -1,6 +1,7 @@
 ﻿using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using UnityEngine;
 
@@ -128,5 +129,69 @@ namespace Atom.Serialization.Testing
             }
         }
 
+        [Button]
+        private void BW_BC_Benchmark(int runs = 1000)
+        {
+            var stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
+
+            for (int i = 0; i < runs; ++i)
+            {
+                using (var memoryStream = new MemoryStream())
+                {
+                    using (BinaryWriter writer = new BinaryWriter(memoryStream))
+                    {
+                        writer.Write(1000);
+                        writer.Write("Hello");
+                        writer.Write(.38383f);
+                        writer.Write(true);
+                        var bytes = memoryStream.ToArray();
+                    }
+                }
+            }
+            stopwatch.Stop();
+            Debug.Log("Serialization with memorystream : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
+
+            stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
+            for (int i = 0; i < runs; ++i)
+            {
+                var bytes = new byte[256];
+
+                var a = BitConverter.GetBytes(1000);
+                var b = Encoding.ASCII.GetBytes("Hello");
+                var c = BitConverter.GetBytes(.38383f);
+                var d = BitConverter.GetBytes(true);
+
+                int writerIndex = 0;
+                for(int j = 0; j < a.Length; ++j)
+                {
+                    bytes[writerIndex++] = a[j];
+                    writerIndex++;
+                }
+
+                for (int j = 0; j < b.Length; ++j)
+                {
+                    bytes[writerIndex++] = b[j];
+                    writerIndex++;
+                }
+
+                for (int j = 0; j < c.Length; ++j)
+                {
+                    bytes[writerIndex++] = c[j];
+                    writerIndex++;
+                }
+
+                for (int j = 0; j < d.Length; ++j)
+                {
+                    bytes[writerIndex++] = d[j];
+                    writerIndex++;
+                }
+            }
+            stopwatch.Stop();
+            Debug.Log("Serialization with BitConverter : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
+        }
+
     }
 }
+

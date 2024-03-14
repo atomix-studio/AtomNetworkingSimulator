@@ -46,6 +46,8 @@ namespace Atom.Serialization
         public bool isDynamicSize { get; private set; } = false;
         private byte[] _tempBytes;
 
+        private Func<object, int> _getCollectionLengthDelegate;
+        //CreateLambdaFieldGetter
         public MemberSerializationData(Type arg_type)
         {
             if (arg_type == typeof(string))
@@ -59,9 +61,12 @@ namespace Atom.Serialization
                 isDynamicSize = true;
 
                 IsCollection = true;
-                setMemberType(arg_type.GetElementType());
+                var elementType = arg_type.GetElementType();
+                setMemberType(elementType);
+                var props = arg_type.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                _getCollectionLengthDelegate = (Func<object, int>)DelegateHelper.GetLambdaPropertyGetter<int>(props[5]); // Length property of ICOllection 
             }
-            else if (typeof(IEnumerable).IsAssignableFrom(arg_type))
+            else if (typeof(ICollection).IsAssignableFrom(arg_type))
             {
                 isDynamicSize = true;
                 IsCollection = true;
@@ -69,18 +74,10 @@ namespace Atom.Serialization
                 if (gen_args != null)
                 {
                     setMemberType(gen_args[0]);
-
-                    if (arg_type is IEnumerable enumerable)
-                    {
-                        int count = 0;
-                        foreach (var item in enumerable)
-                        {
-                            count++;
-                        }
-                        CollectionLength = count;
-                        Debug.Log(count);
-                    }
+                    var props = arg_type.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    _getCollectionLengthDelegate = (Func<object, int>)DelegateHelper.GetLambdaPropertyGetter<int>(props[1]); // Count property of ICOllection 
                 }
+                else throw new Exception("No type found in collection.");
             }
             else
             {
@@ -103,6 +100,18 @@ namespace Atom.Serialization
             }
         }
         public void Write(object obj, ref byte[] _buffer, ref int writeIndex)
+        {
+            if (!IsCollection)
+            {
+                _writeInternal(obj, _buffer, ref writeIndex);
+                return;
+            }
+            
+            var length = _getCollectionLengthDelegate(obj);
+
+        }
+
+        internal void _writeInternal(object obj, byte[] _buffer, ref int writeIndex)
         {
             switch (AtomMemberType)
             {
@@ -158,7 +167,7 @@ namespace Atom.Serialization
                     break;
                 case AtomMemberTypes.Decimal:
                     _tempBytes = new byte[] { decimal.ToByte((decimal)obj) };
-                    break;                
+                    break;
                 case AtomMemberTypes.Enum:
                     _tempBytes = BitConverter.GetBytes((int)obj);
                     break;
