@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Atom.Serialization;
+using System;
 
 namespace Atom.CommunicationSystem
 {
@@ -17,6 +18,16 @@ namespace Atom.CommunicationSystem
         public virtual int GetReceptionDelayMs()
         {
             return (DateTime.Now - sentTime).Milliseconds;
+        }
+
+        public virtual byte[] SerializePacket()
+        {
+            return AtomSerializer.SerializeGeneric(this);
+        }
+
+        public virtual INetworkPacket DeserializePacket(byte[] bytes)
+        {
+            return (INetworkPacket)AtomSerializer.DeserializeGeneric(this.GetType(), bytes);
         }
     }
 }

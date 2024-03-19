@@ -9,14 +9,16 @@ namespace Atom.Components.GraphNetwork
 {
     public class TakeLeadRequestPacket : AbstractBroadcastablePacket
     {
+        public TakeLeadRequestPacket() { }  
+
         public TakeLeadRequestPacket(long propectId, string propectAdress)
         {
-            this.propectId = propectId;
-            this.propectAdress = propectAdress;
+            this.prospectId = propectId;
+            this.prospectAdress = propectAdress;
         }
 
-        public long propectId { get; set ; }
-        public string propectAdress { get; set ; }
+        public long prospectId { get; set ; }
+        public string prospectAdress { get; set ; }
 
         public override INetworkPacket ClonePacket(INetworkPacket received)
         {

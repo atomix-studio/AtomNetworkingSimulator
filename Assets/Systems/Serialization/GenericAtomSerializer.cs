@@ -26,19 +26,19 @@ namespace Atom.Serialization
 
             int byte_length = 0;
 
-            var fields = argType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            for (int i = 0; i < fields.Length; ++i)
-            {
-                _serializationDatas.Add(new MemberSerializationData(fields[i].FieldType));
+            /*  var fields = argType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+              for (int i = 0; i < fields.Length; ++i)
+              {
+                  _serializationDatas.Add(new MemberSerializationData(fields[i].FieldType));
 
-                _memberDelegateBinders.Add(new DynamicMemberDelegateBinder());
-                _memberDelegateBinders[i].createFieldDelegatesAuto(fields[i]);
+                  _memberDelegateBinders.Add(new DynamicMemberDelegateBinder());
+                  _memberDelegateBinders[i].createFieldDelegatesAuto(fields[i]);
 
-                byte_length += _serializationDatas[i].fixedByteLength;
+                  byte_length += _serializationDatas[i].fixedByteLength;
 
-                if (_serializationDatas[i].isDynamicSize)
-                    isDynamicSize = true;
-            }
+                  if (_serializationDatas[i].isDynamicSize)
+                      isDynamicSize = true;
+              }*/
 
             var properties = argType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             for (int i = 0; i < properties.Length; ++i)
@@ -47,6 +47,9 @@ namespace Atom.Serialization
 
                 _memberDelegateBinders.Add(new DynamicMemberDelegateBinder());
                 _memberDelegateBinders[i].createPropertyDelegatesAuto(properties[i]);
+                
+                if (_serializationDatas[i].isDynamicSize)
+                    isDynamicSize = true;
 
                 byte_length += _serializationDatas[i].fixedByteLength;
             }
@@ -71,10 +74,14 @@ namespace Atom.Serialization
             for (int i = 0; i < _memberDelegateBinders.Count; ++i)
             {
                 var arg = _memberDelegateBinders[i].getValueDynamic(instance);
+
+                //UnityEngine.Debug.Log("write data for member " + _memberDelegateBinders[i].MemberName + " " + _memberDelegateBinders[i].MemberType);
                 _serializationDatas[i].Write(arg, ref _writebuffer, ref writeIndex);
             }
 
-            return _writebuffer;
+            var result = new byte[writeIndex];
+            Buffer.BlockCopy(_writebuffer, 0, result, 0, writeIndex);
+            return result;
         }
 
         public object Deserialize(byte[] data)
@@ -125,57 +132,7 @@ namespace Atom.Serialization
                 }
                 else
                 {
-                    switch (_serializationDatas[i].AtomMemberType)
-                    {
-                        case AtomMemberTypes.Byte:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (byte)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.SByte:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (sbyte)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.Short:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (short)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.UShort:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (ushort)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.Int:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (int)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.UInt:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (uint)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.Long:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (long)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.ULong:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (ulong)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.Float:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (float)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.Double:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (double)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.Bool:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (bool)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.Char:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (char)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.String:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (string)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.Decimal:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (decimal)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.Enum:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, (int)_readbuffer[i]);
-                            break;
-                        case AtomMemberTypes.Object:
-                            _memberDelegateBinders[i].setValueGeneric(new_instance, _readbuffer[i]);
-                            break;
-                    }
+                    _memberDelegateBinders[i].setValueDynamic(new_instance, _readbuffer[i]);
                 }
             }
 

@@ -58,10 +58,14 @@ namespace Atom.Transport
                 // to avoid overflowing the memory, nodes are frame buffered in instant transport mode
                 _sendBuffer.Add(packet, destination);
             }
-            else
+            else if(_simulationManager.TransportUnserialized)
             {
                 // packet transport is simulated with just a timer (and visualised as a debug line)
                 _addPacket(destination, packet);
+            }
+            else
+            {
+
             }
         }
 

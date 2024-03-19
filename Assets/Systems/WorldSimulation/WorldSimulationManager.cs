@@ -19,6 +19,7 @@ public class WorldSimulationManager : MonoBehaviour
     public bool DisplaySelectedOnly;
     public bool DisplayPackets;
     public bool TransportInstantaneously = true;
+    public bool TransportUnserialized = true;
     public float PacketSpeed = 25;
 
     [SerializeField] private NodeEntity _pf_NodeEntity;

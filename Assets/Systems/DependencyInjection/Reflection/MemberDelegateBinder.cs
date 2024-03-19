@@ -32,6 +32,7 @@ namespace Atom.DependencyProvider
         private const string _string = "System.String";
         private const string _enum = "System.Enum";
         private const string _object = "System.Object";
+        private const string _dateTime = "System.DateTime";
 
         /// <summary>
         /// Fiedl, Property or Method ?
@@ -70,11 +71,31 @@ namespace Atom.DependencyProvider
                 MemberAttributeType = ReflectedMemberDelegateAttributeType.Field;
                 MemberName = fieldInfo.Name;
 
-                var is_enum = fieldInfo.FieldType.IsEnum;
-                if (fieldInfo.FieldType.IsPrimitive || is_enum)
-                    MemberType = is_enum ? _enum : fieldInfo.FieldType.ToString();
-                else
-                    MemberType = _object;
+                if (MemberType == string.Empty || MemberType == null)
+                {
+                    if (fieldInfo.FieldType == typeof(string))
+                    {
+                        MemberType = _string;
+                    }
+                    else if (fieldInfo.FieldType.IsEnum)
+                    {
+                        MemberType = _enum;
+                    }
+                    else if (fieldInfo.FieldType.IsPrimitive)
+                    {
+                        MemberType = fieldInfo.FieldType.ToString();
+                    }
+                    else if (fieldInfo.FieldType == typeof(DateTime))
+                    {
+
+                        MemberType = _dateTime;
+                    }
+                    else
+                    {
+                        MemberType = _object;
+                    }
+                }
+
 
                 Getter = DelegateHelper.CreateFieldGetter<K, J>(fieldInfo);
                 Setter = DelegateHelper.CreateFieldSetter<K, J>(fieldInfo);
@@ -89,14 +110,24 @@ namespace Atom.DependencyProvider
         {
             MemberAttributeType = ReflectedMemberDelegateAttributeType.Field;
 
-            var is_enum = fieldInfo.FieldType.IsEnum;
-            if (fieldInfo.FieldType.IsPrimitive || is_enum)
+            if (fieldInfo.FieldType == typeof(string))
             {
                 MemberName = fieldInfo.Name;
-                MemberType = is_enum ? _enum : fieldInfo.FieldType.ToString();
+                MemberType = _string;
+                createFieldDelegates<T, string>(fieldInfo);
+            }
+            else if (fieldInfo.FieldType.IsEnum)
+            {
+                MemberName = fieldInfo.Name;
+                MemberType = _enum;
+                createFieldDelegates<T, int>(fieldInfo);
+            }
+            else if (fieldInfo.FieldType.IsPrimitive)
+            {
+                MemberName = fieldInfo.Name;
+                MemberType = fieldInfo.FieldType.ToString();
                 switch (MemberType)
                 {
-                    case _enum:
                     case _int32:
                         createFieldDelegates<T, int>(fieldInfo);
                         break;
@@ -124,8 +155,14 @@ namespace Atom.DependencyProvider
                     case _object:
                         createFieldDelegates<T, object>(fieldInfo);
                         break;
-
                 }
+            }
+            else if (fieldInfo.FieldType == typeof(DateTime))
+            {
+
+                MemberName = fieldInfo.Name;
+                MemberType = _dateTime;
+                createFieldDelegates<T, DateTime>(fieldInfo);
             }
             else
             {
@@ -133,6 +170,52 @@ namespace Atom.DependencyProvider
                 MemberType = _object;
                 createFieldDelegates<T, object>(fieldInfo);
             }
+            /*
+
+                        var is_enum = fieldInfo.FieldType.IsEnum;
+                        if (fieldInfo.FieldType.IsPrimitive || is_enum)
+                        {
+                            MemberName = fieldInfo.Name;
+                            MemberType = is_enum ? _enum : fieldInfo.FieldType.ToString();
+                            switch (MemberType)
+                            {
+                                case _enum:
+                                case _int32:
+                                    createFieldDelegates<T, int>(fieldInfo);
+                                    break;
+                                case _float:
+                                    createFieldDelegates<T, float>(fieldInfo);
+                                    break;
+                                case _bool:
+                                    createFieldDelegates<T, bool>(fieldInfo);
+                                    break;
+                                case _string:
+                                    createFieldDelegates<T, string>(fieldInfo);
+                                    break;
+                                case _int16:
+                                    createFieldDelegates<T, short>(fieldInfo);
+                                    break;
+                                case _int64:
+                                    createFieldDelegates<T, long>(fieldInfo);
+                                    break;
+                                case _byte:
+                                    createFieldDelegates<T, byte>(fieldInfo);
+                                    break;
+                                case _double:
+                                    createFieldDelegates<T, double>(fieldInfo);
+                                    break;
+                                case _object:
+                                    createFieldDelegates<T, object>(fieldInfo);
+                                    break;
+
+                            }
+                        }
+                        else
+                        {
+                            MemberName = fieldInfo.Name;
+                            MemberType = _object;
+                            createFieldDelegates<T, object>(fieldInfo);
+                        }*/
         }
 
         public void createPropertyDelegates<K, J>(PropertyInfo propertyInfo)
@@ -141,11 +224,30 @@ namespace Atom.DependencyProvider
             {
                 MemberAttributeType = ReflectedMemberDelegateAttributeType.Property;
 
-                var is_enum = propertyInfo.PropertyType.IsEnum;
-                if (propertyInfo.PropertyType.IsPrimitive || is_enum)
-                    MemberType = is_enum ? _enum : propertyInfo.PropertyType.ToString();
-                else
-                    MemberType = _object;
+                if (MemberType == string.Empty || MemberType == null)
+                {
+                    if (propertyInfo.PropertyType == typeof(string))
+                    {
+                        MemberType = _string;
+                    }
+                    else if (propertyInfo.PropertyType.IsEnum)
+                    {
+                        MemberType = _enum;
+                    }
+                    else if (propertyInfo.PropertyType.IsPrimitive)
+                    {
+                        MemberType = propertyInfo.PropertyType.ToString();
+                    }
+                    else if (propertyInfo.PropertyType == typeof(DateTime))
+                    {
+
+                        MemberType = _dateTime;
+                    }
+                    else
+                    {
+                        MemberType = _object;
+                    }
+                }
 
                 MemberName = propertyInfo.Name;
 
@@ -154,10 +256,18 @@ namespace Atom.DependencyProvider
 
                 if (propertyInfo.CanWrite)
                 {
-                    if (typeof(J) == typeof(object))
-                        Setter = (Action<object, object>)DelegateHelper.GetLambdaPropertySetter(propertyInfo);
-                    else
+                    if (typeof(J) == typeof(DateTime))
+                    {
                         Setter = (Action<object, J>)DelegateHelper.GetLambdaPropertySetter<J>(propertyInfo);
+                    }
+                    else if (typeof(J) == typeof(object))
+                    {
+                        Setter = (Action<object, object>)DelegateHelper.GetLambdaPropertySetter(propertyInfo);
+                    }
+                    else
+                    {
+                        Setter = (Action<object, J>)DelegateHelper.GetLambdaPropertySetter<J>(propertyInfo);
+                    }
                 }
             }
             catch (Exception e)
@@ -171,14 +281,24 @@ namespace Atom.DependencyProvider
         {
             MemberAttributeType = ReflectedMemberDelegateAttributeType.Property;
 
-            var is_enum = propertyInfo.PropertyType.IsEnum;
-            if (propertyInfo.PropertyType.IsPrimitive || is_enum)
+            if (propertyInfo.PropertyType == typeof(string))
             {
                 MemberName = propertyInfo.Name;
-                MemberType = is_enum ? _enum : propertyInfo.PropertyType.ToString();
+                MemberType = _string;
+                createPropertyDelegates<T, string>(propertyInfo);
+            }
+            else if (propertyInfo.PropertyType.IsEnum)
+            {
+                MemberName = propertyInfo.Name;
+                MemberType = _enum;
+                createPropertyDelegates<T, int>(propertyInfo);
+            }
+            else if (propertyInfo.PropertyType.IsPrimitive)
+            {
+                MemberName = propertyInfo.Name;
+                MemberType = propertyInfo.PropertyType.ToString();
                 switch (MemberType)
                 {
-                    case _enum:
                     case _int32:
                         createPropertyDelegates<T, int>(propertyInfo);
                         break;
@@ -187,9 +307,6 @@ namespace Atom.DependencyProvider
                         break;
                     case _bool:
                         createPropertyDelegates<T, bool>(propertyInfo);
-                        break;
-                    case _string:
-                        createPropertyDelegates<T, string>(propertyInfo);
                         break;
                     case _int16:
                         createPropertyDelegates<T, short>(propertyInfo);
@@ -209,12 +326,21 @@ namespace Atom.DependencyProvider
 
                 }
             }
+            else if (propertyInfo.PropertyType == typeof(DateTime))
+            {
+
+                MemberName = propertyInfo.Name;
+                MemberType = _dateTime;
+                createPropertyDelegates<T, DateTime>(propertyInfo);
+            }
             else
             {
                 MemberName = propertyInfo.Name;
                 MemberType = _object;
                 createPropertyDelegates<T, object>(propertyInfo);
             }
+
+            //UnityEngine.Debug.Log("created delegates for type " + propertyInfo.PropertyType + "   " + propertyInfo.Name + " =>  " + MemberType);
         }
 
         /// <summary>
@@ -283,9 +409,11 @@ namespace Atom.DependencyProvider
                     return getBindedValue<decimal>(instance);
                 case _object:
                     return getBindedValue<object>(instance, true);
+                case _dateTime:
+                    return getBindedValue<DateTime>(instance);
             }
 
-            return null;
+            throw new Exception("not implemented " + MemberType + " " + MemberName);
         }
 
         public void setValueDynamic(T instance, object value)
@@ -338,7 +466,13 @@ namespace Atom.DependencyProvider
                 case _object:
                     setValueGeneric<object>(instance, value);
                     break;
+                case _dateTime:
+                    setValueGeneric<DateTime>(instance, (DateTime)value);
+                    break;
+                default:
+                    throw new NotImplementedException(value.GetType().ToString());
             }
+
         }
 
         /// <summary>
@@ -389,6 +523,9 @@ namespace Atom.DependencyProvider
                 case _int32:
                     setValueGeneric<int>(instance, 0);
                     break;
+                case _uint32:
+                    setValueGeneric<uint>(instance, 0);
+                    break;
                 case _float:
                     setValueGeneric<float>(instance, 0);
                     break;
@@ -401,9 +538,16 @@ namespace Atom.DependencyProvider
                 case _int16:
                     setValueGeneric<short>(instance, 0);
                     break;
+                case _uint16:
+                    setValueGeneric<ushort>(instance, 0);
+                    break;
                 case _int64:
                     setValueGeneric<long>(instance, 0);
                     break;
+                case _uint64:
+                    setValueGeneric<ulong>(instance, 0);
+                    break;
+
                 case _byte:
                     setValueGeneric<byte>(instance, 0);
                     break;

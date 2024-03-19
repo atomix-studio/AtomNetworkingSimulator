@@ -532,9 +532,9 @@ namespace Atom.Components.GraphNetwork
                 if (DateTime.Now < _leaderExpirationTime)
                     return;
 
-                if (packet.propectId > controller.LocalNodeId)
+                if (packet.prospectId > controller.LocalNodeId)
                 {
-                    _currentPendingLeadId = packet.propectId;
+                    _currentPendingLeadId = packet.prospectId;
 
                     _nodeGraphState = NodeGraphState.Eliminated;
                     _graphcaster.RelayGraphcast(packet);
@@ -553,10 +553,10 @@ namespace Atom.Components.GraphNetwork
             }
             else
             {
-                if (packet.propectId > _currentPendingLeadId)
+                if (packet.prospectId > _currentPendingLeadId)
                 {
                     _nodeGraphState = NodeGraphState.Eliminated;
-                    _currentPendingLeadId = packet.propectId;
+                    _currentPendingLeadId = packet.prospectId;
                 }
 
                 _graphcaster.RelayGraphcast(packet);

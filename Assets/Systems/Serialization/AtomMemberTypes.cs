@@ -18,5 +18,6 @@
         Decimal, // 24
         Enum, // 4 ?
         Object, // dyn
+        DateTime, // dyn
     }
 }

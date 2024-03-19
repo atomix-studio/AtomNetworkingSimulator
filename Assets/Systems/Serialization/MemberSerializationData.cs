@@ -30,8 +30,10 @@ namespace Atom.Serialization
         private const string _string = "System.String";
         private const string _enum = "System.Enum";
         private const string _object = "System.Object";
+        private const string _dateTime = "System.DateTime";
 
         public bool IsCollection;
+        public bool IsArray;
         public int CollectionLength = -1;
 
         public AtomMemberTypes AtomMemberType { get; set; }
@@ -53,27 +55,23 @@ namespace Atom.Serialization
             if (arg_type == typeof(string))
             {
                 AtomMemberType = AtomMemberTypes.String;
-                isDynamicSize = true;
             }
             else if (arg_type.IsArray)
             {
-                // should be overridable (fixed arrays, but kinda dangerous)
-                isDynamicSize = true;
-
-                IsCollection = true;
+                IsArray = true;
                 var elementType = arg_type.GetElementType();
-                setMemberType(elementType);
+                AtomMemberType = setMemberType(elementType);
                 var props = arg_type.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
                 _getCollectionLengthDelegate = (Func<object, int>)DelegateHelper.GetLambdaPropertyGetter<int>(props[5]); // Length property of ICOllection 
             }
             else if (typeof(ICollection).IsAssignableFrom(arg_type))
             {
-                isDynamicSize = true;
                 IsCollection = true;
+
                 var gen_args = arg_type.GetGenericArguments(); // use this...
                 if (gen_args != null)
                 {
-                    setMemberType(gen_args[0]);
+                    AtomMemberType = setMemberType(gen_args[0]);
                     var props = arg_type.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
                     _getCollectionLengthDelegate = (Func<object, int>)DelegateHelper.GetLambdaPropertyGetter<int>(props[1]); // Count property of ICOllection 
                 }
@@ -102,13 +100,21 @@ namespace Atom.Serialization
 
         public void Write(object obj, ref byte[] _buffer, ref int writeIndex)
         {
-            if (!IsCollection)
+            if (!IsCollection && !IsArray)
             {
                 _writeInternal(obj, _buffer, ref writeIndex);
                 return;
             }
 
-            var length = _getCollectionLengthDelegate(obj);
+            // hardcast to a short, we never want collections that big
+            // should be someway limited explicitely 
+
+            var flength = _getCollectionLengthDelegate(obj);
+            if (flength > short.MaxValue)
+                throw new Exception($"Collection value exceed {short.MaxValue}. As collection length is encoded on 2 bytes, this is not possible to send a collection that size. " +
+                    $"That is not a good way to serialize packet this big anyway.");
+
+            var length = (short)flength;
             var lengthbytes = BitConverter.GetBytes(length);
 
             // loop for two bytes is slower than direct assignation
@@ -117,10 +123,23 @@ namespace Atom.Serialization
             _buffer[writeIndex + 1] = lengthbytes[1];
             writeIndex += 2;
 
-            for (int i = 0; i < length; ++i)
+            if (IsArray)
             {
-
+                var as_array = ((Array)obj);
+                foreach (var v in as_array)
+                {
+                    _writeInternal(v, _buffer, ref writeIndex);
+                }
             }
+            else
+            {
+                var as_icol = (ICollection)obj;
+                foreach (var v in as_icol)
+                {
+                    _writeInternal(v, _buffer, ref writeIndex);
+                }
+            }
+
         }
 
         internal void _writeInternal(object obj, byte[] _buffer, ref int writeIndex)
@@ -146,7 +165,7 @@ namespace Atom.Serialization
                     _tempBytes = BitConverter.GetBytes((uint)obj);
                     break;
                 case AtomMemberTypes.Long:
-                    _tempBytes = BitConverter.GetBytes((long)obj);
+                    _tempBytes = BitConverter.GetBytes((long)(obj));
                     break;
                 case AtomMemberTypes.ULong:
                     _tempBytes = BitConverter.GetBytes((ulong)obj);
@@ -162,6 +181,18 @@ namespace Atom.Serialization
                     break;
                 case AtomMemberTypes.Char:
                     _tempBytes = BitConverter.GetBytes((char)obj);
+                    break;
+                case AtomMemberTypes.DateTime:
+                    var strdt = ((DateTime)obj).ToString();
+                    short stringdtlength = (short)ASCIIEncoding.ASCII.GetByteCount(strdt);
+                    var stringdtlengthbytes = BitConverter.GetBytes(stringdtlength);
+                    var stringdtbytes = Encoding.ASCII.GetBytes(strdt);
+
+                    _tempBytes = new byte[2 + stringdtlength];
+                    // fastest solution (more alloc)
+                    Buffer.BlockCopy(stringdtlengthbytes, 0, _tempBytes, 0, stringdtlengthbytes.Length);
+                    Buffer.BlockCopy(stringdtbytes, 0, _tempBytes, stringdtlengthbytes.Length, stringdtbytes.Length);
+
                     break;
                 case AtomMemberTypes.String:
                     var str = (string)obj;
@@ -195,6 +226,38 @@ namespace Atom.Serialization
         }
 
         public dynamic Read(ref byte[] _buffer, ref int readIndex)
+        {
+            if (!IsCollection && !IsArray)
+            {
+                return _readInternal(_buffer, ref readIndex);
+            }
+
+            int lenght = BitConverter.ToInt16(_buffer, readIndex); 
+            readIndex += 2;
+
+            if (IsArray)
+            {
+                var array = new object[lenght];
+                for(int i = 0; i < lenght; ++i)
+                {
+                    array[i] = _readInternal(_buffer, ref readIndex);
+                }
+
+                return array;
+            }
+            else
+            {
+                var icol = new List<object>(lenght);
+                for (int i = 0; i < lenght; ++i)
+                {
+                    icol.Add(_readInternal(_buffer, ref readIndex));
+                }
+
+                return icol;
+            }
+        }
+
+        private object _readInternal(byte[] _buffer, ref int readIndex)
         {
             int _oldReadIndex = readIndex;
             switch (AtomMemberType)
@@ -235,6 +298,13 @@ namespace Atom.Serialization
                 case AtomMemberTypes.Char:
                     readIndex += 2;
                     return BitConverter.ToChar(_buffer, _oldReadIndex);
+                case AtomMemberTypes.DateTime:
+                    var strdtbyteLength = BitConverter.ToInt16(_buffer, readIndex);
+                    readIndex += 2;
+                    _oldReadIndex = readIndex;
+                    readIndex += strdtbyteLength;
+                    var dtstr = Encoding.ASCII.GetString(_buffer, _oldReadIndex, strdtbyteLength);
+                    return DateTime.Parse(dtstr);
                 case AtomMemberTypes.String:
                     var strbyteLength = BitConverter.ToInt16(_buffer, readIndex);
                     readIndex += 2;
@@ -251,7 +321,7 @@ namespace Atom.Serialization
                     return BitConverter.ToUInt16(_buffer, _oldReadIndex);
             }
 
-            return null;
+            throw new NotImplementedException("Serializer can't read type " + AtomMemberType);
         }
 
         #region member type handling
@@ -279,6 +349,7 @@ namespace Atom.Serialization
                 case _string: return AtomMemberTypes.String;
                 case _enum: return AtomMemberTypes.Enum;
                 case _object: return AtomMemberTypes.Object;
+                case _dateTime: return AtomMemberTypes.DateTime;
             }
 
             throw new Exception($"Type not implemented exception {type}");
@@ -286,6 +357,9 @@ namespace Atom.Serialization
 
         public int getFixeTypesLength()
         {
+            if(IsCollection || IsArray)
+                return -1;
+
             switch (AtomMemberType)
             {
                 case AtomMemberTypes.Byte: return 1;
