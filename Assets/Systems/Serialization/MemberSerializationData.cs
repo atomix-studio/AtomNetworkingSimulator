@@ -99,6 +99,7 @@ namespace Atom.Serialization
                 isDynamicSize = fixedByteLength == -1;
             }
         }
+
         public void Write(object obj, ref byte[] _buffer, ref int writeIndex)
         {
             if (!IsCollection)
@@ -106,9 +107,20 @@ namespace Atom.Serialization
                 _writeInternal(obj, _buffer, ref writeIndex);
                 return;
             }
-            
-            var length = _getCollectionLengthDelegate(obj);
 
+            var length = _getCollectionLengthDelegate(obj);
+            var lengthbytes = BitConverter.GetBytes(length);
+
+            // loop for two bytes is slower than direct assignation
+            // as we know its a short (2 bytes), we just do this way
+            _buffer[writeIndex] = lengthbytes[0];
+            _buffer[writeIndex + 1] = lengthbytes[1];
+            writeIndex += 2;
+
+            for (int i = 0; i < length; ++i)
+            {
+
+            }
         }
 
         internal void _writeInternal(object obj, byte[] _buffer, ref int writeIndex)
@@ -230,7 +242,7 @@ namespace Atom.Serialization
                     readIndex += strbyteLength;
                     return Encoding.ASCII.GetString(_buffer, _oldReadIndex, strbyteLength);
                 case AtomMemberTypes.Decimal:
-                    throw new NotImplementedException("who would synchronize decimals over a network ? we are not launching rockets to neptune");                
+                    throw new NotImplementedException("who would synchronize decimals over a network ? we are not launching rockets to neptune");
                 case AtomMemberTypes.Enum:
                     readIndex += 2;
                     return BitConverter.ToUInt16(_buffer, _oldReadIndex);

@@ -296,12 +296,12 @@ public class WorldSimulationManager : MonoBehaviour
         }
     }
 
-    [Button]
+   /* [Button]
     private void SendGroupConnectionRequest()
     {
         var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
         startNode.peerSampling.SendGroupConnectionRequest();
-    }
+    }*/
 
     private void OnGUI()
     {

@@ -13,27 +13,16 @@ using System.Threading;
 
 namespace Atom.Transport
 {
-    public class TransportLayerComponent : MonoBehaviour, INodeUpdatableComponent
+    public class TransportLayerComponent : MonoBehaviour, INodeComponent
     {
         public bool IsSleeping = false;
         public float MessageSpeed = 25;
 
-        [SerializeField] private NetworkPacket _pf_networkPacket;
-        private NodeEntity _nodeEntity;
-
-        public Dictionary<string, Action<NetworkPacket>> BroadcastsRelayDelegates = new Dictionary<string, Action<NetworkPacket>>();
-        public Dictionary<string, Action<NetworkPacket>> BroadcastsCallbackDelegates = new Dictionary<string, Action<NetworkPacket>>();
-
-        public List<NetworkPacket> travellingPackets = new List<NetworkPacket>();
-
-        public Action<INetworkPacket> routerReceiveCallback { get; protected set; }
-
-
+        private Action<INetworkPacket> _routerReceiveCallback { get; set; }
         private Dictionary<INetworkPacket, NodeEntity> currentTravellingPacketTarget = new Dictionary<INetworkPacket, NodeEntity>();
         private Dictionary<INetworkPacket, float> currentTravellingPacketsElapsedTime = new Dictionary<INetworkPacket, float>();
         private Dictionary<INetworkPacket, float> currentTravellingPacketsTime = new Dictionary<INetworkPacket, float>();
         private Dictionary<INetworkPacket, Vector3> currentTravellingPacketsDestination = new Dictionary<INetworkPacket, Vector3>();
-
         //debug only
         private Dictionary<INetworkPacket, NodeEntity> _sendBuffer = new Dictionary<INetworkPacket, NodeEntity>();
 
@@ -41,23 +30,18 @@ namespace Atom.Transport
         public NodeEntity controller { get; set; }
         [Inject] private WorldSimulationManager _simulationManager;
 
+        public void OnInitialize()
+        {
+            
+        }
+
         /// <summary>
         /// Initialize the routing of the packets received by the transport layer to a delegate routing service
         /// </summary>
         /// <param name="routerReceiveCallback"></param>
         public void SetRoutingCallback(Action<INetworkPacket> routerReceiveCallback)
         {
-            this.routerReceiveCallback = routerReceiveCallback;
-        }
-
-        public void RegisterEndpoint(string name, Action<NetworkPacket> relayCallback)
-        {
-            BroadcastsRelayDelegates.Add(name, relayCallback);
-        }
-
-        public void OnInitialize()
-        {
-            _nodeEntity = controller;
+            this._routerReceiveCallback = routerReceiveCallback;
         }
 
         public void Send(string address, INetworkPacket packet)
@@ -71,16 +55,17 @@ namespace Atom.Transport
 
             if (_simulationManager.TransportInstantaneously)
             {
+                // to avoid overflowing the memory, nodes are frame buffered in instant transport mode
                 _sendBuffer.Add(packet, destination);
-
-                //destination.transportLayer.routerReceiveCallback.Invoke(packet);
             }
             else
             {
+                // packet transport is simulated with just a timer (and visualised as a debug line)
                 _addPacket(destination, packet);
             }
         }
 
+        #region simulation no serialization
         // add a packet to the collections that simulates the network travelling
         private void _addPacket(NodeEntity target, INetworkPacket packet)
         {
@@ -121,7 +106,7 @@ namespace Atom.Transport
                         WorldSimulationManager._totalPacketReceived++;
                         WorldSimulationManager._totalPacketReceivedPerSecondCount++;
 
-                        currentTravellingPacketTarget[packet.Key].transportLayer.routerReceiveCallback.Invoke(packet.Key);
+                        currentTravellingPacketTarget[packet.Key].transportLayer._routerReceiveCallback.Invoke(packet.Key);
                     }
 
                     _removePacket(packet.Key);
@@ -134,98 +119,34 @@ namespace Atom.Transport
                 }
             }
         }
+        #endregion
+
+        #region simulation with serialization
+
+
+
+        #endregion
 
         public void OnUpdate()
         {
             //_updateTravellingPackets();
         }
 
-        // *************************************
-
-        #region V1 
-
         private void Update()
         {
-            /* for (int i = 0; i < travellingPackets.Count; ++i)
-                 travellingPackets[i].OnUpdate();*/
-
-
             _updateTravellingPackets();
-
         }
 
         private void LateUpdate()
         {
             foreach (var packet in _sendBuffer)
             {
-                packet.Value.transportLayer.routerReceiveCallback.Invoke(packet.Key);
+                packet.Value.transportLayer._routerReceiveCallback.Invoke(packet.Key);
             }
 
             _sendBuffer.Clear();
         }
 
-        public void SendPacket(NodeEntity target, string payload, List<NodeEntity> potentialPeers = null)
-        {
-            var packet = new NetworkPacket(this);
-            packet._potentialPeers = potentialPeers;
-            travellingPackets.Add(packet);
-            packet.Send(_nodeEntity, target, payload);
-        }
-
-        public void SendPacketBroadcast(NodeEntity broadcaster, NodeEntity target, string payload, int broadcastID = -1)
-        {
-            var packet = new NetworkPacket(this);
-            travellingPackets.Add(packet);
-            packet.SendBroadcast(broadcaster, _nodeEntity, target, payload, broadcastID);
-        }
-
-        public void OnPacketReceived(NetworkPacket message)
-        {
-            if (IsSleeping)
-                return;
-
-            if (BroadcastsRelayDelegates.ContainsKey(message.Payload))
-            {
-                BroadcastsRelayDelegates[message.Payload].Invoke(message);
-                return;
-            }
-
-            if (message.Payload == "BROADCAST_BENCHMARK")
-            {
-                _nodeEntity.material.color = Color.red;
-                _nodeEntity.peerSampling.OnReceive_BenchmarkBroadcast(message);
-                return;
-            }
-
-            Debug.Log($"{this.gameObject} received message {message.Payload} from {message.Sender}");
-
-            /*if (message.Payload == "CONNECT_TO_CLUSTER")
-            {
-                if (!_nodeEntity.IsBoot)
-                    Debug.LogError("Connection to cluster received by a non-boot node !");
-
-                SendPacket(message.Sender, "CONNECT_TO_CLUSTER_RESPONSE");
-            }
-            else if (message.Payload == "CONNECT_TO_CLUSTER_RESPONSE")
-            {
-                _nodeEntity.peerSampling.OnReceiveConnectToClusterResponse(message.Sender);
-            }*/
-            if (message.Payload == "GROUP_REQUEST")
-            {
-                _nodeEntity.OnReceiveGroupRequest(message.Sender);
-            }
-            else if (message.Payload == "GROUP_REQUEST_REFUSED")
-            {
-                // faire de la place pour trouver un groupe
-                _nodeEntity.peerSampling.OnGroupRequestRefused(message);
-            }
-            else
-            {
-                Debug.LogError("Packet unhandled : " + message.Payload);
-            }
-        }
-
-        #endregion
     }
 
 }

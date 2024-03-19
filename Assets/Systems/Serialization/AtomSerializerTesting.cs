@@ -1,8 +1,11 @@
-﻿using Sirenix.OdinInspector;
+﻿using Codice.Client.Common.TreeGrouper;
+using Sirenix.OdinInspector;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Atom.Serialization.Testing
@@ -164,7 +167,7 @@ namespace Atom.Serialization.Testing
                 var d = BitConverter.GetBytes(true);
 
                 int writerIndex = 0;
-                for(int j = 0; j < a.Length; ++j)
+                for (int j = 0; j < a.Length; ++j)
                 {
                     bytes[writerIndex++] = a[j];
                     writerIndex++;
@@ -192,6 +195,61 @@ namespace Atom.Serialization.Testing
             Debug.Log("Serialization with BitConverter : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
         }
 
+        [Button]
+        private void BitConverterBenchmark(int runs = 10000)
+        {
+            var random = new System.Random();
+            int value = random.Next(0, runs);
+
+            var stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
+
+            var buffer1 = new byte[4 * runs];
+            var writeindex = 0;
+            for (int i = 0; i < runs; ++i)
+            {
+                value = i;
+                var runbytes = BitConverter.GetBytes(value);
+                //value = random.Next(0, runs);
+                for (int j = 0; j < runbytes.Length; ++j)
+                {
+                    buffer1[writeindex++] = runbytes[j];
+                }
+            }
+
+            stopwatch.Stop();
+            Debug.Log("BitConverter normal : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
+
+            stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
+
+            var buffer2 = new byte[4 * runs];
+            var intbuffer = new byte[4];
+            var span = intbuffer.AsSpan();
+            writeindex = 0;
+
+            for (int i = 0; i < runs; ++i)
+            {
+                value = i;
+                BitConverter.TryWriteBytes(span, value);
+                //value = random.Next(0, runs);
+                for (int j = 0; j < span.Length; ++j)
+                {
+                    buffer2[writeindex++] = span[j];
+                }
+            }
+
+            stopwatch.Stop();
+            Debug.Log("BitConvert span  : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
+
+            for (int i = 0; i < buffer1.Length; ++i)
+            {
+                if (buffer1[i] != buffer2[i])
+                    throw new Exception();
+            }
+        }
     }
+
+    
 }
 

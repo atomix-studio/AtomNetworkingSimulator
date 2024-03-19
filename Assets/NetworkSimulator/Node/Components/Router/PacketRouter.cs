@@ -153,7 +153,7 @@ namespace Atom.CommunicationSystem
         /// </summary>
         /// <param name="targetAddress"></param>
         /// <param name="networkPacket"></param>
-        public void Send(string targetAddress, INetworkPacket networkPacket)
+        public void Send<T>(string targetAddress, T networkPacket) where T : INetworkPacket
         {
             onBeforeSendInternal(networkPacket);
             transportLayer.Send(targetAddress, networkPacket);
@@ -178,15 +178,11 @@ namespace Atom.CommunicationSystem
         /// <param name="targetAddress"></param>
         /// <param name="networkPacket"></param>
         /// <summary>      
-        public void SendRequest(string targetAddress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 50000)
+        public void SendRequest(string targetAddress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 2000)
         {
-            //transportLayer.SendPacket(target, networkPacket);
             onBeforeSendInternal(networkPacket);
             _packetResponseAwaitersBuffer.Add(networkPacket.packetUniqueId, new INetworkPacketResponseAwaiter(DateTime.Now, DateTime.Now.AddMilliseconds(timeout_ms), responseCallback));
             transportLayer.Send(targetAddress, networkPacket);
-
-
-            // transportLayer.Send
         }
 
         private void onBeforeSendInternal(INetworkPacket networkPacket)

@@ -7,14 +7,14 @@ using System.Threading.Tasks;
 
 namespace Atom.CommunicationSystem
 {
-    public class HandshakePacket : AbstractNetworkPacket, IRespondable
+    public class HandshakePacket : AbstractNetworkPacket, IRespondable<HandshakePacket, HandshakeResponsePacket>
     {       
         public string senderAdress { get; set; }
-        public INetworkPacket packet => this;
+        public HandshakePacket packet => this;
 
-        public IResponse GetResponsePacket(IRespondable answerPacket)
+        public IResponse<HandshakeResponsePacket> GetResponsePacket(IRespondable<HandshakePacket, HandshakeResponsePacket> answerPacket)
         {
-            return new HandshakeResponsePacket();
+            return (IResponse<HandshakeResponsePacket>)new HandshakeResponsePacket();
         }
     }
 
