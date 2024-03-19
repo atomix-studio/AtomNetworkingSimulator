@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace Atom.CommunicationSystem
 {
-    public class TestClass
+    public class TestClass 
     {
         public string A;
         public DateTime B;            
@@ -34,6 +34,16 @@ namespace Atom.CommunicationSystem
             F = f;
             G = g;
             H = h;
+        }
+
+        public short packetTypeIdentifier;
+        public long packetUniqueId;
+        public long senderID;
+        public DateTime sentTime;
+
+        public void DisposePacket()
+        {
+            throw new NotImplementedException();
         }
     }
 
