@@ -32,7 +32,7 @@ namespace Atom.DependencyProvider
 
                     var delegateBinder = new MemberDelegateBinder<T>();
                     delegateBinder.BindedInstance = context;
-                    delegateBinder.createFieldDelegatesAuto(field);
+                    delegateBinder.CreateFieldDelegatesAuto(field);
                     memberDelegateBinders.Add(delegateBinder);
                 }
 
@@ -44,7 +44,7 @@ namespace Atom.DependencyProvider
 
                     var delegateBinder = new MemberDelegateBinder<T>();
                     delegateBinder.BindedInstance = context;
-                    delegateBinder.createPropertyDelegatesAuto(property);
+                    delegateBinder.CreatePropertyDelegatesAuto(property);
                     memberDelegateBinders.Add(delegateBinder);
                 }
             }
@@ -76,7 +76,7 @@ namespace Atom.DependencyProvider
         {
             foreach (var memberDelegateBinder in memberDelegateBinders)
             {
-                memberDelegateBinder.resetValueToDefault(instance);
+                memberDelegateBinder.ResetValueToDefault(instance);
             }
         }
     }

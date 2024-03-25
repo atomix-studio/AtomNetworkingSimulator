@@ -26,27 +26,27 @@ namespace Atom.Serialization
 
             int byte_length = 0;
 
-            /*  var fields = argType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-              for (int i = 0; i < fields.Length; ++i)
-              {
-                  _serializationDatas.Add(new MemberSerializationData(fields[i].FieldType));
+            var fields = argType.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            for (int i = 0; i < fields.Length; ++i)
+            {
+                _serializationDatas.Add(new MemberSerializationData(fields[i].FieldType));
 
-                  _memberDelegateBinders.Add(new DynamicMemberDelegateBinder());
-                  _memberDelegateBinders[i].createFieldDelegatesAuto(fields[i]);
+                _memberDelegateBinders.Add(new DynamicMemberDelegateBinder());
+                _memberDelegateBinders[i].CreateFieldDelegatesAuto(fields[i]);
 
-                  byte_length += _serializationDatas[i].fixedByteLength;
+                byte_length += _serializationDatas[i].fixedByteLength;
 
-                  if (_serializationDatas[i].isDynamicSize)
-                      isDynamicSize = true;
-              }*/
+                if (_serializationDatas[i].isDynamicSize)
+                    isDynamicSize = true;
+            }
 
-            var properties = argType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var properties = argType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             for (int i = 0; i < properties.Length; ++i)
             {
                 _serializationDatas.Add(new MemberSerializationData(properties[i].PropertyType));
 
                 _memberDelegateBinders.Add(new DynamicMemberDelegateBinder());
-                _memberDelegateBinders[i].createPropertyDelegatesAuto(properties[i]);
+                _memberDelegateBinders[i].CreatePropertyDelegatesAuto(properties[i]);
                 
                 if (_serializationDatas[i].isDynamicSize)
                     isDynamicSize = true;
@@ -70,10 +70,12 @@ namespace Atom.Serialization
         {
             int writeIndex = 0;
 
+            // TODO USE SPAN
+
             // faire tourner les binders pour récup les valeurs sur l'object
             for (int i = 0; i < _memberDelegateBinders.Count; ++i)
             {
-                var arg = _memberDelegateBinders[i].getValueDynamic(instance);
+                var arg = _memberDelegateBinders[i].GetValueDynamic(instance);
 
                 //UnityEngine.Debug.Log("write data for member " + _memberDelegateBinders[i].MemberName + " " + _memberDelegateBinders[i].MemberType);
                 _serializationDatas[i].Write(arg, ref _writebuffer, ref writeIndex);
@@ -132,7 +134,7 @@ namespace Atom.Serialization
                 }
                 else
                 {
-                    _memberDelegateBinders[i].setValueDynamic(new_instance, _readbuffer[i]);
+                    _memberDelegateBinders[i].SetValueDynamic(new_instance, _readbuffer[i]);
                 }
             }
 

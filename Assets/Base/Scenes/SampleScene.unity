@@ -735,6 +735,7 @@ MonoBehaviour:
   DisplaySelectedOnly: 0
   DisplayPackets: 1
   TransportInstantaneously: 0
+  TransportUnserialized: 1
   PacketSpeed: 100
   _pf_NodeEntity: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
     type: 3}
@@ -991,6 +992,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1679244216}
   - component: {fileID: 1679244217}
+  - component: {fileID: 1679244218}
   m_Layer: 0
   m_Name: AtomSerialize
   m_TagString: Untagged
@@ -1023,6 +1025,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2406c67b73716e945bd51a6da838a0d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1679244218
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1679244215}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5323562055331cf418b6777d84d8e723, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1001 &2049059469

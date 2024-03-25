@@ -338,7 +338,7 @@ namespace Atom.Serialization
                 case _int16: return AtomMemberTypes.Short;
                 case _uint16: return AtomMemberTypes.UShort;
                 case _int32: return AtomMemberTypes.Int;
-                case _uint32: return AtomMemberTypes.Int;
+                case _uint32: return AtomMemberTypes.UInt;
                 case _int64: return AtomMemberTypes.Long;
                 case _uint64: return AtomMemberTypes.ULong;
                 case _float: return AtomMemberTypes.Float;

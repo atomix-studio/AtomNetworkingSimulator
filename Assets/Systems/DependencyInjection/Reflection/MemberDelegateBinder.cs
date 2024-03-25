@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Reflection;
+using Microsoft.CSharp;
 
 namespace Atom.DependencyProvider
 {
@@ -64,7 +65,7 @@ namespace Atom.DependencyProvider
         /// </summary>
         public Delegate Setter;
 
-        public void createFieldDelegates<K, J>(FieldInfo fieldInfo)
+        public void CreateFieldDelegates<K, J>(FieldInfo fieldInfo)
         {
             try
             {
@@ -106,7 +107,7 @@ namespace Atom.DependencyProvider
             }
         }
 
-        public void createFieldDelegatesAuto(FieldInfo fieldInfo)
+        public void CreateFieldDelegatesAuto(FieldInfo fieldInfo)
         {
             MemberAttributeType = ReflectedMemberDelegateAttributeType.Field;
 
@@ -114,13 +115,13 @@ namespace Atom.DependencyProvider
             {
                 MemberName = fieldInfo.Name;
                 MemberType = _string;
-                createFieldDelegates<T, string>(fieldInfo);
+                CreateFieldDelegates<T, string>(fieldInfo);
             }
             else if (fieldInfo.FieldType.IsEnum)
             {
                 MemberName = fieldInfo.Name;
                 MemberType = _enum;
-                createFieldDelegates<T, int>(fieldInfo);
+                CreateFieldDelegates<T, int>(fieldInfo);
             }
             else if (fieldInfo.FieldType.IsPrimitive)
             {
@@ -128,33 +129,46 @@ namespace Atom.DependencyProvider
                 MemberType = fieldInfo.FieldType.ToString();
                 switch (MemberType)
                 {
+                    case _uint32:
+                        CreateFieldDelegates<T, uint>(fieldInfo);
+                        break;
                     case _int32:
-                        createFieldDelegates<T, int>(fieldInfo);
+                        CreateFieldDelegates<T, int>(fieldInfo);
                         break;
                     case _float:
-                        createFieldDelegates<T, float>(fieldInfo);
+                        CreateFieldDelegates<T, float>(fieldInfo);
                         break;
                     case _bool:
-                        createFieldDelegates<T, bool>(fieldInfo);
+                        CreateFieldDelegates<T, bool>(fieldInfo);
                         break;
                     case _string:
-                        createFieldDelegates<T, string>(fieldInfo);
+                        CreateFieldDelegates<T, string>(fieldInfo);
+                        break;
+                    case _uint16:
+                        CreateFieldDelegates<T, ushort>(fieldInfo);
                         break;
                     case _int16:
-                        createFieldDelegates<T, short>(fieldInfo);
+                        CreateFieldDelegates<T, short>(fieldInfo);
+                        break;
+                    case _uint64:
+                        CreateFieldDelegates<T, ulong>(fieldInfo);
                         break;
                     case _int64:
-                        createFieldDelegates<T, long>(fieldInfo);
+                        CreateFieldDelegates<T, long>(fieldInfo);
+                        break;
+                    case _sbyte:
+                        CreateFieldDelegates<T, sbyte>(fieldInfo);
                         break;
                     case _byte:
-                        createFieldDelegates<T, byte>(fieldInfo);
+                        CreateFieldDelegates<T, byte>(fieldInfo);
                         break;
                     case _double:
-                        createFieldDelegates<T, double>(fieldInfo);
+                        CreateFieldDelegates<T, double>(fieldInfo);
                         break;
                     case _object:
-                        createFieldDelegates<T, object>(fieldInfo);
+                        CreateFieldDelegates<T, object>(fieldInfo);
                         break;
+                    default: throw new NotImplementedException(MemberType + " / " + MemberName);
                 }
             }
             else if (fieldInfo.FieldType == typeof(DateTime))
@@ -162,13 +176,13 @@ namespace Atom.DependencyProvider
 
                 MemberName = fieldInfo.Name;
                 MemberType = _dateTime;
-                createFieldDelegates<T, DateTime>(fieldInfo);
+                CreateFieldDelegates<T, DateTime>(fieldInfo);
             }
             else
             {
                 MemberName = fieldInfo.Name;
                 MemberType = _object;
-                createFieldDelegates<T, object>(fieldInfo);
+                CreateFieldDelegates<T, object>(fieldInfo);
             }
             /*
 
@@ -218,7 +232,7 @@ namespace Atom.DependencyProvider
                         }*/
         }
 
-        public void createPropertyDelegates<K, J>(PropertyInfo propertyInfo)
+        public void CreatePropertyDelegates<K, J>(PropertyInfo propertyInfo)
         {
             try
             {
@@ -251,6 +265,20 @@ namespace Atom.DependencyProvider
 
                 MemberName = propertyInfo.Name;
 
+                // accessing the backing field is way faster than creating a delegate on the getSet adn getget methods
+                // we try to look for autogenerated backing fields
+
+                // TODO forcing the backing field name somehow at the call ?
+                var backingFieldInfo = propertyInfo.DeclaringType.GetField($"<{propertyInfo.Name}>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+                if (backingFieldInfo != null)
+                {
+                    Getter = DelegateHelper.CreateFieldGetter<K, J>(backingFieldInfo);
+                    Setter = DelegateHelper.CreateFieldSetter<K, J>(backingFieldInfo);
+
+                    return;
+                    // **********************************************************
+                }
+                
                 if (propertyInfo.CanRead)
                     Getter = (Func<object, J>)DelegateHelper.GetLambdaPropertyGetter<J>(propertyInfo);
 
@@ -277,7 +305,7 @@ namespace Atom.DependencyProvider
 
         }
 
-        public void createPropertyDelegatesAuto(PropertyInfo propertyInfo)
+        public void CreatePropertyDelegatesAuto(PropertyInfo propertyInfo)
         {
             MemberAttributeType = ReflectedMemberDelegateAttributeType.Property;
 
@@ -285,45 +313,60 @@ namespace Atom.DependencyProvider
             {
                 MemberName = propertyInfo.Name;
                 MemberType = _string;
-                createPropertyDelegates<T, string>(propertyInfo);
+                CreatePropertyDelegates<T, string>(propertyInfo);
             }
             else if (propertyInfo.PropertyType.IsEnum)
             {
                 MemberName = propertyInfo.Name;
                 MemberType = _enum;
-                createPropertyDelegates<T, int>(propertyInfo);
+                CreatePropertyDelegates<T, int>(propertyInfo);
             }
             else if (propertyInfo.PropertyType.IsPrimitive)
             {
                 MemberName = propertyInfo.Name;
                 MemberType = propertyInfo.PropertyType.ToString();
+
                 switch (MemberType)
                 {
+                    case _int16:
+                        CreatePropertyDelegates<T, short>(propertyInfo);
+                        break;
+                    case _uint16:
+                        CreatePropertyDelegates<T, ushort>(propertyInfo);
+                        break;
                     case _int32:
-                        createPropertyDelegates<T, int>(propertyInfo);
+                        CreatePropertyDelegates<T, int>(propertyInfo);
+                        break;
+                    case _uint32:
+                        CreatePropertyDelegates<T, uint>(propertyInfo);
                         break;
                     case _float:
-                        createPropertyDelegates<T, float>(propertyInfo);
+                        CreatePropertyDelegates<T, float>(propertyInfo);
                         break;
                     case _bool:
-                        createPropertyDelegates<T, bool>(propertyInfo);
-                        break;
-                    case _int16:
-                        createPropertyDelegates<T, short>(propertyInfo);
+                        CreatePropertyDelegates<T, bool>(propertyInfo);
                         break;
                     case _int64:
-                        createPropertyDelegates<T, long>(propertyInfo);
+                        CreatePropertyDelegates<T, long>(propertyInfo);
+                        break;
+                    case _uint64:
+                        CreatePropertyDelegates<T, ulong>(propertyInfo);
                         break;
                     case _byte:
-                        createPropertyDelegates<T, byte>(propertyInfo);
+                        CreatePropertyDelegates<T, byte>(propertyInfo);
+                        break;
+                    case _sbyte:
+                        CreatePropertyDelegates<T, sbyte>(propertyInfo);
                         break;
                     case _double:
-                        createPropertyDelegates<T, double>(propertyInfo);
+                        CreatePropertyDelegates<T, double>(propertyInfo);
                         break;
                     case _object:
-                        createPropertyDelegates<T, object>(propertyInfo);
+                        CreatePropertyDelegates<T, object>(propertyInfo);
                         break;
-
+                    default:
+                        throw new Exception("Type not implemented " + propertyInfo.PropertyType + "  / " + propertyInfo.Name);
+                        break;
                 }
             }
             else if (propertyInfo.PropertyType == typeof(DateTime))
@@ -331,13 +374,13 @@ namespace Atom.DependencyProvider
 
                 MemberName = propertyInfo.Name;
                 MemberType = _dateTime;
-                createPropertyDelegates<T, DateTime>(propertyInfo);
+                CreatePropertyDelegates<T, DateTime>(propertyInfo);
             }
             else
             {
                 MemberName = propertyInfo.Name;
                 MemberType = _object;
-                createPropertyDelegates<T, object>(propertyInfo);
+                CreatePropertyDelegates<T, object>(propertyInfo);
             }
 
             //UnityEngine.Debug.Log("created delegates for type " + propertyInfo.PropertyType + "   " + propertyInfo.Name + " =>  " + MemberType);
@@ -348,7 +391,7 @@ namespace Atom.DependencyProvider
         /// </summary>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public K getValueGeneric<K>(T instance, bool dynamicInvoke = false)
+        public K GetValueGeneric<K>(T instance, bool dynamicInvoke = false)
         {
             if (Getter == null)
                 return default(K);
@@ -356,7 +399,7 @@ namespace Atom.DependencyProvider
             return dynamicInvoke ? (K)((Func<T, K>)Getter).DynamicInvoke(instance) : (K)((Func<T, K>)Getter).Invoke(instance);
         }
 
-        public void setValueGeneric<K>(T instance, K value, bool dynamicInvoke = false)
+        public void SetValueGeneric<K>(T instance, K value, bool dynamicInvoke = false)
         {
             if (dynamicInvoke)
                 ((Action<T, K>)Setter).DynamicInvoke(instance, value);
@@ -364,110 +407,110 @@ namespace Atom.DependencyProvider
                 ((Action<T, K>)Setter).Invoke(instance, value);
         }
 
-        public void setBindedValueGeneric<K>(K value)
+        public void SetBindedValueGeneric<K>(K value)
         {
-            setValueGeneric(BindedInstance, value);
+            SetValueGeneric(BindedInstance, value);
         }
 
-        public K getBindedValueGeneric<K>()
+        public K GetBindedValueGeneric<K>()
         {
-            return getValueGeneric<K>(BindedInstance);
+            return GetValueGeneric<K>(BindedInstance);
         }
 
-        public object getValueDynamic(T instance)
+        public object GetValueDynamic(T instance)
         {
             switch (MemberType)
             {
                 case _int16:
-                    return getBindedValue<short>(instance);
+                    return GetBindedValue<short>(instance);
                 case _uint16:
-                    return getBindedValue<ushort>(instance);
+                    return GetBindedValue<ushort>(instance);
                 case _enum:
                 case _int32:
-                    return getBindedValue<int>(instance);
+                    return GetBindedValue<int>(instance);
                 case _uint32:
-                    return getBindedValue<uint>(instance);
+                    return GetBindedValue<uint>(instance);
                 case _float:
-                    return getBindedValue<float>(instance);
+                    return GetBindedValue<float>(instance);
                 case _bool:
-                    return getBindedValue<bool>(instance);
+                    return GetBindedValue<bool>(instance);
                 case _string:
-                    return getBindedValue<string>(instance);
+                    return GetBindedValue<string>(instance);
                 case _char:
-                    return getBindedValue<char>(instance);
+                    return GetBindedValue<char>(instance);
                 case _int64:
-                    return getBindedValue<long>(instance);
+                    return GetBindedValue<long>(instance);
                 case _uint64:
-                    return getBindedValue<ulong>(instance);
+                    return GetBindedValue<ulong>(instance);
                 case _byte:
-                    return getBindedValue<byte>(instance);
+                    return GetBindedValue<byte>(instance);
                 case _sbyte:
-                    return getBindedValue<sbyte>(instance);
+                    return GetBindedValue<sbyte>(instance);
                 case _double:
-                    return getBindedValue<double>(instance);
+                    return GetBindedValue<double>(instance);
                 case _decimal:
-                    return getBindedValue<decimal>(instance);
+                    return GetBindedValue<decimal>(instance);
                 case _object:
-                    return getBindedValue<object>(instance, true);
+                    return GetBindedValue<object>(instance, true);
                 case _dateTime:
-                    return getBindedValue<DateTime>(instance);
+                    return GetBindedValue<DateTime>(instance);
             }
 
             throw new Exception("not implemented " + MemberType + " " + MemberName);
         }
 
-        public void setValueDynamic(T instance, object value)
+        public void SetValueDynamic(T instance, object value)
         {
             switch (MemberType)
             {
                 case _int16:
-                    setValueGeneric<short>(instance, (short)value);
+                    SetValueGeneric<short>(instance, (short)value);
                     break;
                 case _uint16:
-                    setValueGeneric<ushort>(instance, (ushort)value);
+                    SetValueGeneric<ushort>(instance, (ushort)value);
                     break;
                 case _enum:
                 case _int32:
-                    setValueGeneric<int>(instance, (int)value);
+                    SetValueGeneric<int>(instance, (int)value);
                     break;
                 case _uint32:
-                    setValueGeneric<uint>(instance, (uint)value);
+                    SetValueGeneric<uint>(instance, (uint)value);
                     break;
                 case _float:
-                    setValueGeneric<float>(instance, (float)value);
+                    SetValueGeneric<float>(instance, (float)value);
                     break;
                 case _bool:
-                    setValueGeneric<bool>(instance, (bool)value);
+                    SetValueGeneric<bool>(instance, (bool)value);
                     break;
                 case _string:
-                    setValueGeneric<string>(instance, (string)value);
+                    SetValueGeneric<string>(instance, (string)value);
                     break;
                 case _int64:
-                    setValueGeneric<long>(instance, (long)value);
+                    SetValueGeneric<long>(instance, (long)value);
                     break;
                 case _uint64:
-                    setValueGeneric<ulong>(instance, (ulong)value);
+                    SetValueGeneric<ulong>(instance, (ulong)value);
                     break;
                 case _byte:
-                    setValueGeneric<byte>(instance, (byte)value);
+                    SetValueGeneric<byte>(instance, (byte)value);
                     break;
                 case _sbyte:
-                    setValueGeneric<sbyte>(instance, (sbyte)value);
+                    SetValueGeneric<sbyte>(instance, (sbyte)value);
                     break;
                 case _double:
-                    setValueGeneric<double>(instance, (double)value);
+                    SetValueGeneric<double>(instance, (double)value);
                     break;
                 case _decimal:
-                    setValueGeneric<decimal>(instance, (decimal)value);
+                    SetValueGeneric<decimal>(instance, (decimal)value);
                     break;
                 case _char:
-                    setValueGeneric<char>(instance, (char)value);
+                    SetValueGeneric<char>(instance, (char)value);
                     break;
                 case _object:
-                    setValueGeneric<object>(instance, value);
+                    SetValueGeneric<object>(instance, value);
                     break;
                 case _dateTime:
-                    setValueGeneric<DateTime>(instance, (DateTime)value);
+                    SetValueGeneric<DateTime>(instance, (DateTime)value);
                     break;
                 default:
                     throw new NotImplementedException(value.GetType().ToString());
@@ -480,15 +523,15 @@ namespace Atom.DependencyProvider
         /// </summary>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public object getBindedValueDynamic()
+        public object GetBindedValueDynamic()
         {
             if (BindedInstance == null)
                 throw new Exception($"No binded instance avalaible to retrieve get the value of member {MemberType}.{MemberName}");
 
-            return getValueDynamic(BindedInstance);
+            return GetValueDynamic(BindedInstance);
         }
 
-        public K getBindedValue<K>(T instance, bool dynamicInvoke = false)
+        public K GetBindedValue<K>(T instance, bool dynamicInvoke = false)
         {
             if (MemberAttributeType == ReflectedMemberDelegateAttributeType.Field)
             {
@@ -512,7 +555,7 @@ namespace Atom.DependencyProvider
             }
         }
 
-        public void resetValueToDefault(T instance = default(T))
+        public void ResetValueToDefault(T instance = default(T))
         {
             if (instance == null)
                 instance = BindedInstance;
@@ -521,41 +564,41 @@ namespace Atom.DependencyProvider
             {
                 case _enum:
                 case _int32:
-                    setValueGeneric<int>(instance, 0);
+                    SetValueGeneric<int>(instance, 0);
                     break;
                 case _uint32:
-                    setValueGeneric<uint>(instance, 0);
+                    SetValueGeneric<uint>(instance, 0);
                     break;
                 case _float:
-                    setValueGeneric<float>(instance, 0);
+                    SetValueGeneric<float>(instance, 0);
                     break;
                 case _bool:
-                    setValueGeneric<bool>(instance, false);
+                    SetValueGeneric<bool>(instance, false);
                     break;
                 case _string:
-                    setValueGeneric<string>(instance, string.Empty);
+                    SetValueGeneric<string>(instance, string.Empty);
                     break;
                 case _int16:
-                    setValueGeneric<short>(instance, 0);
+                    SetValueGeneric<short>(instance, 0);
                     break;
                 case _uint16:
-                    setValueGeneric<ushort>(instance, 0);
+                    SetValueGeneric<ushort>(instance, 0);
                     break;
                 case _int64:
-                    setValueGeneric<long>(instance, 0);
+                    SetValueGeneric<long>(instance, 0);
                     break;
                 case _uint64:
-                    setValueGeneric<ulong>(instance, 0);
+                    SetValueGeneric<ulong>(instance, 0);
                     break;
 
                 case _byte:
-                    setValueGeneric<byte>(instance, 0);
+                    SetValueGeneric<byte>(instance, 0);
                     break;
                 case _double:
-                    setValueGeneric<double>(instance, 0);
+                    SetValueGeneric<double>(instance, 0);
                     break;
                 case _object:
-                    setValueGeneric<object>(instance, null, true);
+                    SetValueGeneric<object>(instance, null, true);
                     break;
 
             }
