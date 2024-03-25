@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace Atom.Serialization
@@ -8,8 +9,8 @@ namespace Atom.Serialization
     {
         private const int _serializationDepth = 3;
 
-        private static Dictionary<Type, GenericAtomSerializer> _genericSerializers = new Dictionary<Type, GenericAtomSerializer>();
-        private static Dictionary<ushort, DynamicAtomSerializer> _dynamicSerializers = new Dictionary<ushort, DynamicAtomSerializer>();
+        private static ConcurrentDictionary<Type, GenericAtomSerializer> _genericSerializers = new ConcurrentDictionary<Type, GenericAtomSerializer>();
+        private static ConcurrentDictionary<ushort, DynamicAtomSerializer> _dynamicSerializers = new ConcurrentDictionary<ushort, DynamicAtomSerializer>();
 
         // todo generation of binders for serializable classes/structs that can be used as is to deserialize a new instance or serialize to byte[] 
 
@@ -27,7 +28,7 @@ namespace Atom.Serialization
             if (_genericSerializers.TryGetValue(type, out var serializer))
                 return serializer.Serialize(instance);
 
-            _genericSerializers.Add(type, new GenericAtomSerializer(type));
+            _genericSerializers.TryAdd(type, new GenericAtomSerializer(type));
             return _genericSerializers[type].Serialize(instance);
         }
 
@@ -54,7 +55,7 @@ namespace Atom.Serialization
             if (_dynamicSerializers.TryGetValue(payloadIdentifier, out var serializer))
                 return serializer.Serialize(arguments);
 
-            _dynamicSerializers.Add(payloadIdentifier, new DynamicAtomSerializer(payloadIdentifier, arguments));
+            _dynamicSerializers.TryAdd(payloadIdentifier, new DynamicAtomSerializer(payloadIdentifier, arguments));
             return _dynamicSerializers[payloadIdentifier].Serialize(arguments);
         }
 

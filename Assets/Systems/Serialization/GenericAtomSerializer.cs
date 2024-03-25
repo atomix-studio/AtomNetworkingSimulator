@@ -93,49 +93,7 @@ namespace Atom.Serialization
             for (int i = 0; i < _serializationDatas.Count; ++i)
             {
                 _readbuffer[i] = _serializationDatas[i].Read(ref data, ref readIndex);
-
-                if (_serializationDatas[i].IsCollection)
-                {
-                    switch (_serializationDatas[i].AtomMemberType)
-                    {
-                        case AtomMemberTypes.Byte:
-                            break;
-                        case AtomMemberTypes.SByte:
-                            break;
-                        case AtomMemberTypes.Short:
-                            break;
-                        case AtomMemberTypes.UShort:
-                            break;
-                        case AtomMemberTypes.Int:
-                            break;
-                        case AtomMemberTypes.UInt:
-                            break;
-                        case AtomMemberTypes.Long:
-                            break;
-                        case AtomMemberTypes.ULong:
-                            break;
-                        case AtomMemberTypes.Float:
-                            break;
-                        case AtomMemberTypes.Double:
-                            break;
-                        case AtomMemberTypes.Bool:
-                            break;
-                        case AtomMemberTypes.Char:
-                            break;
-                        case AtomMemberTypes.String:
-                            break;
-                        case AtomMemberTypes.Decimal:
-                            break;
-                        case AtomMemberTypes.Enum:
-                            break;
-                        case AtomMemberTypes.Object:
-                            break;
-                    }
-                }
-                else
-                {
-                    _memberDelegateBinders[i].SetValueDynamic(new_instance, _readbuffer[i]);
-                }
+                _memberDelegateBinders[i].SetValueDynamic(new_instance, _readbuffer[i]);
             }
 
             return new_instance;

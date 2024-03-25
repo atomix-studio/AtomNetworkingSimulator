@@ -19,12 +19,19 @@ namespace Atom.Transport
         public float MessageSpeed = 25;
 
         private Action<INetworkPacket> _routerReceiveCallback { get; set; }
+
+        //debug only
         private Dictionary<INetworkPacket, NodeEntity> currentTravellingPacketTarget = new Dictionary<INetworkPacket, NodeEntity>();
         private Dictionary<INetworkPacket, float> currentTravellingPacketsElapsedTime = new Dictionary<INetworkPacket, float>();
         private Dictionary<INetworkPacket, float> currentTravellingPacketsTime = new Dictionary<INetworkPacket, float>();
         private Dictionary<INetworkPacket, Vector3> currentTravellingPacketsDestination = new Dictionary<INetworkPacket, Vector3>();
         //debug only
         private Dictionary<INetworkPacket, NodeEntity> _sendBuffer = new Dictionary<INetworkPacket, NodeEntity>();
+        //debug only
+        private Dictionary<INetworkPacket, NodeEntity> currentTravellingBytesPacketTarget = new Dictionary<INetworkPacket, NodeEntity>();
+        private Dictionary<INetworkPacket, float> currentTravellingBytesPacketsElapsedTime = new Dictionary<INetworkPacket, float>();
+        private Dictionary<INetworkPacket, float> currentTravellingBytesPacketsTime = new Dictionary<INetworkPacket, float>();
+        private Dictionary<INetworkPacket, Vector3> currentTravellingBytesPacketsDestination = new Dictionary<INetworkPacket, Vector3>();
 
 
         public NodeEntity controller { get; set; }
@@ -69,6 +76,61 @@ namespace Atom.Transport
             }
         }
 
+        #region simulation with serialization
+        private void _addBytesPacket(NodeEntity target, INetworkPacket packet)
+        {
+            currentTravellingBytesPacketTarget.Add(packet, target);
+            currentTravellingBytesPacketsDestination.Add(packet, target.transform.position);
+            float ttime = Vector3.Distance(target.transform.position, transform.position) / _simulationManager.PacketSpeed;
+            currentTravellingBytesPacketsTime.Add(packet, ttime);
+            currentTravellingBytesPacketsElapsedTime.Add(packet, 0);
+        }
+
+        private void _removeBytesPacket(INetworkPacket packet)
+        {
+            currentTravellingBytesPacketTarget.Remove(packet);
+            currentTravellingBytesPacketsDestination.Remove(packet);
+            currentTravellingBytesPacketsElapsedTime.Remove(packet);
+            currentTravellingBytesPacketsTime.Remove(packet);
+
+            // packets are disposed when their job is done 
+            packet.DisposePacket();
+        }
+
+        private void _updateBytesTravellingPackets()
+        {
+            var pos = transform.position;
+            for (int i = 0; i < currentTravellingBytesPacketsElapsedTime.Count; ++i)
+            {
+                var packet = currentTravellingBytesPacketsElapsedTime.ElementAt(i);
+                var direction = currentTravellingBytesPacketsDestination[packet.Key] - pos;
+                float ratio = currentTravellingBytesPacketsElapsedTime[packet.Key] / currentTravellingBytesPacketsTime[packet.Key];
+                // 
+                if (_simulationManager.DisplayPackets)
+                    Debug.DrawLine(transform.position, Vector3.Lerp(pos, currentTravellingBytesPacketsDestination[packet.Key], ratio), Color.blue);
+
+                if (ratio >= 1f)
+                {
+                    if (currentTravellingBytesPacketTarget[packet.Key].gameObject.activeSelf)
+                    {
+                        WorldSimulationManager._totalPacketReceived++;
+                        WorldSimulationManager._totalPacketReceivedPerSecondCount++;
+
+                        currentTravellingBytesPacketTarget[packet.Key].transportLayer._routerReceiveCallback.Invoke(packet.Key);
+                    }
+
+                    _removePacket(packet.Key);
+                    i--;
+                }
+                else
+                {
+                    direction.Normalize();
+                    currentTravellingBytesPacketsElapsedTime[packet.Key] += Time.deltaTime * _simulationManager.PacketSpeed;
+                }
+            }
+        }
+
+        #endregion
         #region simulation no serialization
         // add a packet to the collections that simulates the network travelling
         private void _addPacket(NodeEntity target, INetworkPacket packet)

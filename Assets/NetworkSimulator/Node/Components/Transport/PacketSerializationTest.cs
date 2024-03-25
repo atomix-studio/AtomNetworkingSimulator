@@ -12,20 +12,21 @@ using UnityEngine;
 
 namespace Atom.CommunicationSystem
 {
-    public class TestClass 
+    public class TestClass
     {
         public string A;
-        public bool B;            
-        public short C;  
-        public uint D;            
-       
+        public bool B;
+        public short C;
+        public uint D;
+        public int[] E = new int[] { 1, 2, 3, 4, 5, 6 };
+
         public TestClass() { }
         public TestClass(string a, bool b, short c, uint d)
         {
             A = a;
             B = b;
             C = c;
-            D = d;           
+            D = d;
         }
 
         public void DisposePacket()
@@ -40,6 +41,7 @@ namespace Atom.CommunicationSystem
         public bool B { get; set; }
         public short C { get; set; }
         public uint D { get; set; }
+        public int[] E { get; set; } = new int[] { 1, 2, 3, 4, 5, 6 };
 
         public TestClassProps() { }
         public TestClassProps(string a, bool b, short c, uint d)
@@ -72,7 +74,7 @@ namespace Atom.CommunicationSystem
             var stopwatch = new System.Diagnostics.Stopwatch();
             stopwatch.Start();
 
-            for (int i =  0; i < runs; i++)
+            for (int i = 0; i < runs; i++)
             {
                 var bytes = ((INetworkPacket)somePacket).SerializePacket();
                 var packet = (TakeLeadRequestPacket)((INetworkPacket)somePacket).DeserializePacket(bytes);
@@ -96,7 +98,7 @@ namespace Atom.CommunicationSystem
             for (int i = 0; i < runs; i++)
             {
                 var bytes = AtomSerializer.SerializeGeneric(somePacket);
-                var packet = AtomSerializer.DeserializeGeneric(type, bytes);                
+                var packet = AtomSerializer.DeserializeGeneric(type, bytes);
             }
             stopwatch.Stop();
             Debug.Log("S/D 2 : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
@@ -108,7 +110,7 @@ namespace Atom.CommunicationSystem
         {
             // 10000 runs 198-220 ms
             var teest = new TestClass("lol", true, 133, 44432);
-            var random = new System.Random();  
+            var random = new System.Random();
             var stopwatch = new System.Diagnostics.Stopwatch();
             stopwatch.Start();
             var type = teest.GetType();
@@ -151,14 +153,14 @@ namespace Atom.CommunicationSystem
             var field_binder = new MemberDelegateBinder<PacketSerializationTest>();
             field_binder.CreateFieldDelegatesAuto(this.GetType().GetField(nameof(SomeField)));
 
-            var prop_binder = new MemberDelegateBinder<PacketSerializationTest>();  
+            var prop_binder = new MemberDelegateBinder<PacketSerializationTest>();
             prop_binder.CreatePropertyDelegatesAuto(this.GetType().GetProperty(nameof(SomeAutoProperty)));
             var random = new System.Random(500);
 
             var stopwatch = new System.Diagnostics.Stopwatch();
             stopwatch.Start();
 
-            for(int i = 0; i < runs; ++i)
+            for (int i = 0; i < runs; ++i)
             {
                 field_binder.SetValueDynamic(this, random.Next());
                 int rnd = (int)field_binder.GetValueDynamic(this);
@@ -204,6 +206,45 @@ namespace Atom.CommunicationSystem
                 Activator.CreateInstance(typeof(TestClassProps));
             }
             Debug.Log("S/D AutoProp: " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
+
+        }
+
+        [Button]
+        private void IOParallel(int runs = 10000)
+        {
+            // 10000 runs 198-220 ms
+            var random = new System.Random(1222);
+            var stopwatch = new System.Diagnostics.Stopwatch();
+            var type = typeof(TestClass);
+            stopwatch.Start();
+
+            Parallel.For(0, runs, (index) =>
+            {
+                var teest = new TestClass(System.Guid.NewGuid().ToString(), true, (short)DateTime.Now.Ticks, (uint)random.Next());
+                var bytes = AtomSerializer.SerializeGeneric(teest);
+                var packet = AtomSerializer.DeserializeGeneric(type, bytes);
+
+            });
+         
+            stopwatch.Stop();
+            Debug.Log("S/D FIELD : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
+
+
+            type = typeof(TestClassProps);
+            random = new System.Random(1222);
+            stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
+
+            Parallel.For(0, runs, (index) =>
+            {
+                var teest2 = new TestClassProps(System.Guid.NewGuid().ToString(), true, (short)DateTime.Now.Ticks, (uint)random.Next());
+                var bytes = AtomSerializer.SerializeGeneric(teest2);
+                var packet = AtomSerializer.DeserializeGeneric(type, bytes);
+
+            });
+        
+            stopwatch.Stop();
+            Debug.Log("S/D PROPS : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
 
         }
     }
