@@ -284,6 +284,12 @@ namespace Atom.DependencyProvider
             }
         }
 
+        /// <summary>
+        /// All [Singleton] containers are initialized here.
+        /// For the case of lazyLoading singleton, no instance wil be created. 
+        /// If singleton arent lazy loaded, which is the default behaviour, they will be instanced (of find) within this call.
+        /// </summary>
+        /// <param name="all_types"></param>
         private static void _initializeSingletons(List<Type> all_types)
         {
             for (int i = 0; i < all_types.Count; ++i)
@@ -298,7 +304,7 @@ namespace Atom.DependencyProvider
                     {
                         var singleton_attribute = attribute as SingletonAttribute;
 
-                        var container = new SingletonContainer(all_types[i], singleton_attribute.LazyLoad, singleton_attribute.AllowSingletonOverride, singleton_attribute.DontDestroyOnLoad);
+                        var container = new SingletonContainer(all_types[i], singleton_attribute.LazyLoad, singleton_attribute.AllowSingletonOverride, singleton_attribute.DontDestroyOnLoad, singleton_attribute.PrefabResourcePath);
                         _singletonContainers.Add(all_types[i], container);
                         if (!singleton_attribute.LazyLoad)
                         {
@@ -313,7 +319,10 @@ namespace Atom.DependencyProvider
         }
 
         /// <summary>
-        /// Type injector definitions defines override on the way the provider gets or create an instance of a type while injection occurs
+        /// Type injector definitions defines override on the way the provider gets or create an instance of a type while injection occurs.
+        /// It will allow more complex initialization to be written and given to the provider. 
+        /// It might be useful for complex entities like player objects that needs to be created by other systems and then injected in others.
+        /// The typeInjector will in this case get a reference or do the creation-initialisation job in its getOrCreate method override.
         /// </summary>
         private static void _initializeTypeInjectorDefinitions()
         {
@@ -466,8 +475,6 @@ namespace Atom.DependencyProvider
                     // but as circling references can exist that will lead to infinite loop, we add to keep a trace of what's have been instantiated in the container
                     // and to allow a type to be instantiated only once in this situation
                     // workaround can be passed with Attributes parameters 
-
-
                     if (_injectorHandlers.ContainsKey(injected.GetType()))
                     {
                         //Debug.Log($"Recursive indent to {injected.GetType()}");
@@ -611,6 +618,7 @@ namespace Atom.DependencyProvider
         {
             if (singletonContainer.sType.IsSubclassOf(typeof(Component)))
             {
+                // first we look if there is an existing instance here.
                 var singletonInstances = GameObject.FindObjectsOfType(singletonContainer.sType, true);
                 if (singletonInstances.Length > 1)
                 {
@@ -627,8 +635,20 @@ namespace Atom.DependencyProvider
 
                 if (singletonInstances.Length == 0 || singletonInstances == null)
                 {
-                    var singleton_gamobject = new GameObject("singleton_" + singletonContainer.sType.Name);
-                    singletonContainer.Instance = singleton_gamobject.AddComponent(singletonContainer.sType);
+                    GameObject singleton_gamobject = null;
+
+                    if (singletonContainer.prefabResourcePath == null)
+                    {
+                        singleton_gamobject = new GameObject("singleton_" + singletonContainer.sType.Name);
+                        singletonContainer.Instance = singleton_gamobject.AddComponent(singletonContainer.sType);
+                    }
+                    else
+                    {
+                        var prefab = (GameObject)Resources.Load($"Singletons/{singletonContainer.prefabResourcePath}");
+                        singletonContainer.Instance = GameObject.Instantiate(prefab).GetComponent(singletonContainer.sType);
+                        if (singletonContainer.Instance == null)
+                            throw new Exception($"No component of type {singletonContainer.sType} has been found on the singleton prefab at path {singletonContainer.prefabResourcePath}");
+                    }
 
                     if (singletonContainer.dontDestroyOnLoad)
                         GameObject.DontDestroyOnLoad(singleton_gamobject);

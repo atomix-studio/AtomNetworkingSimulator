@@ -25,7 +25,8 @@ namespace Atom.DependencyProvider
             AllowFindGameObject = 0,
         }
 
-        public enum DependencyScopes
+        // TODO : figure out if this is useful and possible to handle without creating hell ?
+       /* public enum DependencyScopes
         {
             /// <summary>
             /// The dependency will be binded to the injectionInstance if the injection is required by it.
@@ -43,23 +44,23 @@ namespace Atom.DependencyProvider
             /// Bind any dependency to an object scope.  
             /// </summary>
             GameObject = 2,
-        }
+        }*/
 
         public InjectingOptions InjectionOptions { get; set; }
 
-        public DependencyScopes DependencyScope { get; set; }
+        //public DependencyScopes DependencyScope { get; set; }
 
         public ITypeInjectorDefinition TypeInjectorDefinition { get; set; } = null;
 
-        public InjectAttribute() { DependencyScope = DependencyScopes.DefaultSelf; }
+        public InjectAttribute() { /*DependencyScope = DependencyScopes.DefaultSelf;*/ }
 
         /// <summary>
         /// Dependency scope parameter provides a rule for the provider when it creates the instances of the required classes.        /// 
         /// </summary>
         /// <param name="dependencyScope"></param>
-        public InjectAttribute(DependencyScopes dependencyScope = DependencyScopes.DefaultSelf, InjectingOptions injectionOptions = InjectingOptions.None, ITypeInjectorDefinition injectorDefinition = null)
+        public InjectAttribute(/*DependencyScopes dependencyScope = DependencyScopes.DefaultSelf,*/ InjectingOptions injectionOptions = InjectingOptions.None, ITypeInjectorDefinition injectorDefinition = null)
         {
-            DependencyScope = dependencyScope;
+            //DependencyScope = dependencyScope;
             InjectionOptions = injectionOptions;
             TypeInjectorDefinition = injectorDefinition;
         }

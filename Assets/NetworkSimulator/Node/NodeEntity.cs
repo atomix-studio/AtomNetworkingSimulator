@@ -15,6 +15,12 @@ using Atom.DependencyProvider.Samples;
 using Atom.Components.GraphNetwork;
 using System;
 
+/// <summary>
+/// The dependency provider will create an instance for each type inheriting from INodeComponent.
+/// This allow the node entity to have all of its components ready at startup, regardless of the fact that the dependencies exists as field of the class.
+/// The reason for this is that components may reference one or many other components, and we dont want them to create instances of it internaly. 
+/// We actually want all of the components binded to the NodeEntity instance dependencies container.
+/// </summary>
 [InjectionContext(ForceInheritedTypesInjectionInContext = typeof(INodeComponent))]
 public class NodeEntity : MonoBehaviour
 {

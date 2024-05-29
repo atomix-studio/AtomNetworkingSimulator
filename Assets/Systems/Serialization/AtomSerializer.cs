@@ -22,6 +22,12 @@ namespace Atom.Serialization
 
         #region Generic
 
+        // todo
+       /* public static byte[] SerializeGeneric<T>(T obj)
+        {
+
+        }*/
+
         public static byte[] SerializeGeneric(object instance)
         {
             var type = instance.GetType();
