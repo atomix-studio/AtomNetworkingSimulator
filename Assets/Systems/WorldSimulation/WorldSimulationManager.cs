@@ -170,14 +170,17 @@ public class WorldSimulationManager : MonoBehaviour
     public void GenerateNodeEntity(bool startAsleep)
     {
         var newNodeEntity = PoolManager.Instance.SpawnGo(_pf_NodeEntity.gameObject, transform.position).GetComponent<NodeEntity>();
-        if (NavMesh.SamplePosition(new Vector3(Random.Range(SpawnSize.x, SpawnSize.y), 0, Random.Range(SpawnSize.x, SpawnSize.y)), out var hit, 50, 0))
+       /* if (NavMesh.SamplePosition(new Vector3(Random.Range(SpawnSize.x, SpawnSize.y), 0, Random.Range(SpawnSize.x, SpawnSize.y)), out var hit, 50, 0))
         {
             newNodeEntity.transform.position = hit.position;
         }
         else
         {
             newNodeEntity.transform.position = new Vector3(Random.Range(SpawnSize.x, SpawnSize.y), 0, Random.Range(SpawnSize.x, SpawnSize.y));
-        }
+        }*/
+
+        newNodeEntity.transform.position = new Vector3(Random.Range(SpawnSize.x, SpawnSize.y), _pf_NodeEntity.transform.position.y, Random.Range(SpawnSize.x, SpawnSize.y));
+
 
         long id = _nodeEntityIdGenerator++;
         newNodeEntity.name = "nodeEntity_" + id;

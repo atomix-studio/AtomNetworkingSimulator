@@ -189,11 +189,11 @@ namespace Atom.CommunicationSystem
                     HeartbeatConnectionWith(peer.Value);
                 }
             }
-            for (int i = 0; i < Connections.Count; ++i)
+            /*for (int i = 0; i < Connections.Count; ++i)
             {
 
 
-            }
+            }*/
 
             /*if (Connections.Count > context.NetworkViewsTargetCount)
             {

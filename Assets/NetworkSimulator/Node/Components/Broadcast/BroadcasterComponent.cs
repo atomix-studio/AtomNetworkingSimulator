@@ -1,5 +1,6 @@
 ﻿using Atom.Broadcasting;
 using Atom.CommunicationSystem;
+using Atom.Components.Gossip;
 using Atom.DependencyProvider;
 using Atom.Helpers;
 using Sirenix.OdinInspector;
@@ -95,6 +96,43 @@ namespace Atom.Broadcasting
                 else
                 {
                     packetReceiveHandler?.Invoke(receivedPacket);
+                }
+            },
+            true);
+        }
+
+        /// <summary>
+        /// Registers a packet with the broadcast handling logic as middleware.
+        /// Packets that have already been broadcasted > _broadcastRelayingCycles, the broadcaster will stop the message from being received by the upper layers (services) 
+        /// </summary>
+        /// <param name="packetType"></param>
+        /// <param name="packetReceiveHandler"></param>
+        public void RegisterPacketHandlerWithMiddleware<T>(Action<T> packetReceiveHandler, bool relayBroadcastAutomatically = false) where T : IGossipPacket
+        {
+            _router.RegisterPacketHandler(typeof(T), (receivedPacket) =>
+            {
+                // the router checks for packet that are IBroadcastable and ensure they haven't been too much relayed
+                // if the packet as reached is maximum broadcast cycles on the node and the router receives it one more time
+                if (receivedPacket is IBroadcastablePacket)
+                {
+                    var broadcastable = (IBroadcastablePacket)receivedPacket;
+                    if (!CheckBroadcastRelayCycles(broadcastable))
+                        return;
+
+                    for (int i = 0; i < _receivedBroadcastMiddlewares.Count; ++i)
+                    {
+                        if (!_receivedBroadcastMiddlewares[i](broadcastable))
+                            return;
+                    }
+
+                    packetReceiveHandler?.Invoke((T)receivedPacket);
+
+                    if (relayBroadcastAutomatically)
+                        RelayBroadcast(broadcastable);
+                }
+                else
+                {
+                    packetReceiveHandler?.Invoke((T)receivedPacket);
                 }
             },
             true);

@@ -120,40 +120,7 @@ namespace Atom.Components.Connecting
 
             //return await tcs.Task;
         }
-
-        /*        public bool TryAcceptCaller(PeerInfo peerInfo)
-                {
-                    if (_networkInfo.Callers.Count == 0)
-                    {
-                        _networkInfo.AddCaller(peerInfo);
-                        return true;
-                    }
-
-                    if (_networkInfo.Callers.Count >= context.NetworkViewsTargetCount)
-                    {
-                        // trying to replace an existing worst caller by the requesting one
-                        foreach (var caller in _networkInfo.Callers)
-                        {
-                            if (peerInfo.score > caller.Value.score)
-                            {
-                                // add random function
-                                // replacing the listenner by the new peer
-                                DisconnectFromCaller(caller.Value);
-
-                                _networkInfo.AddCaller(peerInfo);
-
-                                return true;
-                            }
-                        }
-
-                        return false;
-                    }
-
-                    _networkInfo.AddCaller(peerInfo);
-                    return true;
-                }
-        */
-
+               
         /// <summary>
         /// Is there any room for this new peer OR this new peers fits better (better score) ?
         /// </summary>

@@ -153,7 +153,7 @@ namespace Atom.Components.RpcSystem
         /// <param name="args"></param>
         public void SendRpcGossip(string rpcMethodName, params object[] args)
         {
-            var packet = new BroadcastedRpcPacket();
+            var packet = new GossipRpcPacket();
             packet.RpcCode = _rpcIdentifiers[rpcMethodName];
             packet.ArgumentsPayload = AtomSerializer.SerializeDynamic(packet.RpcCode, args);
 

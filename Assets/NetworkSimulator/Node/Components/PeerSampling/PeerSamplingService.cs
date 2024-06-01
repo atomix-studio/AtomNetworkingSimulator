@@ -72,9 +72,6 @@ public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
     private float _discoveryBroadcastCooldown = 0;
     private float _discoveryBroadcastOverrideTimer = 0;
 
-
-    private System.Random random = new System.Random((int)DateTime.Now.Ticks % int.MaxValue);
-
     private void Awake()
     {
         controller = GetComponent<NodeEntity>();

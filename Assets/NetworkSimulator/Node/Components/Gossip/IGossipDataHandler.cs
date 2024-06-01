@@ -15,9 +15,13 @@ namespace Atom.Components.Gossip
     {
     }
 
-    public interface IGossipDataHandler<T> : IGossipDataHandler where T : IBroadcastablePacket
-    {
-        public abstract void OnReceiveGossip(T data);
+    public interface IGossipDataHandler<T> : IGossipDataHandler where T : IGossipPacket
+    {        
+        /// <summary>
+        /// Callback when receiving a related gossip packet
+        /// </summary>
+        /// <param name="data"></param>
+        public abstract void OnReceiveGossip(GossipComponent context, T data);
 
     }
 

@@ -14,6 +14,7 @@ using UnityEditor.Rendering.LookDev;
 using Atom.DependencyProvider.Samples;
 using Atom.Components.GraphNetwork;
 using System;
+using Atom.PlayerSimulation;
 
 /// <summary>
 /// The dependency provider will create an instance for each type inheriting from INodeComponent.
@@ -29,6 +30,7 @@ public class NodeEntity : MonoBehaviour
     public PeerSamplingService peerSampling { get; set; }
     public NetworkConnectionsComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }
     public GraphEntityComponent graphEntityComponent { get; set; }
+    public PlayerNetworkSynchronizationComponent playerNetworkSynchronization { get; set; }
 
     [SerializeField] private NetworkConnectionsComponent _networkInfo;
     [SerializeField] private BootNodeHandling _bootNodeHandling;
@@ -60,6 +62,8 @@ public class NodeEntity : MonoBehaviour
     public bool IsBoot => _isBoot;
     public long LocalNodeId => networkHandling.LocalPeerInfo.peerID;
     public string LocalNodeAdress => networkHandling.LocalPeerInfo.peerAdress;
+
+    public Atom.PlayerSimulation.PlayerEntity Player => playerNetworkSynchronization.playerEntity;
 
     public Material material => _material;
 

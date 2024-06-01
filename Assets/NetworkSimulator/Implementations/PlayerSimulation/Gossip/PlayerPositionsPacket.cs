@@ -1,5 +1,7 @@
 ﻿
 using Atom.CommunicationSystem;
+using Atom.Components.Gossip;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -15,12 +17,16 @@ namespace Atom.PlayerSimulation
     /// <summary>
     /// A packet that will be gossiped soon
     /// </summary>
-    public class PlayerPositionsPacket : AbstractBroadcastablePacket
+    public class PlayerPositionsPacket : AbstractBroadcastablePacket, IGossipPacket
     {
         /// <summary>
         /// Contains a list of element that concats a bunch of received datas from previous gossip round + data from local player
         /// </summary>
         public List<PlayerData> Datas;
+
+        public DateTime gossipStartedTime { get ; set ; }
+        public long gossipId { get ; set; }
+        public int gossipGeneration { get ; set ; }
 
         public PlayerPositionsPacket(List<PlayerData> datas)
         {
