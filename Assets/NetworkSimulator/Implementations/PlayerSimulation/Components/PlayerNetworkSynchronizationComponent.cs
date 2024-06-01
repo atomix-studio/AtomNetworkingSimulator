@@ -48,7 +48,7 @@ namespace Atom.PlayerSimulation
 
             _playerEntity = Instantiate(_pf_playerEntity);
             {
-                _playerEntity.transform.position = new Vector3(UnityEngine.Random.Range(-50, 50), 0, UnityEngine.Random.Range(-50, 50));
+                _playerEntity.transform.position = new Vector3(UnityEngine.Random.Range(-150, 150), 0, UnityEngine.Random.Range(-150, 150));
             }
             _playerEntity.Initialize(controller);
             _playerEntity.StartRoaming();
@@ -56,6 +56,7 @@ namespace Atom.PlayerSimulation
 
             _localPlayerData = new PlayerData() { PeerAdress = controller.LocalNodeAdress, PeerID = controller.LocalNodeId, WorldPosition = transform.position };
             _gossipComponent.RegisterGossipHandler<PlayerPositionsPacket>(this);
+            _gossipComponent.RegisterGossipPreUpdateCallback(OnBeforeGossipRound);
         }
 
         public void OnUpdate()
@@ -111,23 +112,30 @@ namespace Atom.PlayerSimulation
                 }
             }
 
+        }
+
+        private void OnBeforeGossipRound()
+        {
+            if (_packet == null)
+                return;
+
             // very ugly and iinefficient
             _packet.Datas.Sort((a, b) => Vector3.Distance(WorldSimulationManager.nodeAddresses[a.PeerAdress].Player.transform.position, _playerEntity.transform.position).CompareTo(
                 Vector3.Distance(WorldSimulationManager.nodeAddresses[b.PeerAdress].Player.transform.position, _playerEntity.transform.position)));
 
 
-            for(int i = 0; i < _synchronisationSlots; ++i)
+            for (int i = 0; i < _synchronisationSlots; ++i)
             {
                 if (i >= _packet.Datas.Count)
                     break;
 
-                if(_closestDatas[i] == null )
+                if (_closestDatas[i] == null)
                 {
                     _closestDatas[i] = _packet.Datas[i];
                 }
                 else
                 {
-                    var dist2 = (WorldSimulationManager.nodeAddresses[_closestDatas[i].PeerAdress].Player.transform.position - _playerEntity.transform.position).magnitude;
+                    /*var dist2 = (WorldSimulationManager.nodeAddresses[_closestDatas[i].PeerAdress].Player.transform.position - _playerEntity.transform.position).magnitude;
 
                     for (int j = 0; j < _packet.Datas.Count; j++)
                     {
@@ -138,8 +146,11 @@ namespace Atom.PlayerSimulation
                             _closestDatas[i] = _packet.Datas[i];
                             break;
                         }
-                    }
-                    
+                    }*/
+
+                    var dist2 = (WorldSimulationManager.nodeAddresses[_closestDatas[i].PeerAdress].Player.transform.position - _playerEntity.transform.position).magnitude;
+                    var dist = (WorldSimulationManager.nodeAddresses[_packet.Datas[i].PeerAdress].Player.transform.position - _playerEntity.transform.position).magnitude;
+                    _closestDatas[i] = _packet.Datas[i];
                 }
             }
 
