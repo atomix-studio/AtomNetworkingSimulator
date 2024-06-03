@@ -22,7 +22,7 @@ namespace Atom.CommunicationSystem
         public NodeEntity controller { get; set; }
         [Inject] private HandshakingComponent _handshaking;
         [Inject] private ConnectingComponent _connecting;
-        [Inject] private PeerSamplingService _peerSampling;
+        [Inject] private PeerNetworkDiscoveryComponent _peerSampling;
         [Inject] private PacketRouter _packetRouter;
 
         [SerializeField] protected int knownPeersMaximumCount = 25;

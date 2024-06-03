@@ -12,7 +12,7 @@ namespace Atom.ClusterConnectionService
     public class ClusterConnectionService : INodeUpdatableComponent
     {
         public NodeEntity controller { get; set; }
-        [Inject] private PeerSamplingService _samplingService;
+        [Inject] private PeerNetworkDiscoveryComponent _samplingService;
         [Inject] private PacketRouter _packetRouter;
         [Inject] private BroadcasterComponent _broadcaster;
         [Inject] private NetworkConnectionsComponent _networkHandling;

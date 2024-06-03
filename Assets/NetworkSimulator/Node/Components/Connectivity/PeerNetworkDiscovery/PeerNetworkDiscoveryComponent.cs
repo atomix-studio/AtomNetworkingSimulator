@@ -38,7 +38,7 @@ using Atom.Helpers;
 /// Removing unresponding nodes
 /// Ensuring the node is not going isolated
 /// </summary>
-public class PeerSamplingService : MonoBehaviour, INodeUpdatableComponent
+public class PeerNetworkDiscoveryComponent : MonoBehaviour, INodeUpdatableComponent
 {
     public NodeEntity controller { get; set; }
     [Inject] private TransportLayerComponent _transportLayer;

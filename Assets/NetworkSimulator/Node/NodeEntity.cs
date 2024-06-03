@@ -27,7 +27,7 @@ public class NodeEntity : MonoBehaviour
 {
     public BroadcasterComponent broadcaster { get; set; }
     public TransportLayerComponent transportLayer { get; set; }
-    public PeerSamplingService peerSampling { get; set; }
+    public PeerNetworkDiscoveryComponent peerSampling { get; set; }
     public NetworkConnectionsComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }
     public GraphEntityComponent graphEntityComponent { get; set; }
     public PlayerNetworkSynchronizationComponent playerNetworkSynchronization { get; set; }

@@ -19,7 +19,7 @@ namespace Atom.Components.Connecting
     {
         public NodeEntity controller { get; set; }
         [Inject] private PacketRouter _packetRouter;
-        [Inject] private PeerSamplingService _peerSampling;
+        [Inject] private PeerNetworkDiscoveryComponent _peerSampling;
         [Inject] private NetworkConnectionsComponent _networkInfo;
         [Inject] private HandshakingComponent _handshaking;
 

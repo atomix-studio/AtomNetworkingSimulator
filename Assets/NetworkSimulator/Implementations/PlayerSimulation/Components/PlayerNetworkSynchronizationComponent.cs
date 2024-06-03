@@ -7,7 +7,7 @@ using UnityEngine.AI;
 
 namespace Atom.PlayerSimulation
 {
-    public class PlayerNetworkSynchronizationComponent : MonoBehaviour, INodeUpdatableComponent, IGossipDataHandler<PlayerPositionsPacket>
+    public class PlayerNetworkSynchronizationComponent : MonoBehaviour, INodeUpdatableComponent, IGossipDataHandler<PlayerInfoPacket>
     {
         public NodeEntity controller { get; set; }
         [Inject] private GossipComponent _gossipComponent;
@@ -17,22 +17,39 @@ namespace Atom.PlayerSimulation
         /// <summary>
         /// Maximum number of unique player datas in each gossip packet
         /// </summary>
-        [SerializeField] private int _maxPacketDatasCount = 10;
+        [SerializeField] private int _maxPacketPlayerDatasCount = 10;
+
+        /// <summary>
+        /// Maximum range a player can be synchronized with another. Above this, the connection will be closed and the data will be kept in the bufferableRange
+        /// </summary>
+        [SerializeField] private int _synchronizableRange = 15;
+
+        /// <summary>
+        /// Maximum number of connections with other peers.
+        /// Can be understood as an "instance size" 
+        /// </summary>
+        [SerializeField] private int _localGroupSize = 8;
 
         /// <summary>
         /// Time between gossip send for position synchronisation
         /// </summary>
         [SerializeField] private float _synchronizationDelay = .25f;
 
-        [SerializeField] private int _synchronisationSlots = 3;
-
         public PlayerEntity playerEntity => _playerEntity;
 
         private float _timer;
-        private PlayerPositionsPacket _packet;
+        private PlayerInfoPacket _packet;
         private PlayerData _localPlayerData;
 
-        private PlayerData[] _closestDatas = new PlayerData[0];
+        /// <summary>
+        /// players currently synchronized with local
+        /// </summary>
+        private Dictionary<long, PlayerData> _localGroup;
+
+        /// <summary>
+        /// Known in range players 
+        /// </summary>
+        private Dictionary<long, PlayerData> _synchronizablePlayerDatasBuffers;
 
         public void OnInitialize()
         {
@@ -44,7 +61,8 @@ namespace Atom.PlayerSimulation
             if (_pf_playerEntity == null)
                 return;
 
-            _closestDatas = new PlayerData[_synchronisationSlots];
+            _synchronizablePlayerDatasBuffers = new Dictionary<long, PlayerData>();
+            _localGroup = new Dictionary<long, PlayerData>(_localGroupSize);
 
             _playerEntity = Instantiate(_pf_playerEntity);
             {
@@ -55,8 +73,14 @@ namespace Atom.PlayerSimulation
 
 
             _localPlayerData = new PlayerData() { PeerAdress = controller.LocalNodeAdress, PeerID = controller.LocalNodeId, WorldPosition = transform.position };
-            _gossipComponent.RegisterGossipHandler<PlayerPositionsPacket>(this);
+            _gossipComponent.RegisterGossipHandler<PlayerInfoPacket>(this);
             _gossipComponent.RegisterGossipPreUpdateCallback(OnBeforeGossipRound);
+        }
+
+        void OnDestroy()
+        {
+            if (_playerEntity != null)
+                Destroy(_playerEntity.gameObject);
         }
 
         public void OnUpdate()
@@ -76,20 +100,53 @@ namespace Atom.PlayerSimulation
                         _packet.Datas.Add(_localPlayerData);
 
                     // the _packet variable holds the previously received datas (filtered/randomly picked and with a max count of 10)
-                    _gossipComponent.BufferAdd(new PlayerPositionsPacket(_packet.Datas));
+                    _gossipComponent.BufferAdd(new PlayerInfoPacket(_packet.Datas));
                 }
                 else
                 {
                     // the _packet variable holds the previously received datas (filtered/randomly picked and with a max count of 10)
-                    _gossipComponent.BufferAdd(new PlayerPositionsPacket(new List<PlayerData>() { _localPlayerData }));
+                    _gossipComponent.BufferAdd(new PlayerInfoPacket(new List<PlayerData>() { _localPlayerData }));
                 }
 
                 _timer = 0;
             }
         }
 
+        private void OnBeforeGossipRound()
+        {
+            if (_packet == null)
+                return;
 
-        public void OnReceiveGossip(GossipComponent context, PlayerPositionsPacket data)
+            for (int i = 0; i < _packet.Datas.Count; ++i)
+            {
+                var dist = (_packet.Datas[i].WorldPosition - _playerEntity.transform.position).magnitude;
+                // connectable now
+                if (dist < _synchronizableRange)
+                {
+                    if (_localGroup.ContainsKey(_packet.Datas[i].PeerID))
+                    {
+                        continue;
+                    }
+
+                    if (_synchronizablePlayerDatasBuffers.ContainsKey(_packet.Datas[i].PeerID))
+                    {
+                        continue;
+                    }
+
+                    _synchronizablePlayerDatasBuffers.Add(_packet.Datas[i].PeerID, _packet.Datas[i]);
+                }              
+                
+            }
+
+            // select random each time we receive to keep a maximum and reasonable number of datas
+            while (_packet.Datas.Count > _maxPacketPlayerDatasCount)
+            {
+                int next = UnityEngine.Random.Range(0, _packet.Datas.Count);
+                _packet.Datas.RemoveAt(next);
+            }
+        }
+
+        public void OnReceiveGossip(GossipComponent context, PlayerInfoPacket data)
         {
             // if no buffer, we juste take the first incoming and keep the instance
             if (_packet == null)
@@ -111,67 +168,14 @@ namespace Atom.PlayerSimulation
                     pdata.WorldPosition = data.Datas[i].WorldPosition;
                 }
             }
-
         }
 
-        private void OnBeforeGossipRound()
-        {
-            if (_packet == null)
-                return;
-
-            // very ugly and iinefficient
-            _packet.Datas.Sort((a, b) => Vector3.Distance(WorldSimulationManager.nodeAddresses[a.PeerAdress].Player.transform.position, _playerEntity.transform.position).CompareTo(
-                Vector3.Distance(WorldSimulationManager.nodeAddresses[b.PeerAdress].Player.transform.position, _playerEntity.transform.position)));
-
-
-            for (int i = 0; i < _synchronisationSlots; ++i)
-            {
-                if (i >= _packet.Datas.Count)
-                    break;
-
-                if (_closestDatas[i] == null)
-                {
-                    _closestDatas[i] = _packet.Datas[i];
-                }
-                else
-                {
-                    /*var dist2 = (WorldSimulationManager.nodeAddresses[_closestDatas[i].PeerAdress].Player.transform.position - _playerEntity.transform.position).magnitude;
-
-                    for (int j = 0; j < _packet.Datas.Count; j++)
-                    {
-                        var dist = (WorldSimulationManager.nodeAddresses[_packet.Datas[j].PeerAdress].Player.transform.position - _playerEntity.transform.position).magnitude;
-
-                        if (dist < dist2)
-                        {
-                            _closestDatas[i] = _packet.Datas[i];
-                            break;
-                        }
-                    }*/
-
-                    var dist2 = (WorldSimulationManager.nodeAddresses[_closestDatas[i].PeerAdress].Player.transform.position - _playerEntity.transform.position).magnitude;
-                    var dist = (WorldSimulationManager.nodeAddresses[_packet.Datas[i].PeerAdress].Player.transform.position - _playerEntity.transform.position).magnitude;
-                    _closestDatas[i] = _packet.Datas[i];
-                }
-            }
-
-            // select random each time we receive to keep a maximum and reasonable number of datas
-            while (_packet.Datas.Count > _maxPacketDatasCount)
-            {
-                int next = UnityEngine.Random.Range(0, _packet.Datas.Count);
-                _packet.Datas.RemoveAt(next);
-            }
-        }
 
         void OnDrawGizmos()
         {
-
-
-            for (int i = 0; i < _closestDatas.Length; ++i)
-            {
-                if (_closestDatas[i] == null)
-                    continue;
-
-                Debug.DrawLine(_playerEntity.transform.position, WorldSimulationManager.nodeAddresses[_closestDatas[i].PeerAdress].Player.transform.position);
+            foreach(var peer in _synchronizablePlayerDatasBuffers) 
+            {              
+                Debug.DrawLine(_playerEntity.transform.position, WorldSimulationManager.nodeAddresses[peer.Value.PeerAdress].Player.transform.position);
             }
         }
     }

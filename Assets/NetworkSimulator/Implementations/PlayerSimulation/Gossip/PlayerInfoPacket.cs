@@ -9,15 +9,27 @@ namespace Atom.PlayerSimulation
 {
     public class PlayerData
     {
+        /// <summary>
+        /// Position of the player
+        /// </summary>
         public Vector3 WorldPosition;
+
+        /// <summary>
+        /// Addree/ID of the player
+        /// </summary>
         public long PeerID;
         public string PeerAdress;
+
+        /// <summary>
+        /// Can be used to tell to other that a player is disconnected, if the local peer received data about it
+        /// </summary>
+        public bool IsAlive;
     }
 
     /// <summary>
     /// A packet that will be gossiped soon
     /// </summary>
-    public class PlayerPositionsPacket : AbstractBroadcastablePacket, IGossipPacket
+    public class PlayerInfoPacket : AbstractBroadcastablePacket, IGossipPacket
     {
         /// <summary>
         /// Contains a list of element that concats a bunch of received datas from previous gossip round + data from local player
@@ -28,7 +40,7 @@ namespace Atom.PlayerSimulation
         public long gossipId { get ; set; }
         public int gossipGeneration { get ; set ; }
 
-        public PlayerPositionsPacket(List<PlayerData> datas)
+        public PlayerInfoPacket(List<PlayerData> datas)
         {
             Datas = datas;
         }
@@ -61,7 +73,7 @@ namespace Atom.PlayerSimulation
 
         public override INetworkPacket ClonePacket(INetworkPacket received)
         {
-            return (PlayerPositionsPacket)(received as PlayerPositionsPacket).MemberwiseClone();
+            return (PlayerInfoPacket)(received as PlayerInfoPacket).MemberwiseClone();
         }
     }
 }
