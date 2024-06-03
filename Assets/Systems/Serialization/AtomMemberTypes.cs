@@ -19,5 +19,6 @@
         Enum, // 4 ?
         Object, // dyn
         DateTime, // dyn
+        Vector3, // 12
     }
 }

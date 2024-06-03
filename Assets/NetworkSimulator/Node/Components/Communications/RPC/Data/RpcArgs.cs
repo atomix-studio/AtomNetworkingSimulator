@@ -6,13 +6,18 @@ using System.Threading.Tasks;
 
 namespace Atom.Components.RpcSystem
 {
-  /*  public struct RpcArg
-    {
-        public object Arg;
-    }*/
+    /*  public struct RpcArg
+      {
+          public object Arg;
+      }*/
 
-    public struct RpcArgs 
+    public struct RpcArgs
     {
         public object[] Args;
+
+        public RpcArgs(object[] args)
+        {
+            Args = args;
+        }
     }
 }

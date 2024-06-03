@@ -12,7 +12,23 @@ namespace Atom.PlayerSimulation
         /// <summary>
         /// Position of the player
         /// </summary>
-        public Vector3 WorldPosition;
+        public Vector3 WorldPosition
+        {
+            get
+            {
+                return new Vector3(WorldPositionX, WorldPositionY, WorldPositionZ);
+            }
+            set
+            {
+                WorldPositionX = value.x;
+                WorldPositionY = value.y;
+                WorldPositionZ = value.z;
+            }
+        }
+
+        public float WorldPositionX;
+        public float WorldPositionY;
+        public float WorldPositionZ;
 
         /// <summary>
         /// Addree/ID of the player
@@ -36,9 +52,9 @@ namespace Atom.PlayerSimulation
         /// </summary>
         public List<PlayerData> Datas;
 
-        public DateTime gossipStartedTime { get ; set ; }
-        public long gossipId { get ; set; }
-        public int gossipGeneration { get ; set ; }
+        public DateTime gossipStartedTime { get; set; }
+        public long gossipId { get; set; }
+        public int gossipGeneration { get; set; }
 
         public PlayerInfoPacket(List<PlayerData> datas)
         {

@@ -40,7 +40,7 @@ namespace Atom.Serialization
                     isDynamicSize = true;
             }
 
-            var properties = argType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            /*var properties = argType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             for (int i = 0; i < properties.Length; ++i)
             {
                 _serializationDatas.Add(new MemberSerializationData(properties[i].PropertyType));
@@ -52,7 +52,7 @@ namespace Atom.Serialization
                     isDynamicSize = true;
 
                 byte_length += _serializationDatas[i].fixedByteLength;
-            }
+            }*/
 
             if (!isDynamicSize)
             {

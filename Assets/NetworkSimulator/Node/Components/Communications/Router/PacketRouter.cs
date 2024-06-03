@@ -9,7 +9,7 @@ namespace Atom.CommunicationSystem
 {
     public static class PacketRouterEventHandler
     {
-     
+
     }
     public class PacketRouter : MonoBehaviour, INodeUpdatableComponent
     {
@@ -18,7 +18,7 @@ namespace Atom.CommunicationSystem
         [Inject] public NetworkConnectionsComponent networkHandling { get; set; }
 
         private long _peerId;
-       
+
         private Action<INetworkPacket> _onReceiveExternal;
         private Dictionary<Type, short> _packetIdentifiers = new Dictionary<Type, short>();
         private Dictionary<short, Action<INetworkPacket>> _receivePacketHandlers = new Dictionary<short, Action<INetworkPacket>>();
@@ -104,7 +104,7 @@ namespace Atom.CommunicationSystem
         #endregion
         public async void OnUpdate()
         {
-            
+
         }
 
         void Update()
@@ -148,6 +148,29 @@ namespace Atom.CommunicationSystem
             _packetIdentifiers.Add(packetType, packetIdentifier);
         }
 
+        public void RegisterPacketHandler<T>(Action<T> packetReceiveHandler, bool broadcasterCall = false) where T : INetworkPacket
+        {
+            var packetType = typeof(T);
+            if (!broadcasterCall && TypeHelpers.ImplementsInterface<IBroadcastablePacket>(packetType))
+            {
+                Debug.LogError($"Broadcastable packets should always be registered from the broadcaster => Error with packet of type {packetType}.");
+            }
+
+            var packetIdentifier = _packetIdentifierGenerator++;
+
+            _receivePacketHandlers.Add(packetIdentifier, (packet) => { packetReceiveHandler?.Invoke((T)packet); });
+
+            if (_packetIdentifiers.ContainsKey(packetType))
+                throw new Exception($"A packet of type {packetType} has already been register in the router.");
+
+            _packetIdentifiers.Add(packetType, packetIdentifier);
+
+            if (packetType is IRespondable)
+            {
+
+            }
+        }
+
         /// <summary>
         /// Sending should be done through the BROADCASTER COMPONENT wrapper
         /// </summary>
@@ -185,6 +208,25 @@ namespace Atom.CommunicationSystem
             transportLayer.Send(targetAddress, networkPacket);
         }
 
+        /// <summary>
+        /// Sending should be done through the BROADCASTER COMPONENT wrapper
+        /// A request is a packet sent that will be awaiting for a response callback in its context
+        /// </summary>
+        /// <param name="targetAddress"></param>
+        /// <param name="networkPacket"></param>
+        /// <summary>      
+        public void SendRequest<T>(string targetAddress, INetworkPacket networkPacket, Action<T> responseCallback, int timeout_ms = 2000) where T : INetworkPacket
+        {
+            onBeforeSendInternal(networkPacket);
+            _packetResponseAwaitersBuffer.Add(networkPacket.packetUniqueId, new INetworkPacketResponseAwaiter(DateTime.Now, DateTime.Now.AddMilliseconds(timeout_ms),
+                (resp) =>
+                {
+                    responseCallback?.Invoke((T)resp);
+                }));
+
+            transportLayer.Send(targetAddress, networkPacket);
+        }
+
         private void onBeforeSendInternal(INetworkPacket networkPacket)
         {
             networkPacket.packetUniqueId = packetIdGenerator;
@@ -195,15 +237,15 @@ namespace Atom.CommunicationSystem
             if (networkPacket is IRespondable)
                 (networkPacket as IRespondable).senderAdress = networkHandling.LocalPeerInfo.peerAdress;
 
-           /* // security here. 
-            // it happens that broadcastable packet are forwared as multicast
-            // if broadcasterID and broadcastID have been cloned or haven't been set, the relayed broadcast from nodes will be filled with string.Empty and the packet multicasted will encounter bugs.
-            if (networkPacket is IBroadcastablePacket)
-            {
-                var brdcst = networkPacket as IBroadcastablePacket;
-                brdcst.broadcasterID = networkHandling.LocalPeerInfo.peerAdress;
-                brdcst.broadcastID = Guid.NewGuid().ToString();
-            }*/
+            /* // security here. 
+             // it happens that broadcastable packet are forwared as multicast
+             // if broadcasterID and broadcastID have been cloned or haven't been set, the relayed broadcast from nodes will be filled with string.Empty and the packet multicasted will encounter bugs.
+             if (networkPacket is IBroadcastablePacket)
+             {
+                 var brdcst = networkPacket as IBroadcastablePacket;
+                 brdcst.broadcasterID = networkHandling.LocalPeerInfo.peerAdress;
+                 brdcst.broadcastID = Guid.NewGuid().ToString();
+             }*/
         }
 
         private async void onReceivePacket(INetworkPacket networkPacket)
@@ -212,7 +254,7 @@ namespace Atom.CommunicationSystem
                 return;
 
             // middlewares can block the reception
-            for(int i = 0; i < _receivePacketMiddlewares.Count; ++i)
+            for (int i = 0; i < _receivePacketMiddlewares.Count; ++i)
             {
                 if (!_receivePacketMiddlewares[i](networkPacket))
                     return;
@@ -228,7 +270,7 @@ namespace Atom.CommunicationSystem
                 if (_packetResponseAwaitersBuffer.TryGetValue(callerId, out var awaiter))
                 {
                     resp.requestPing = (DateTime.Now - awaiter.creationTime).Milliseconds;
-                    _onResponseReceived?.Invoke(resp);  
+                    _onResponseReceived?.Invoke(resp);
 
                     awaiter.responseCallback(networkPacket);
                     _packetResponseAwaitersBuffer.Remove(callerId);

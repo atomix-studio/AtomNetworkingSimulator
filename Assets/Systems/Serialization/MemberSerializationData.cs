@@ -3,11 +3,44 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using UnityEngine;
 
 namespace Atom.Serialization
 {
+    public static class StructTools
+    {
+        /// <summary>
+        /// converts byte[] to struct
+        /// </summary>
+        public static T RawDeserialize<T>(byte[] rawData, int position)
+        {
+            int rawsize = Marshal.SizeOf(typeof(T));
+            if (rawsize > rawData.Length - position)
+                throw new ArgumentException("Not enough data to fill struct. Array length from position: " + (rawData.Length - position) + ", Struct length: " + rawsize);
+            IntPtr buffer = Marshal.AllocHGlobal(rawsize);
+            Marshal.Copy(rawData, position, buffer, rawsize);
+            T retobj = (T)Marshal.PtrToStructure(buffer, typeof(T));
+            Marshal.FreeHGlobal(buffer);
+            return retobj;
+        }
+
+        /// <summary>
+        /// converts a struct to byte[]
+        /// </summary>
+        public static byte[] RawSerialize(object anything)
+        {
+            int rawSize = Marshal.SizeOf(anything);
+            IntPtr buffer = Marshal.AllocHGlobal(rawSize);
+            Marshal.StructureToPtr(anything, buffer, false);
+            byte[] rawDatas = new byte[rawSize];
+            Marshal.Copy(buffer, rawDatas, 0, rawSize);
+            Marshal.FreeHGlobal(buffer);
+            return rawDatas;
+        }
+    }
+
     /// <summary>
     /// Represent a field/property of a serialized type
     /// If the AtomMemberTypes is Object, then the RecursiveBinder won't be null and will be a collection of primitive types or other recursive 
@@ -31,6 +64,8 @@ namespace Atom.Serialization
         private const string _enum = "System.Enum";
         private const string _object = "System.Object";
         private const string _dateTime = "System.DateTime";
+        private const string _vector3 = "UnityEngine.Vector3";
+        private Type _objectType = typeof(object);
 
         public bool IsCollection;
         public bool IsArray;
@@ -217,6 +252,9 @@ namespace Atom.Serialization
                 case AtomMemberTypes.Object:
                     _tempBytes = GenericRecursiveBinder.Serialize(obj);
                     break;
+                case AtomMemberTypes.Vector3:
+                    _tempBytes = StructTools.RawSerialize(obj); 
+                    break;
             }
 
             for (int i = 0; i < _tempBytes.Length; ++i)
@@ -319,6 +357,9 @@ namespace Atom.Serialization
                 case AtomMemberTypes.Object:
                     readIndex += 2;
                     return BitConverter.ToUInt16(_buffer, _oldReadIndex);
+                case AtomMemberTypes.Vector3:
+                    readIndex += 12;
+                    return StructTools.RawDeserialize<Vector3>(_buffer, _oldReadIndex);
             }
 
             throw new NotImplementedException("Serializer can't read type " + AtomMemberType);
@@ -327,7 +368,7 @@ namespace Atom.Serialization
         #region member type handling
         public AtomMemberTypes setMemberType(Type type)
         {
-            if (type.IsByRef)
+            if (type.BaseType == _objectType)
                 return AtomMemberTypes.Object;
 
             string tString = type.FullName;
@@ -350,6 +391,7 @@ namespace Atom.Serialization
                 case _enum: return AtomMemberTypes.Enum;
                 case _object: return AtomMemberTypes.Object;
                 case _dateTime: return AtomMemberTypes.DateTime;
+                case _vector3: return AtomMemberTypes.Vector3;
             }
 
             throw new Exception($"Type not implemented exception {type}");
@@ -376,6 +418,7 @@ namespace Atom.Serialization
                 case AtomMemberTypes.Char: return 2;
                 case AtomMemberTypes.Decimal: return 24;
                 case AtomMemberTypes.Enum: return 4;
+                case AtomMemberTypes.Vector3: return 12;
             }
 
             return -1;
