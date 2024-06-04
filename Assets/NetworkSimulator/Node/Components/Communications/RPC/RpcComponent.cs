@@ -34,6 +34,7 @@ namespace Atom.Components.RpcSystem
         // in a real node environment, rpcs would be a static collection, so as the registering method
         private Dictionary<ushort, Delegate> _rpcHandlers = new Dictionary<ushort, Delegate>();
         private Dictionary<string, ushort> _rpcIdentifiers = new Dictionary<string, ushort>();
+        private Dictionary<ushort, Type> _rpcPayloadType = new Dictionary<ushort, Type>();
 
         private ushort _rpcIdGenerator = 0;
 
@@ -46,18 +47,25 @@ namespace Atom.Components.RpcSystem
 
             // rpc benchmarking (and sample)
             // the action<string> needs to be casted to the method 
-            RegisterRpc((Action<string>)Rpc_benchmark);
+            RegisterRpc<BenchmarkPayload>((Action<BenchmarkPayload>)Rpc_benchmark);
+        }
+
+        public struct BenchmarkPayload
+        {
+            public string SomeData;
+            public long SomeData2;
         }
 
         /// <summary>
         /// Registers a simple Remote procedure call 
         /// </summary>
-        /// <param name="rpcMethodName"></param>
+        /// <param name="T"> Type of RPC argument struct </param>
         /// <param name="rpcReceivedDelegate"></param>
-        public void RegisterRpc(Delegate rpcReceivedDelegate)
+        public void RegisterRpc<T>(Delegate rpcReceivedDelegate) where T : struct
         {
             _rpcHandlers.Add(_rpcIdGenerator, rpcReceivedDelegate);
             _rpcIdentifiers.Add(rpcReceivedDelegate.Method.Name, _rpcIdGenerator);
+            _rpcPayloadType.Add(_rpcIdGenerator, typeof(T));
             _rpcIdGenerator++;
         }
 
@@ -65,9 +73,9 @@ namespace Atom.Components.RpcSystem
         /// Registers a remote procedure call that automacitally handle a response as from its rpc method callback (response from the target)
         /// </summary>
         /// <param name="rpcReceivedDelegate"></param>
-        public void RegisterRPCRequest(Delegate rpcReceivedDelegate)
+        public void RegisterRPCRequest<T>(Delegate rpcReceivedDelegate) where T : struct
         {
-            RegisterRpc(rpcReceivedDelegate);
+            RegisterRpc<T>(rpcReceivedDelegate);
             //RegisterRpc(rpcResponseReceivedDelegate);
         }
 
@@ -77,12 +85,13 @@ namespace Atom.Components.RpcSystem
         /// <param name="target"></param>
         /// <param name="rpcMethodName"></param>
         /// <param name="args"></param>
-        public void SendRpc(PeerInfo target, string rpcMethodName, params object[] args)
+        public void SendRpc<T>(PeerInfo target, string rpcMethodName, T data) where T : struct
         {
             // get the packet from the rpc
             var packet = new RpcPacket();
             packet.RpcCode = _rpcIdentifiers[rpcMethodName];
-            packet.ArgumentsPayload = AtomSerializer.SerializeDynamic(packet.RpcCode, args);
+
+            packet.ArgumentsPayload = StructSerializer.RawSerialize(data);// StructSerializer.RawSerialize(args);
 
             // send it via packet router
             _packetRouter.Send(target.peerAdress, packet);
@@ -93,12 +102,12 @@ namespace Atom.Components.RpcSystem
         /// </summary>
         /// <param name="rpcMethodName"></param>
         /// <param name="args"></param>
-        public void SendRpcBroadcasted(string rpcMethodName, params object[] args)
+        public void SendRpcBroadcasted<T>(string rpcMethodName, T data) where T : struct
         {
             // get the packet from the rpc
             var packet = new BroadcastedRpcPacket();
             packet.RpcCode = _rpcIdentifiers[rpcMethodName];
-            packet.ArgumentsPayload = AtomSerializer.SerializeDynamic(packet.RpcCode, args);
+            packet.ArgumentsPayload = StructSerializer.RawSerialize(data); //AtomSerializer.SerializeDynamic(packet.RpcCode, args);
 
             // send it via broadcaster
             _broadcaster.SendBroadcast(packet);
@@ -111,12 +120,12 @@ namespace Atom.Components.RpcSystem
         /// </summary>
         /// <param name="rpcMethodName"></param>
         /// <param name="args"></param>
-        public void SendRpcGraphcasted(string rpcMethodName, params object[] args)
+        public void SendRpcGraphcasted<T>(string rpcMethodName, T data) where T : struct
         {
             // get the packet from the rpc
             var packet = new BroadcastedRpcPacket();
             packet.RpcCode = _rpcIdentifiers[rpcMethodName];
-            packet.ArgumentsPayload = AtomSerializer.SerializeDynamic(packet.RpcCode, args);
+            packet.ArgumentsPayload = StructSerializer.RawSerialize(data); //AtomSerializer.SerializeDynamic(packet.RpcCode, args);
 
             // send it via broadcaster
             _graphcaster.SendGraphcast(packet);
@@ -130,16 +139,16 @@ namespace Atom.Components.RpcSystem
         /// <param name="rpcMethodName"></param>
         /// <param name="argumentsData"></param>
         /// <param name="responseCallback"></param>
-        public void SendRpcRequest<T>(PeerInfo target, string rpcMethodName, RpcArgs argumentsData, Action<T> responseCallback) where T : INetworkPacket
+        public void SendRpcRequest<T, K>(PeerInfo target, string rpcMethodName, T data, Action<K> responseCallback) where T : struct where K : INetworkPacket
         {
             var packet = new BroadcastedRpcPacket();
             packet.RpcCode = _rpcIdentifiers[rpcMethodName];
-            packet.ArgumentsPayload = AtomSerializer.SerializeDynamic(packet.RpcCode, argumentsData.Args);
+            packet.ArgumentsPayload = StructSerializer.RawSerialize(data);// AtomSerializer.SerializeDynamic(packet.RpcCode, argumentsData.Args);
 
             _packetRouter.SendRequest(target.peerAdress, packet, (response) =>
             {
-                if (response is T)
-                    responseCallback.Invoke((T)response);
+                if (response is K)
+                    responseCallback.Invoke((K)response);
                 else
                     Debug.LogError($"RpcRequest response packet type mismatch. Waiting for {typeof(T)}. Response type is {response.GetType()}");
             });
@@ -151,11 +160,11 @@ namespace Atom.Components.RpcSystem
         /// </summary>
         /// <param name="rpcMethodName"></param>
         /// <param name="args"></param>
-        public void SendRpcGossip(string rpcMethodName, params object[] args)
+        public void SendRpcGossip<T>(string rpcMethodName, T data) where T : struct
         {
             var packet = new GossipRpcPacket();
             packet.RpcCode = _rpcIdentifiers[rpcMethodName];
-            packet.ArgumentsPayload = AtomSerializer.SerializeDynamic(packet.RpcCode, args);
+            packet.ArgumentsPayload = StructSerializer.RawSerialize(data); //AtomSerializer.SerializeDynamic(packet.RpcCode, args);
 
             _gossipComponent.BufferAdd(packet);
         }
@@ -175,8 +184,11 @@ namespace Atom.Components.RpcSystem
 
         private void _onReceivedRpcInternal(ushort rpcCode, byte[] payload)
         {
+            var type = _rpcPayloadType[rpcCode];
+
+            var packetData = StructSerializer.RawDeserialize(type, payload, 0);
             // the deserialization of the payload will be the job of AtomSerializer as well as the deserialization of the packet itself after the transportLayer receive and before the transport layer send
-            _rpcHandlers[rpcCode].DynamicInvoke(AtomSerializer.DeserializeDynamic(rpcCode, payload));
+            _rpcHandlers[rpcCode].DynamicInvoke(packetData);
         }
 
         #region Test
@@ -184,12 +196,12 @@ namespace Atom.Components.RpcSystem
         [Button]
         public void Send_RpcBenchmark()
         {
-            SendRpcBroadcasted(nameof(Rpc_benchmark), controller.gameObject.name);
+            SendRpcBroadcasted(nameof(Rpc_benchmark), new BenchmarkPayload() { SomeData = controller.gameObject.name, SomeData2 = controller.LocalNodeId });
         }
 
-        public void Rpc_benchmark(string sender)
+        public void Rpc_benchmark(BenchmarkPayload sender)
         {
-            Debug.Log("Received rpc from " + sender);
+            Debug.Log("Received rpc from " + sender.SomeData + " id " + sender.SomeData2);
         }
 
         #endregion

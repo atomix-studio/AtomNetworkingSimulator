@@ -142,6 +142,7 @@ namespace Atom.Components.GraphNetwork
         #region Fragment JOIN
         private void OnJoiningFragmentRequestReceived(FragmentJoiningRequestPacket joiningRequestPacket)
         {
+
             if (joiningRequestPacket.joinerFragmentId == LocalFragmentId)
                 return;
 
@@ -169,7 +170,10 @@ namespace Atom.Components.GraphNetwork
                 {
                     Debug.Log($"Request received from {joiningRequestPacket.senderAdress} but local node is not a leader {_networkHandling.LocalPeerInfo.peerAdress}");
 
-                    _graphcaster.SendGraphcast(new FragmentJoiningRequestRelayedGraphcastPacket(controller.LocalNodeAdress, joiningRequestPacket.senderID, joiningRequestPacket.senderAdress, joiningRequestPacket.joinerfragmentLevel, joiningRequestPacket.joinerFragmentId));
+                    if (FragmentMembers.Count > 0)
+                        _graphcaster.SendGraphcast(new FragmentJoiningRequestRelayedGraphcastPacket(controller.LocalNodeAdress, joiningRequestPacket.senderID, joiningRequestPacket.senderAdress, joiningRequestPacket.joinerfragmentLevel, joiningRequestPacket.joinerFragmentId));
+                    else
+                        Debug.Log("No fragment to relay the message. This node should be leader.");
                 }
                 // if the requester is the moe (outer), he will 
                 return;
@@ -210,6 +214,7 @@ namespace Atom.Components.GraphNetwork
             }
         }
 
+        [Button]
         // send a request to the local moe to see if the 'situation' as somehow changed.
         // the moe could be outdated and depending on this, the leader will either try to find a new moe OR to send a new join request
         private async Task<bool> TryRefreshOutgoingEdge()
@@ -505,7 +510,7 @@ namespace Atom.Components.GraphNetwork
         }
 
         private void OnLeaderHeartbeatPacketReceived(LeaderHeartbeatPacket packet)
-        {           
+        {
             if (packet.broadcasterID != controller.LocalNodeId)
             {
                 // do I really wanne do that here ? probly not
@@ -525,7 +530,24 @@ namespace Atom.Components.GraphNetwork
         {
             _lastTakeLeadRequestReceived = DateTime.Now;
 
-            if (_nodeGraphState == NodeGraphState.Follower)
+            if (packet.prospectId > _currentPendingLeadId)
+            {
+                _nodeGraphState = NodeGraphState.Eliminated;
+                _currentPendingLeadId = packet.prospectId;
+
+                _graphcaster.RelayGraphcast(packet);
+            }
+            else
+            {
+                if(controller.LocalNodeId >  _currentPendingLeadId)
+                {
+                    _nodeGraphState = NodeGraphState.LeaderPropesct;
+                    _graphcaster.SendGraphcast(new TakeLeadRequestPacket(controller.LocalNodeId, controller.LocalNodeAdress));
+                }
+                //_graphcaster.SendGraphcast(new TakeLeadRequestPacket(controller.LocalNodeId, controller.LocalNodeAdress));
+
+            }
+            /*if (_nodeGraphState == NodeGraphState.Follower)
             {
                 // firstly check if the node is also unleased from the fragment leader 
                 // if the node thinks the fragment leader is ok, the message is discarded
@@ -560,7 +582,7 @@ namespace Atom.Components.GraphNetwork
                 }
 
                 _graphcaster.RelayGraphcast(packet);
-            }
+            }*/
         }
 
         #endregion
@@ -934,7 +956,7 @@ namespace Atom.Components.GraphNetwork
 
             if (FragmentID == _networkHandling.LocalPeerInfo.peerID)
             {
-                Gizmos.color = Color.red;
+                Gizmos.color = Color.cyan;
                 Gizmos.DrawCube(controller.transform.position + Vector3.up * 2, Vector3.one);
                 Gizmos.color = Color.white;
             }
@@ -943,8 +965,12 @@ namespace Atom.Components.GraphNetwork
             {
                 if (_currentPendingLeadId == controller.LocalNodeId)
                 {
-                    Gizmos.color = Color.green;
-                    Gizmos.DrawCube(controller.transform.position + Vector3.up * 2, Vector3.one);
+                    if (_nodeGraphState == NodeGraphState.LeaderPropesct)
+                        Gizmos.color = Color.green;
+                    else
+                        Gizmos.color = Color.red;
+
+                    Gizmos.DrawCube(controller.transform.position + Vector3.up * 3, Vector3.one);
                     Gizmos.color = Color.white;
                 }
             }

@@ -289,7 +289,16 @@ namespace Atom.CommunicationSystem
             }
             else
             {
-                _receivePacketHandlers[networkPacket.packetTypeIdentifier].Invoke(networkPacket);
+                try
+                {
+                    _receivePacketHandlers[networkPacket.packetTypeIdentifier].Invoke(networkPacket);
+
+                }
+                catch (Exception ex)
+                {
+                    _receivePacketHandlers[networkPacket.packetTypeIdentifier].Invoke(networkPacket);
+
+                }
             }
         }
     }

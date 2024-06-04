@@ -7,7 +7,8 @@ using UnityEngine;
 
 namespace Atom.PlayerSimulation
 {
-    public class PlayerData
+    [Serializable]
+    public struct PlayerData
     {
         /// <summary>
         /// Position of the player
@@ -61,17 +62,20 @@ namespace Atom.PlayerSimulation
             Datas = datas;
         }
 
-        public PlayerData GetDataForID(long id)
+        public bool GetDataForID(long id, out PlayerData playerData)
         {
             for (int i = 0; i < Datas.Count; i++)
             {
                 if (Datas[i].PeerID == id)
                 {
-                    return Datas[i];
+                    playerData = Datas[i];
+                    return true;
                 }
             }
 
-            return null;
+            playerData = default(PlayerData);
+
+            return false;
         }
 
         public bool HasDataForID(long id)

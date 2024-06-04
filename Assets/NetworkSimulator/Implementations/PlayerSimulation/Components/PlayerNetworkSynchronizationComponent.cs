@@ -6,6 +6,7 @@ using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -55,19 +56,20 @@ namespace Atom.PlayerSimulation
         /// <summary>
         /// players currently synchronized with local
         /// </summary>
-        private Dictionary<long, PlayerData> _localGroup;
+        [ShowInInspector] private Dictionary<long, PlayerData> _localGroup;
 
-        private HashSet<long> _pendingRequests;
+        [ShowInInspector] private HashSet<long> _pendingRequests;
 
         /// <summary>
         /// Known in range players 
         /// </summary>
-        private Dictionary<long, PlayerData> _synchronizablePlayerDatasBuffers;
+        [ShowInInspector] private Dictionary<long, PlayerData> _synchronizablePlayerDatasBuffers;
 
         public void OnInitialize()
         {
             _packetRouter.RegisterPacketHandler<SyncRequestPacket>(OnReceiveSynchronizationRequest);
             _packetRouter.RegisterPacketHandler<SyncResponsePacket>(null);
+            _packetRouter.RegisterPacketHandler<DesyncNotificationPacket>(OnReceiveDesynchronizationNotification);
         }
 
         void Start()
@@ -81,7 +83,7 @@ namespace Atom.PlayerSimulation
 
             _playerEntity = Instantiate(_pf_playerEntity);
             {
-                _playerEntity.transform.position = new Vector3(UnityEngine.Random.Range(-150, 150), 0, UnityEngine.Random.Range(-150, 150));
+                _playerEntity.transform.position = new Vector3(UnityEngine.Random.Range(-75, 75), 0, UnityEngine.Random.Range(-75, 75));
             }
             _playerEntity.Initialize(controller);
             _playerEntity.StartRoaming();
@@ -183,16 +185,22 @@ namespace Atom.PlayerSimulation
             for (int i = 0; i < data.Datas.Count; i++)
             {
                 // create or update datas in the buffer
-                var pdata = _packet.GetDataForID(data.Datas[i].PeerID);
+                var found = false;
 
-                // the packet instance serve as a buffer for all incoming datas
-                // we will filter that later in OnBeforeGossipRound
-                if (pdata == null)
-                    _packet.Datas.Add(data.Datas[i]);
-                else
+                for (int j = 0; j < _packet.Datas.Count; ++j)
                 {
-                    pdata.WorldPosition = data.Datas[i].WorldPosition;
+                    if (_packet.Datas[j].PeerID == data.Datas[i].PeerID)
+                    {
+                        _packet.Datas[j] = data.Datas[i];
+                        found = true;
+                        break;
+                    }
                 }
+
+                if (found)
+                    continue;
+
+                _packet.Datas.Add(data.Datas[i]);
             }
         }
 
@@ -207,15 +215,33 @@ namespace Atom.PlayerSimulation
                 {
                     // disconnect
                     _localGroup.Remove(vals[i].PeerID);
+                    SendPlayerDesynchronizationNotification(vals[i]);
                 }
             }
+
+            // to do compare if synchronizable are very closer from localGroup to swap connection
+
+
+            // ********
 
             // simply do nothin if local group (aka synchronizations with local node) is filled
             if (_localGroup.Count >= _localGroupSize)
                 return;
 
-            foreach (var peer in _synchronizablePlayerDatasBuffers)
+            if (_synchronizablePlayerDatasBuffers.Count <= 0)
+                return;
+
+            for (int i = _localGroup.Count; i < _localGroupSize; ++i)
             {
+                var next = UnityEngine.Random.Range(0, _synchronizablePlayerDatasBuffers.Count);
+                var peer = _synchronizablePlayerDatasBuffers.ElementAt(next);
+
+                //if already requesting, dont send 
+                if (_pendingRequests.Contains(peer.Key))
+                {
+                    continue;
+                }
+
                 // we keep a ref of synced player also in the syncBuffer to avoid 
                 if (_localGroup.ContainsKey(peer.Key))
                     continue;
@@ -245,6 +271,19 @@ namespace Atom.PlayerSimulation
             public int requestPing { get; set; }
         }
 
+        public struct DesyncNotificationPacket : INetworkPacket
+        {
+            public short packetTypeIdentifier { get ; set ; }
+            public long packetUniqueId { get ; set; }
+            public long senderID { get; set; }
+            public DateTime sentTime { get; set; }
+
+            public void DisposePacket()
+            {
+                //throw new NotImplementedException();
+            }
+        }
+
         public async void SendPlayerSynchronizationRequest(PlayerData target)
         {
             if (_pendingRequests.Contains(target.PeerID))
@@ -256,12 +295,10 @@ namespace Atom.PlayerSimulation
             {
                 if (responsePacket == null)
                 {
-                    Debug.Log("Pong NULL");
                     _synchronizablePlayerDatasBuffers.Remove(target.PeerID);
                 }
                 else
                 {
-                    Debug.Log("Pong");
                     if (!_localGroup.ContainsKey(target.PeerID))
                         _localGroup.Add(target.PeerID, target);
                 }
@@ -271,10 +308,36 @@ namespace Atom.PlayerSimulation
             }, 2000);
         }
 
+        public async void SendPlayerDesynchronizationNotification(PlayerData target)
+        {
+            _packetRouter.Send(target.PeerAdress, new DesyncNotificationPacket());
+        }
+
         private void OnReceiveSynchronizationRequest(SyncRequestPacket requestPacket)
         {
-            Debug.Log("Ping");
-            _packetRouter.SendResponse(requestPacket, new SyncResponsePacket());
+            if (_localGroup.Count >= _localGroupSize)
+                return;
+
+            if (_localGroup.ContainsKey(requestPacket.senderID))
+                return;
+
+            if (_synchronizablePlayerDatasBuffers.TryGetValue(requestPacket.senderID, out var playerData))
+            {
+                _localGroup.Add(requestPacket.senderID, playerData);
+                _packetRouter.SendResponse(requestPacket, new SyncResponsePacket());
+            }
+        }
+
+        private void OnReceiveDesynchronizationNotification(DesyncNotificationPacket desyncNotificationPacket)
+        {
+            if (_localGroup.ContainsKey(desyncNotificationPacket.senderID))
+            {
+                _localGroup.Remove(desyncNotificationPacket.senderID);
+            }
+            else
+            {
+                Debug.Log($"{desyncNotificationPacket.senderID} wasn't in localGroup");
+            }
         }
 
         void OnDrawGizmos()
@@ -294,6 +357,28 @@ namespace Atom.PlayerSimulation
                     continue;
 
                 Debug.DrawLine(_playerEntity.transform.position, WorldSimulationManager.nodeAddresses[peer.Value.PeerAdress].Player.transform.position);
+            }
+
+            if(Selection.activeGameObject == _playerEntity.gameObject)
+            {
+
+                foreach (var peer in _localGroup)
+                {
+                    // If the other also 'sees' this player
+                    if (WorldSimulationManager.nodeAddresses[peer.Value.PeerAdress].playerNetworkSynchronization._localGroup.ContainsKey(controller.LocalNodeId))
+                    {
+                        Gizmos.color = Color.green;
+                    }
+                    else
+                    {
+                        Gizmos.color = Color.red;
+                    }
+
+                    Gizmos.DrawSphere(WorldSimulationManager.nodeAddresses[peer.Value.PeerAdress].Player.transform.position, 1.5f);
+                }
+
+                Gizmos.color = Color.white;
+
             }
         }
     }

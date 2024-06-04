@@ -134,4 +134,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _ownerNodeEntity: {fileID: 0}
-  _areaRange: {x: 250, y: 250}
+  _areaRange: {x: 75, y: 75}

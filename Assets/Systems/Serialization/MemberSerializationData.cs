@@ -3,43 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using UnityEngine;
 
 namespace Atom.Serialization
 {
-    public static class StructTools
-    {
-        /// <summary>
-        /// converts byte[] to struct
-        /// </summary>
-        public static T RawDeserialize<T>(byte[] rawData, int position)
-        {
-            int rawsize = Marshal.SizeOf(typeof(T));
-            if (rawsize > rawData.Length - position)
-                throw new ArgumentException("Not enough data to fill struct. Array length from position: " + (rawData.Length - position) + ", Struct length: " + rawsize);
-            IntPtr buffer = Marshal.AllocHGlobal(rawsize);
-            Marshal.Copy(rawData, position, buffer, rawsize);
-            T retobj = (T)Marshal.PtrToStructure(buffer, typeof(T));
-            Marshal.FreeHGlobal(buffer);
-            return retobj;
-        }
-
-        /// <summary>
-        /// converts a struct to byte[]
-        /// </summary>
-        public static byte[] RawSerialize(object anything)
-        {
-            int rawSize = Marshal.SizeOf(anything);
-            IntPtr buffer = Marshal.AllocHGlobal(rawSize);
-            Marshal.StructureToPtr(anything, buffer, false);
-            byte[] rawDatas = new byte[rawSize];
-            Marshal.Copy(buffer, rawDatas, 0, rawSize);
-            Marshal.FreeHGlobal(buffer);
-            return rawDatas;
-        }
-    }
 
     /// <summary>
     /// Represent a field/property of a serialized type
@@ -253,7 +221,7 @@ namespace Atom.Serialization
                     _tempBytes = GenericRecursiveBinder.Serialize(obj);
                     break;
                 case AtomMemberTypes.Vector3:
-                    _tempBytes = StructTools.RawSerialize(obj); 
+                    _tempBytes = StructSerializer.RawSerialize(obj); 
                     break;
             }
 
@@ -359,7 +327,7 @@ namespace Atom.Serialization
                     return BitConverter.ToUInt16(_buffer, _oldReadIndex);
                 case AtomMemberTypes.Vector3:
                     readIndex += 12;
-                    return StructTools.RawDeserialize<Vector3>(_buffer, _oldReadIndex);
+                    return StructSerializer.RawDeserialize<Vector3>(_buffer, _oldReadIndex);
             }
 
             throw new NotImplementedException("Serializer can't read type " + AtomMemberType);

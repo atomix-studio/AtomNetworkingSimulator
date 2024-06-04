@@ -240,7 +240,7 @@ MonoBehaviour:
   _leaderLeaseDuration: 2
   _leaderUpdateSpan: 1.25
   _minimumOutgoingEdgeExpirationDelay: 1
-  _takeLeadDelay: 1.5
+  _takeLeadDelay: 3
   _graphEdges: []
   FragmentID: -1
   FragmentLevel: 0
@@ -287,6 +287,6 @@ MonoBehaviour:
   _playerEntity: {fileID: 0}
   _maxPacketPlayerDatasCount: 16
   _synchronizableRange: 32
-  _localGroupSize: 16
+  _localGroupSize: 8
   _synchronizationBufferSize: 64
   _synchronizationDelay: 0.25

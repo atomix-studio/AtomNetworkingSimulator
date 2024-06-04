@@ -17,16 +17,17 @@ namespace Atom.Serialization.Testing
             public string A;
             public long F;
             public float C;
-            public char E;
             public float B;
+            public Vector3 Vector3;
 
-            public SomeDataStruct(string a, long f, float c, char e, float b)
+            public SomeDataStruct(string a, long f, float c, float b, Vector3 vector3)
             {
                 A = a;
                 F = f;
                 C = c;
-                E = e;
                 B = b;
+
+                Vector3 = vector3;
             }
         }
 
@@ -48,6 +49,60 @@ namespace Atom.Serialization.Testing
                 E = e;
                 B = b;
             }
+        }
+
+        [Button]
+        private void TestMarshalStructSerialize(int runs = 1000)
+        {
+            var stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
+
+            var buffer = new byte[0];
+            for (int i = 0; i < runs; ++i)
+            {
+                buffer = StructSerializer.RawSerialize(new SomeDataStruct("A", 16845315752316, 10.5f, 137.3f, Vector3.one) );
+
+            }
+
+            stopwatch.Stop();
+            Debug.Log("Serialization : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
+            stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
+            stopwatch.Stop();
+
+            for (int i = 0; i < runs; ++i)
+            {
+                var result = StructSerializer.RawDeserialize<SomeDataStruct>(buffer, 0);
+
+            }
+            stopwatch.Stop();
+            Debug.Log("Deserialization : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
+        }
+
+        [Button]
+        private void IOStruct(int _runs)
+        {
+            AtomSerializer.Reset();
+            var stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
+
+            /// 100 000 ~160ms serialize  ~100ms deserialize 
+            for (int i = 0; i < _runs; ++i)
+            {
+                var bytes = AtomSerializer.SerializeGeneric(new SomeDataStruct("A", 16845315752316, 10.5f, 137.3f, Vector3.one));
+            }
+            stopwatch.Stop();
+            Debug.Log("Serialization : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
+
+            var _bytes = AtomSerializer.SerializeGeneric(new SomeDataStruct() { A = "A", B = 137.3f, C = 10.5f, F = 14646446545646 });
+            stopwatch = new System.Diagnostics.Stopwatch();
+            stopwatch.Start();
+            for (int i = 0; i < _runs; ++i)
+            {
+                var data = AtomSerializer.DeserializeGeneric(typeof(SomeDataStruct), _bytes);
+            }
+            stopwatch.Stop();
+            Debug.Log("Deserialization : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
         }
 
 
@@ -86,7 +141,6 @@ namespace Atom.Serialization.Testing
                 Debug.Log(data.ToString());
             }*/
         }
-
         [Button]
         private void IOClass(int _runs)
         {
@@ -111,12 +165,6 @@ namespace Atom.Serialization.Testing
             }
             stopwatch.Stop();
             Debug.Log("Deserialization : " + stopwatch.ElapsedTicks + "ticks / " + stopwatch.ElapsedMilliseconds + "ms");
-        }
-
-        [Button]
-        private void IOStruct()
-        {
-            var str = new SomeDataStruct("Enzo__854554egr554ge54gre54ger5g4er", 18283842182462864, 3f, 'h', .01515f);
         }
 
         [Button]
