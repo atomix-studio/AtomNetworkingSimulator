@@ -143,6 +143,13 @@ namespace Atom.PlayerSimulation
 
             for (int i = 0; i < _packet.Datas.Count; ++i)
             {
+                if (_packet.Datas[i].PeerID == _localPlayerData.PeerID)
+                {
+                    _packet.Datas.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+
                 var dist = (_packet.Datas[i].WorldPosition - _playerEntity.transform.position).magnitude;
                 // connectable now
                 if (dist < _synchronizableRange)
@@ -187,6 +194,13 @@ namespace Atom.PlayerSimulation
                 // create or update datas in the buffer
                 var found = false;
 
+                if (data.Datas[i].PeerID == controller.LocalNodeId)
+                {
+                    data.Datas.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+
                 for (int j = 0; j < _packet.Datas.Count; ++j)
                 {
                     if (_packet.Datas[j].PeerID == data.Datas[i].PeerID)
@@ -210,7 +224,9 @@ namespace Atom.PlayerSimulation
             var vals = _localGroup.Values.ToList();
             for (int i = 0; i < vals.Count; ++i)
             {
-                var dist = (vals[i].WorldPosition - _playerEntity.transform.position).magnitude;
+                //var dist = (vals[i].WorldPosition - _playerEntity.transform.position).magnitude;
+                // position should be updated very frequently when synchronized, 
+                var dist = (WorldSimulationManager.nodeAddresses[vals[i].PeerAdress].Player.transform.position - _playerEntity.transform.position).magnitude;
                 if (dist > _synchronizableRange)
                 {
                     // disconnect
@@ -246,6 +262,12 @@ namespace Atom.PlayerSimulation
                 if (_localGroup.ContainsKey(peer.Key))
                     continue;
 
+                if (peer.Key == controller.LocalNodeId)
+                {
+                    Debug.LogError("Trying to invite self");
+                    continue;
+                }
+
                 SendPlayerSynchronizationRequest(peer.Value);
             }
         }
@@ -273,8 +295,8 @@ namespace Atom.PlayerSimulation
 
         public struct DesyncNotificationPacket : INetworkPacket
         {
-            public short packetTypeIdentifier { get ; set ; }
-            public long packetUniqueId { get ; set; }
+            public short packetTypeIdentifier { get; set; }
+            public long packetUniqueId { get; set; }
             public long senderID { get; set; }
             public DateTime sentTime { get; set; }
 
@@ -319,7 +341,15 @@ namespace Atom.PlayerSimulation
                 return;
 
             if (_localGroup.ContainsKey(requestPacket.senderID))
+            {
+                Debug.Log("Already in local group " + requestPacket.senderID + " from " + controller.LocalNodeId);
                 return;
+            }
+
+            if (_pendingRequests.Contains(requestPacket.senderID))
+            {
+                Debug.Log("Has pended request with " + requestPacket.senderID);
+            }
 
             if (_synchronizablePlayerDatasBuffers.TryGetValue(requestPacket.senderID, out var playerData))
             {
@@ -356,10 +386,15 @@ namespace Atom.PlayerSimulation
                 if (WorldSimulationManager.nodeAddresses[peer.Value.PeerAdress].Player == null)
                     continue;
 
-                Debug.DrawLine(_playerEntity.transform.position, WorldSimulationManager.nodeAddresses[peer.Value.PeerAdress].Player.transform.position);
+                var dist = (_playerEntity.transform.position - WorldSimulationManager.nodeAddresses[peer.Value.PeerAdress].Player.transform.position).magnitude;
+                if (dist > _synchronizableRange - 4)
+                    Debug.DrawLine(_playerEntity.transform.position, WorldSimulationManager.nodeAddresses[peer.Value.PeerAdress].Player.transform.position, Color.red);
+                else
+                    Debug.DrawLine(_playerEntity.transform.position, WorldSimulationManager.nodeAddresses[peer.Value.PeerAdress].Player.transform.position, Color.white);
+
             }
 
-            if(Selection.activeGameObject == _playerEntity.gameObject)
+            if (Selection.activeGameObject == _playerEntity.gameObject)
             {
 
                 foreach (var peer in _localGroup)

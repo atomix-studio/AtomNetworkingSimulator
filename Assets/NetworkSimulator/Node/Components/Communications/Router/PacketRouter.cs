@@ -165,10 +165,10 @@ namespace Atom.CommunicationSystem
 
             _packetIdentifiers.Add(packetType, packetIdentifier);
 
-            if (packetType is IRespondable)
+            /*if (packetType is IRespondable)
             {
 
-            }
+            }*/
         }
 
         /// <summary>
@@ -178,7 +178,7 @@ namespace Atom.CommunicationSystem
         /// <param name="networkPacket"></param>
         public void Send<T>(string targetAddress, T networkPacket) where T : INetworkPacket
         {
-            onBeforeSendInternal(networkPacket);
+            networkPacket = (T)onBeforeSendInternal(networkPacket);
             transportLayer.Send(targetAddress, networkPacket);
         }
 
@@ -189,6 +189,10 @@ namespace Atom.CommunicationSystem
         /// <param name="networkPacket"></param>
         public void SendResponse(IRespondable callingPacket, IResponse response)
         {
+            //response.packet = (INetworkPacket)onBeforeSendInternal(response.packet);
+
+            // TODO RESPONSE GET SET
+
             onBeforeSendInternal(response.packet);
             response.callerPacketUniqueId = callingPacket.packet.packetUniqueId;
             transportLayer.Send(callingPacket.senderAdress, response.packet);
@@ -203,7 +207,7 @@ namespace Atom.CommunicationSystem
         /// <summary>      
         public void SendRequest(string targetAddress, INetworkPacket networkPacket, Action<INetworkPacket> responseCallback, int timeout_ms = 2000)
         {
-            onBeforeSendInternal(networkPacket);
+            networkPacket = onBeforeSendInternal(networkPacket);
             _packetResponseAwaitersBuffer.Add(networkPacket.packetUniqueId, new INetworkPacketResponseAwaiter(DateTime.Now, DateTime.Now.AddMilliseconds(timeout_ms), responseCallback));
             transportLayer.Send(targetAddress, networkPacket);
         }
@@ -217,7 +221,7 @@ namespace Atom.CommunicationSystem
         /// <summary>      
         public void SendRequest<T>(string targetAddress, INetworkPacket networkPacket, Action<T> responseCallback, int timeout_ms = 2000) where T : INetworkPacket
         {
-            onBeforeSendInternal(networkPacket);
+            networkPacket = onBeforeSendInternal(networkPacket);
             _packetResponseAwaitersBuffer.Add(networkPacket.packetUniqueId, new INetworkPacketResponseAwaiter(DateTime.Now, DateTime.Now.AddMilliseconds(timeout_ms),
                 (resp) =>
                 {
@@ -227,7 +231,7 @@ namespace Atom.CommunicationSystem
             transportLayer.Send(targetAddress, networkPacket);
         }
 
-        private void onBeforeSendInternal(INetworkPacket networkPacket)
+        private INetworkPacket onBeforeSendInternal(INetworkPacket networkPacket)
         {
             networkPacket.packetUniqueId = packetIdGenerator;
             networkPacket.packetTypeIdentifier = _packetIdentifiers[networkPacket.GetType()];
@@ -246,6 +250,8 @@ namespace Atom.CommunicationSystem
                  brdcst.broadcasterID = networkHandling.LocalPeerInfo.peerAdress;
                  brdcst.broadcastID = Guid.NewGuid().ToString();
              }*/
+
+            return networkPacket;
         }
 
         private async void onReceivePacket(INetworkPacket networkPacket)
