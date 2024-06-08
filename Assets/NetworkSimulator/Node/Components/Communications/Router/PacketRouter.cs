@@ -3,6 +3,7 @@ using Atom.Transport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Atom.CommunicationSystem
@@ -229,6 +230,26 @@ namespace Atom.CommunicationSystem
                 }));
 
             transportLayer.Send(targetAddress, networkPacket);
+        }
+
+        public async Task<T> SendRequestAsync<T>(string targetAddress, INetworkPacket networkPacket, int timeout_ms = 2000) where T : INetworkPacket
+        {
+            var tcs = new TaskCompletionSource<T>(TaskContinuationOptions.RunContinuationsAsynchronously);
+
+            try
+            {
+                SendRequest(targetAddress, networkPacket, (response) =>
+                {
+                    tcs.SetResult((T)response);
+                }, timeout_ms);
+            }
+            catch (Exception ex)
+            {
+                tcs.SetException(ex);
+            }
+           
+
+            return await tcs.Task;
         }
 
         private INetworkPacket onBeforeSendInternal(INetworkPacket networkPacket)

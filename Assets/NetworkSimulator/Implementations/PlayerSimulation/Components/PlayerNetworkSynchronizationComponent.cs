@@ -6,6 +6,7 @@ using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
@@ -32,7 +33,12 @@ namespace Atom.PlayerSimulation
         [SerializeField] private int _synchronizableRange = 16;
 
         /// <summary>
-        /// 
+        /// Mode where grouping is made with consensus, by opposition to streamed mode 
+        /// </summary>
+        [SerializeField] private bool _useGroupSynchronization = true;
+
+        /// <summary>
+        /// Max number of synchronizations
         /// </summary>
         [SerializeField] private int _localGroupSize = 16;
 
@@ -70,6 +76,11 @@ namespace Atom.PlayerSimulation
             _packetRouter.RegisterPacketHandler<SyncRequestPacket>(OnReceiveSynchronizationRequest);
             _packetRouter.RegisterPacketHandler<SyncResponsePacket>(null);
             _packetRouter.RegisterPacketHandler<DesyncNotificationPacket>(OnReceiveDesynchronizationNotification);
+
+            _packetRouter.RegisterPacketHandler<GroupJoinRequest>(OnReceiveGroupJoinRequest);
+            _packetRouter.RegisterPacketHandler<GroupJoinResponse>(OnReceiveGroupJoinResponse);
+            _packetRouter.RegisterPacketHandler<HandshakeRequest>(OnReceiveHandshakeRequest);
+            _packetRouter.RegisterPacketHandler<HandshakeResponse>(null);
         }
 
         void Start()
@@ -100,6 +111,7 @@ namespace Atom.PlayerSimulation
                 Destroy(_playerEntity.gameObject);
         }
 
+        #region Gossiping about player datas
         public void OnUpdate()
         {
             if (_playerEntity == null)
@@ -127,7 +139,7 @@ namespace Atom.PlayerSimulation
                     _packet.Datas.Add(_localPlayerData);
 
                 // the _packet variable holds the previously received datas (filtered/randomly picked and with a max count of 10)
-                _gossipComponent.BufferAdd(new PlayerInfoPacket(_packet.Datas));
+                _gossipComponent.BufferAdd(new PlayerInfoPacket(new List<PlayerData>(_packet.Datas)));
             }
             else
             {
@@ -218,7 +230,317 @@ namespace Atom.PlayerSimulation
             }
         }
 
+        #endregion
+
+
         private void UpdateSynchronization()
+        {
+            if (_useGroupSynchronization)
+            {
+                GroupedSynchronizationUpdate();
+            }
+            else
+            {
+                StreamedSynchronizationUpdate();
+            }
+        }
+
+        #region Grouped Synchronization
+
+        [SerializeField, ReadOnly] private bool _isGroupMaster;
+
+        private void GroupedSynchronizationUpdate()
+        {
+            if (_synchronizablePlayerDatasBuffers.Count == 0)
+                return;
+
+            if (_localGroup.Count == 0)
+            {
+                if (_isGroupMaster)
+                    _isGroupMaster = false;
+
+                var next = UnityEngine.Random.Range(0, _synchronizablePlayerDatasBuffers.Count);
+                var peer = _synchronizablePlayerDatasBuffers.ElementAt(next);
+
+                // sending group join request randomly each gossip cycle until group is found
+                SendGroupJoinRequest(peer.Value);
+            }
+            else
+            {
+                if (_isGroupMaster)
+                {
+                    if (_localGroup.Count < _localGroupSize)
+                    {
+                        var next = UnityEngine.Random.Range(0, _synchronizablePlayerDatasBuffers.Count);
+                        var peer = _synchronizablePlayerDatasBuffers.ElementAt(next);
+
+                        // sending group join request randomly each gossip cycle until group is found
+                        SendGroupJoinRequest(peer.Value);
+
+                    }
+                }
+            }
+        }
+
+        public void SendGroupJoinRequest(PlayerData target)
+        {
+            if (_pendingRequests.Contains(target.PeerID))
+                return;
+
+            _pendingRequests.Add(target.PeerID);
+
+            _packetRouter.Send(target.PeerAdress, new GroupJoinRequest() { senderAdress = controller.LocalNodeAdress, senderID = controller.LocalNodeId, RequesterData = _localPlayerData });
+        }
+
+        private void OnReceiveGroupJoinRequest(GroupJoinRequest request)
+        {
+            if (_isGroupMaster)
+            {
+                if (_localGroup.Count > _localGroupSize)
+                    return;
+
+                if (_localGroup.ContainsKey(request.senderID))
+                {
+                    Debug.Log("Already in local group " + request.senderID + " from " + controller.LocalNodeId);
+                    return;
+                }
+
+                // requester was already known as a potential connection by master
+                if (_synchronizablePlayerDatasBuffers.TryGetValue(request.senderID, out var playerData))
+                {
+                    // master willl add to local Group whith the requester handshake like other group members
+                    _packetRouter.Send(request.senderAdress, new GroupJoinResponse() { ResponderData = _localPlayerData, senderID = controller.LocalNodeId, GroupDatas = _localGroup.Values.ToArray(), GroupJoinResponseMode = GroupJoinResponse.GroupJoinResponseModes.JoinExisting });
+
+                    _localGroup.Add(request.senderID, request.RequesterData);
+                }
+                // requester was unknown, we distance check him 
+                else
+                {
+                    var dist = (request.RequesterData.WorldPosition - _playerEntity.transform.position).magnitude;
+                    if (dist < _synchronizableRange)
+                    {
+                        // master willl add to local Group whith the requester handshake like other group members
+                        _packetRouter.Send(request.senderAdress, new GroupJoinResponse() { ResponderData = _localPlayerData, senderID = controller.LocalNodeId, GroupDatas = _localGroup.Values.ToArray(), GroupJoinResponseMode = GroupJoinResponse.GroupJoinResponseModes.JoinExisting });
+
+                        _localGroup.Add(request.senderID, request.RequesterData);
+                    }
+                }
+
+            }
+            else
+            {
+                if (_localGroup.Count > 0)
+                {
+                    if (_localGroup.Count >= _localGroupSize)
+                        return;
+
+
+                    if (_localGroup.ContainsKey(request.senderID))
+                    {
+                        Debug.Log("Already in local group " + request.senderID + " from " + controller.LocalNodeId);
+                        return;
+                    }
+
+                    // relaying to master 
+                    // master is always group member 0
+                    _packetRouter.Send(_localGroup[0].PeerAdress, request);
+
+                }
+                // case player doesn't have local group
+                else
+                {
+                    if (_localGroup.Count >= _localGroupSize)
+                        return;
+
+                    if (_localGroup.ContainsKey(request.senderID))
+                    {
+                        Debug.Log("Already in local group " + request.senderID + " from " + controller.LocalNodeId);
+                        return;
+                    }
+
+                    if (_pendingRequests.Contains(request.senderID))
+                    {
+                        Debug.Log("Has pended request with " + request.senderID);
+                    }
+
+                    // requester was already known as a potential connection by master
+                    if (_synchronizablePlayerDatasBuffers.TryGetValue(request.senderID, out var playerData))
+                    {
+                        _localGroup.Add(request.senderID, request.RequesterData);
+                        _isGroupMaster = true;
+                        _packetRouter.Send(request.senderAdress, new GroupJoinResponse() { ResponderData = _localPlayerData, senderID = controller.LocalNodeId, GroupJoinResponseMode = GroupJoinResponse.GroupJoinResponseModes.CreateNew });
+                    }
+                    else
+                    {
+                        var dist = (request.RequesterData.WorldPosition - _playerEntity.transform.position).magnitude;
+                        if (dist < _synchronizableRange)
+                        {
+                            _isGroupMaster = true;
+
+                            _localGroup.Add(request.senderID, request.RequesterData);
+                            _packetRouter.Send(request.senderAdress, new GroupJoinResponse() { ResponderData = _localPlayerData, senderID = controller.LocalNodeId, GroupJoinResponseMode = GroupJoinResponse.GroupJoinResponseModes.CreateNew });
+                        }
+                    }
+                }
+            }
+        }
+
+        private async void OnReceiveGroupJoinResponse(GroupJoinResponse responsePacket)
+        {
+            if (responsePacket.senderID == 0)
+            {
+                _synchronizablePlayerDatasBuffers.Remove(responsePacket.ResponderData.PeerID);
+            }
+            else
+            {
+                if (_localGroup.Count > 0)
+                    return;
+
+                switch (responsePacket.GroupJoinResponseMode)
+                {
+                    case GroupJoinResponse.GroupJoinResponseModes.JoinExisting:
+                        _isGroupMaster = false;
+                        Task<HandshakeResponse>[] handshake = new Task<HandshakeResponse>[responsePacket.GroupDatas.Length + 1];
+                        int index = 1;
+
+                        // groupData represent the group master localGroup collection so it doesn't contains a reference to the master itself
+                        _localGroup.Add(responsePacket.ResponderData.PeerID, responsePacket.ResponderData);
+
+                        handshake[0] = HandshakeWithGroupMember(responsePacket.ResponderData);
+                        foreach (var data in responsePacket.GroupDatas)
+                        {
+                            _localGroup.Add(data.PeerID, data);
+                            handshake[index] = HandshakeWithGroupMember(data);
+                            index++;
+                        }
+
+                        var responses = await Task.WhenAll(handshake);
+                        for (int i = 0; i < responses.Length; ++i)
+                        {
+                            if (responses[i].packetUniqueId == 0)
+                                Debug.LogError("Handshake failed");
+                        }
+                        //
+                        break;
+                    case GroupJoinResponse.GroupJoinResponseModes.CreateNew:
+                        _localGroup.Add(responsePacket.ResponderData.PeerID, responsePacket.ResponderData);
+                        var resp = await HandshakeWithGroupMember(responsePacket.ResponderData);
+                        break;
+                }
+            }
+
+            _pendingRequests.Remove(responsePacket.ResponderData.PeerID);
+        }
+
+        public struct GroupJoinRequest : INetworkPacket
+        {
+            public short packetTypeIdentifier { get; set; }
+            public long packetUniqueId { get; set; }
+            public long senderID { get; set; }
+            public DateTime sentTime { get; set; }
+
+            public string senderAdress { get; set; }
+
+            public PlayerData RequesterData { get; set; }
+
+            public void DisposePacket()
+            {
+            }
+
+        }
+
+        public struct GroupJoinResponse : INetworkPacket
+        {
+            public short packetTypeIdentifier { get; set; }
+            public long packetUniqueId { get; set; }
+            public long senderID { get; set; }
+            public DateTime sentTime { get; set; }
+
+            public enum GroupJoinResponseModes
+            {
+                JoinExisting = 0,
+                CreateNew = 1,
+            }
+
+            public GroupJoinResponseModes GroupJoinResponseMode { get; set; }
+
+            public PlayerData ResponderData { get; set; }
+            public PlayerData[] GroupDatas { get; set; }
+
+            public void DisposePacket()
+            {
+
+            }
+        }
+
+        public class HandshakeRequest : INetworkPacket, IRespondable
+        {
+            public short packetTypeIdentifier { get; set; }
+            public long packetUniqueId { get; set; }
+            public long senderID { get; set; }
+            public DateTime sentTime { get; set; }
+
+            public string senderAdress { get; set; }
+
+            public INetworkPacket packet => this;
+
+            public PlayerData PlayerData { get; set; }
+
+            public void DisposePacket()
+            {
+            }
+
+            public IResponse GetResponsePacket(IRespondable answerPacket)
+            {
+                return new HandshakeResponse();
+            }
+        }
+
+        public class HandshakeResponse : INetworkPacket, IResponse
+        {
+            public short packetTypeIdentifier { get; set; }
+            public long packetUniqueId { get; set; }
+            public long senderID { get; set; }
+            public DateTime sentTime { get; set; }
+
+            public long callerPacketUniqueId { get; set; }
+
+            public INetworkPacket packet => this;
+
+            public int requestPing { get; set; }
+
+            public void DisposePacket()
+            {
+            }
+        }
+
+        /// <summary>
+        /// New comer handshake with members of the group he is joining
+        /// </summary>
+        /// <param name="playerData"></param>
+        /// <returns></returns>
+        private async Task<HandshakeResponse> HandshakeWithGroupMember(PlayerData playerData)
+        {
+            var result = await _packetRouter.SendRequestAsync<HandshakeResponse>(playerData.PeerAdress, new HandshakeRequest() { PlayerData = _localPlayerData });
+            return result;
+        }
+
+        /// <summary>
+        /// Group members receive a new comer's handshake
+        /// </summary>
+        /// <param name="handshakeRequest"></param>
+        private void OnReceiveHandshakeRequest(HandshakeRequest handshakeRequest)
+        {
+            if (!_localGroup.ContainsKey(handshakeRequest.PlayerData.PeerID))
+                _localGroup.Add(handshakeRequest.PlayerData.PeerID, handshakeRequest.PlayerData);
+
+            _packetRouter.SendResponse(handshakeRequest, new HandshakeResponse());
+        }
+
+        #endregion
+
+        #region Streamed Sync request
+        private void StreamedSynchronizationUpdate()
         {
             // ugly allocatiion, to refact
             var vals = _localGroup.Values.ToList();
@@ -370,10 +692,19 @@ namespace Atom.PlayerSimulation
             }
         }
 
+        #endregion
+
         void OnDrawGizmos()
         {
             if (_synchronizablePlayerDatasBuffers == null)
                 return;
+
+            if (_isGroupMaster)
+            {
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawSphere(controller.Player.transform.position + Vector3.up * 1.25f, 1f);
+
+            }
 
             foreach (var peer in _localGroup)
             {
