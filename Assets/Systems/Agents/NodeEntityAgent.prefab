@@ -22,6 +22,7 @@ GameObject:
   - component: {fileID: 6776344880569498796}
   - component: {fileID: 602485854339787189}
   - component: {fileID: -5243297547924693675}
+  - component: {fileID: -29674215270887382}
   m_Layer: 0
   m_Name: NodeEntityAgent
   m_TagString: Untagged
@@ -36,13 +37,13 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5533586626479675272}
+  serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 41.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &5533586626479675316
 MonoBehaviour:
@@ -62,7 +63,7 @@ MonoBehaviour:
   _preferedGroupSize: 2
   _delayBetweenGroupFindingRequest: 10
   _pingSimulatorStability: 1
-  _networkViewsTargetCount: 9
+  _networkViewsTargetCount: 5
   IsConnectedAndReady: 0
   IsInGroup: 0
   IsSleeping: 0
@@ -146,6 +147,9 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -277,7 +281,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5533586626479675272}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 33ca622c4587c2546bcd664e4131f664, type: 3}
   m_Name: 
@@ -287,6 +291,23 @@ MonoBehaviour:
   _playerEntity: {fileID: 0}
   _maxPacketPlayerDatasCount: 16
   _synchronizableRange: 32
+  _useGroupSynchronization: 1
   _localGroupSize: 8
   _synchronizationBufferSize: 64
   _synchronizationDelay: 0.25
+  _isGroupMaster: 0
+--- !u!114 &-29674215270887382
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5533586626479675272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7529d87b1419e2499079f1953081961, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _wide: 12
+  _groupCount: 3
+  _roundTimeout: 500
