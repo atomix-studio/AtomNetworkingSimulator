@@ -269,6 +269,8 @@ namespace Atom.Broadcasting
             for (int i = 0; i < calls_count; ++i)
             {
                 var index = BroadcastingHelpers.GetRandomConnectionIndexForBroadcast(_networkHandling.Connections, broadcastable.broadcasterID, broadcastable.senderID, calls_count * 2);
+                if (index == -1)
+                    continue;
 
                 // create a new packet from the received and forwards it to the router
                 var relayedPacket = broadcastable.ClonePacket(broadcastable);

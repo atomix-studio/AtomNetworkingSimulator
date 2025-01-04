@@ -73,6 +73,8 @@ namespace Atom.Broadcasting.SelectiveForwarding
             while (true)
             {
                 int nextIndex = BroadcastingHelpers.GetRandomConnectionIndexForBroadcast(_networkHandling.Connections, singlecast.casterID, singlecast.senderID, 6);
+                if (nextIndex == -1)
+                    break;
 
                 var success = await ForwardSinglecastAsync(_networkHandling.Connections.ElementAt(nextIndex).Value.peerAdress, new SinglecastPacket(singlecast.casterAdress, singlecast.casterID, singlecast.targetID, singlecast.cycles));
 

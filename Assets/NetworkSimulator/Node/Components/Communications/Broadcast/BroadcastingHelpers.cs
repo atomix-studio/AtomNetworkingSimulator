@@ -20,7 +20,7 @@ namespace Atom.Broadcasting
                 count_break++;
 
                 if (count_break > breakCondition)
-                    break;
+                    return -1;
             }
 
             // there is a probability that a node receive a broadcast from its callers that has been issued by a node contained in the callers view
