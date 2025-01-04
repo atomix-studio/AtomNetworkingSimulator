@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Atom.Components.HierarchicalTree
 {
-    public class RankedConnectionSearchBroadcastPacket : AbstractNetworkPacket, IBroadcastablePacket
+    public class ParentResearchBroadcastPacket : AbstractNetworkPacket, IBroadcastablePacket
     {
         public long broadcasterID { get; set; }
         public long broadcastID { get; set; }
@@ -16,9 +16,9 @@ namespace Atom.Components.HierarchicalTree
         public string senderAddress { get; set; }
         public int senderRound { get; set; }
 
-        public RankedConnectionSearchBroadcastPacket() { }
+        public ParentResearchBroadcastPacket() { }
 
-        public RankedConnectionSearchBroadcastPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID, string senderAddress, int senderRank, int senderRound, int relayCount)
+        public ParentResearchBroadcastPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID, string senderAddress, int senderRank, int senderRound, int relayCount)
         {
             this.packetTypeIdentifier = packetIdentifier;
             this.senderID = senderID;
@@ -31,7 +31,7 @@ namespace Atom.Components.HierarchicalTree
             this.relayCount = relayCount;
         }
 
-        public RankedConnectionSearchBroadcastPacket(RankedConnectionSearchBroadcastPacket subscriptionPacket) :
+        public ParentResearchBroadcastPacket(ParentResearchBroadcastPacket subscriptionPacket) :
             this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.senderAddress, subscriptionPacket.senderRank, subscriptionPacket.senderRound, subscriptionPacket.relayCount)
         {
 
@@ -39,7 +39,7 @@ namespace Atom.Components.HierarchicalTree
 
         public INetworkPacket ClonePacket(INetworkPacket received)
         {
-            return new RankedConnectionSearchBroadcastPacket(received as RankedConnectionSearchBroadcastPacket);
+            return new ParentResearchBroadcastPacket(received as ParentResearchBroadcastPacket);
         }
     }
 

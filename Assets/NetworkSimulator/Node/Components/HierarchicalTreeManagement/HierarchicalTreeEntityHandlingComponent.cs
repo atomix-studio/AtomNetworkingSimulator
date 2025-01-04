@@ -20,7 +20,7 @@ namespace Atom.Components.HierarchicalTree
         [Inject] private NetworkConnectionsComponent _connectingComponent;
 
         [SerializeField] private int _wide = 3;
-        [SerializeField] private int _groupCount = 3;
+        [SerializeField] private int _childrenCount = 3;
 
         /// <summary>
         /// timeout of a request round, in milliseconds
@@ -32,56 +32,52 @@ namespace Atom.Components.HierarchicalTree
 
         public NodeEntity controller { get; set; }
 
-        [ShowInInspector, ReadOnly] private List<RankedClusterData> _rankedClusters = new List<RankedClusterData>();
+        [ShowInInspector, ReadOnly] private PeerInfo _parent;
+        [ShowInInspector, ReadOnly] private List<PeerInfo> _children = new List<PeerInfo>();
 
         private float _delayTimer = 0f;
+        private Vector3 _initialPosition;
 
-        [Serializable]
-        public class RankedClusterData
-        {
-            public int Rank;
+        /* [Serializable]
+         public class RankedClusterData
+         {
+             public int Rank;
 
-            [SerializeField] private List<PeerInfo> _connectionsDebug = new List<PeerInfo>();
-            private Dictionary<long, PeerInfo> _connections = new Dictionary<long, PeerInfo>();
+             [SerializeField] private List<PeerInfo> _connectionsDebug = new List<PeerInfo>();
+             private Dictionary<long, PeerInfo> _connections = new Dictionary<long, PeerInfo>();
 
-            public Dictionary<long, PeerInfo> Connections
-            {
-                get
-                {
-                    return _connections;
-                }                
-            }
+             public Dictionary<long, PeerInfo> Connections
+             {
+                 get
+                 {
+                     return _connections;
+                 }                
+             }
 
-            public void AddConnection(PeerInfo peerInfo)
-            {
-                _connections.Add(peerInfo.peerID, peerInfo);
-                _connectionsDebug.Add(peerInfo);
-            }
-        }
+             public void AddConnection(PeerInfo peerInfo)
+             {
+                 _connections.Add(peerInfo.peerID, peerInfo);
+                 _connectionsDebug.Add(peerInfo);
+             }
+         }*/
+
 
         public async void OnInitialize()
         {
-            //
-            for (int i = 0; i < _wide; i++)
-            {
-                _rankedClusters.Add(new RankedClusterData() { Rank = i });
-            }
-
             if (NodeRandom.Range(0, 100) > 90)
             {
-                transform.position += Vector3.up * 3;
-                _rank = 1;
+                SetRank(1);
             }
 
-            _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(RankedConnectionSearchBroadcastPacket), (onreceived) =>
+            _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(ParentResearchBroadcastPacket), (onreceived) =>
             {
-                var broadcastable = onreceived as RankedConnectionSearchBroadcastPacket;
+                var broadcastable = onreceived as ParentResearchBroadcastPacket;
 
-                if (broadcastable.senderRank == _rank  && broadcastable.relayCount == _rank)
+                if (broadcastable.senderRank < _rank  /* && broadcastable.relayCount == _rank*/)
                 {
                     // accepting a connection of same rank if rank is missing
-                    if (_rankedClusters[_rank].Connections.Count < _groupCount
-                    && !HasAnyConnectionTo(broadcastable.senderID))
+                    if (_children.Count < _childrenCount
+                    && !IsChildren(broadcastable.senderID))
                     {
                         // responding to the potential conneciton by a connection request from the receiver
                         // we set the round of the broadcast sender in the request
@@ -91,22 +87,23 @@ namespace Atom.Components.HierarchicalTree
                             if (response == null)
                                 return;
 
-                            _rankedClusters[_rank].AddConnection(new PeerInfo(response.senderID, broadcastable.senderAddress));
+                            _children.Add(new PeerInfo(response.senderID, broadcastable.senderAddress));
                         });
                     }
                 }
-                else 
+                else
                 {
                     // check if has any connection with this higher rank and if the higher rank is within the wide (+ 1 or -1)
 
                     // relaying the broadcast to other known peers 
-                    var cloned = (RankedConnectionSearchBroadcastPacket)broadcastable.ClonePacket(broadcastable);
+                    var cloned = (ParentResearchBroadcastPacket)broadcastable.ClonePacket(broadcastable);
                     cloned.relayCount++;
 
                     _broadcaster.RelayBroadcast(cloned);
                 }
             });
 
+            // connecting requests are send by potential parent when they receive a broadcast from a node with lower rank
             _packetRouter.RegisterPacketHandler(typeof(RankedConnectingRequestPacket), (packet) =>
             {
                 var respondable = (packet as RankedConnectingRequestPacket);
@@ -117,25 +114,118 @@ namespace Atom.Components.HierarchicalTree
                 if (respondable.senderRound != _currentRound)
                     return;
 
-                if (_rankedClusters[respondable.senderRank ].Connections.Count < _groupCount 
-                && !HasAnyConnectionTo(respondable.senderID))
+                // if parent already found
+                if (_parent != null)
+                    return;
+
+                if (IsChildren(respondable.senderID))
+                    return;
+
+                _parent = new PeerInfo(respondable.senderID, respondable.senderAdress);
+
+                // accept
+                _packetRouter.SendResponse(respondable, response);
+
+                var diff = respondable.senderRank - _rank;
+                Debug.Log("Rank difference > " + diff);
+
+                // if parent-children rank diff is more than 1, the parent will downgrad his subgraph OR the children will upgrad the subgraph depending on 
+                // 
+                if (diff > 1)
                 {
-                    _rankedClusters[respondable.senderRank].AddConnection(new PeerInfo(respondable.senderID, respondable.senderAdress));
-                    _packetRouter.SendResponse(respondable, response);
+                    _rank = respondable.senderRank - 1;
+                    SendTreecast(new UpdateRankPacket() { newRank = respondable.senderRank - 2 });
                 }
             });
 
             _packetRouter.RegisterPacketHandler(typeof(RankedConnectionResponsePacket), null);
 
+            RegisterTreecastPacketHandler<UpdateRankPacket>((updateRankPacket) =>
+            {
+                var upp = (updateRankPacket as UpdateRankPacket);
+                SetRank(upp.newRank);
+
+                // rank decrease as we descend through children nodes
+                upp.newRank--;
+            });
+
             await Task.Delay(3000);
+
+            _initialPosition = transform.position;
 
             UpdateTask();
         }
 
-        public bool HasAnyConnectionTo(long id)
+        private void SetRank(int rank)
         {
-            foreach (var group in _rankedClusters)
-                if (group.Connections.ContainsKey(id))
+            _rank = rank;
+            transform.position = _initialPosition +  Vector3.up * 3 * _rank;
+        }
+
+        public void RegisterTreecastPacketHandler<T>(Action<INetworkPacket> packetReceiveHandler) where T : ITreecastablePacket
+        {
+            _packetRouter.RegisterPacketHandler(typeof(T), (receivedPacket) =>
+            {
+                if (receivedPacket is ITreecastablePacket == false)
+                    return;
+
+                packetReceiveHandler?.Invoke(receivedPacket);
+
+                // the router checks for packet that are IBroadcastable and ensure they haven't been too much relayed
+                // if the packet as reached is maximum broadcast cycles on the node and the router receives it one more time
+                if (receivedPacket is IUpcastablePacket upcastablePacket)
+                {
+                    // packet stop here
+                    if (_parent == null)
+                        return;
+
+                    var relayedPacket = upcastablePacket.ClonePacket(upcastablePacket);
+                    _packetRouter.Send(_parent.peerAdress, relayedPacket);
+                }
+                else if (receivedPacket is IDowncastablePacket downcastablePacket)
+                {
+                    for (int i = 0; i < _children.Count; i++)
+                    {
+                        var relayedPacket = downcastablePacket.ClonePacket(downcastablePacket);
+                        _packetRouter.Send(_children[i].peerAdress, relayedPacket);
+                    }
+                }
+            },
+            true);
+        }
+
+        public void SendTreecast(ITreecastablePacket treecastablePacket)
+        {
+            // the work is now done by the packet router as it is the solo entry point for transport layer 
+            // it is more secure to handle ids down that system cause if they aare unset for some reason,
+            // it will screw up their ability to be received as they will be blocked by the broadcaster middleware of the receiver
+            // (if two or 3 broadcastable packet arrives with a string.Empty id, all other broadcasts with string.Empty id will be ignored as well
+
+            treecastablePacket.broadcasterID = controller.LocalNodeId;
+            treecastablePacket.broadcastID = NodeRandom.UniqueID();// Guid.NewGuid().ToString();
+
+            if (treecastablePacket is IUpcastablePacket)
+            {
+                _packetRouter.Send(_parent.peerAdress, treecastablePacket);
+            }
+            else if (treecastablePacket is IDowncastablePacket)
+            {
+                INetworkPacket current = treecastablePacket;
+
+                for (int i = 0; i < _children.Count; ++i)
+                {
+                    _packetRouter.Send(_children[i].peerAdress, current);
+                    current = treecastablePacket.ClonePacket(current);
+
+                }
+            }
+            else throw new Exception("Packe ttype not handled");
+        }
+
+        public bool IsChildren(long id)
+        {
+            foreach (var group in _children)
+                if (group.peerID == id)
                     return true;
 
             return false;
@@ -161,60 +251,50 @@ namespace Atom.Components.HierarchicalTree
         }
 
         private async Task UpdateRankedClusters()
-        {          
-
-            bool needs_connections = NeedConnections();
-
-            if (!needs_connections)
-                return;
-/*
-            // if node is higher that rank = 1 => can seek for higher parent if and only if node has any children
-            if (_rank > 1 && _rankedClusters[_rank - 1].Connections.Count == 0)
-                return;*/
-
-            var packet = new RankedConnectionSearchBroadcastPacket();
-            packet.senderAddress = controller.LocalNodeAdress;
-            packet.senderRank = _rank;
-            packet.senderRound = _currentRound;
-
-            _broadcaster.SendBroadcast(packet);
-
-            // waiting a timeout of the request
-            await Task.Delay(_roundTimeout);
-
-            // if not finding any connection before the timeout
-            // ranking the node up
-            // remind that nodes can only connect with node from the same group, and the rank is equal to the fanout distance of the broadcast (which should indicate a distance from the sender in a well constructed gossip network)
-            if (NeedConnections())
-            {
-                if (_rank > 1 && _rankedClusters[_rank - 1].Connections.Count == 0)
-                    return;
-
-                if (NodeRandom.Range(0, 100) > 90)
-                {
-                    transform.position += Vector3.up * 3;
-                    _rank++;
-                    Debug.Log($"Ranking {controller.LocalNodeId} up to rank {_rank}");
-                }                
-            }
-        }
-
-        private bool NeedConnections()
         {
-            /*var needs_connections = false;
-
-            foreach (var group in _rankedClusters)
+            if (_parent == null)
             {
-                if (group.Value.Connections.Count != _groupCount)
+                var packet = new ParentResearchBroadcastPacket();
+                packet.senderAddress = controller.LocalNodeAdress;
+                packet.senderRank = _rank;
+                packet.senderRound = _currentRound;
+
+                _broadcaster.SendBroadcast(packet);
+
+                // waiting a timeout of the request
+                await Task.Delay(_roundTimeout);
+
+                // prevent after timeout handling of messages
+                _currentRound++;
+
+                // if not finding any connection before the timeout
+                // ranking the node up
+                // remind that nodes can only connect with node from the same group, and the rank is equal to the fanout distance of the broadcast (which should indicate a distance from the sender in a well constructed gossip network)
+                if (_parent == null)
                 {
-                    needs_connections = true;
-                    break;
+                    // move random up or down all te subgraph to be avalaible to other children
+                    if (NodeRandom.Range(0, 100) > 49)
+                    {
+                        SetRank(_rank + 1);
+
+                        Debug.Log($"Ranking {controller.LocalNodeId} up to rank {_rank}");
+                    }
+                    else
+                    {
+                        SetRank(_rank - 1);
+
+                        Debug.Log($"Ranking {controller.LocalNodeId} down to rank {_rank}");
+                    }
+
+                    // tree cast to subgraph to modify the ranks
+
+                    SendTreecast(new UpdateRankPacket() { newRank = _rank - 1 });
                 }
             }
+            else
+            {
 
-            return needs_connections;*/
-
-            return _rankedClusters[_rank].Connections.Count < _groupCount;
+            }
         }
 
         public void UpCast()
@@ -227,18 +307,14 @@ namespace Atom.Components.HierarchicalTree
 
         }
 
-
         private void OnDrawGizmos()
         {
-            foreach (var group in _rankedClusters)
+            foreach (var child in _children)
             {
-                foreach (var connections in group.Connections)
-                {
-                    var from = WorldSimulationManager.nodeAddresses[connections.Value.peerAdress].transform.position;
-                    var to = transform.position;
+                var from = WorldSimulationManager.nodeAddresses[child.peerAdress].transform.position;
+                var to = transform.position;
 
-                    Gizmos.DrawLine(from, to);
-                }
+                Gizmos.DrawLine(from, to);
             }
         }
     }
