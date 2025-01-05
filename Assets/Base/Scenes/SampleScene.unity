@@ -348,8 +348,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalRotation: {x: 0.19890317, y: 0.5001618, z: -0.12540106, w: 0.8333968}
+  m_LocalPosition: {x: -112.12007, y: 70.47907, z: -76.004944}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -779,10 +779,10 @@ MonoBehaviour:
   PacketSpeed: 100
   _pf_NodeEntity: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
     type: 3}
-  _startNodeEntitiesCount: 75
+  _startNodeEntitiesCount: 150
   _maxNodeEntitiesCount: 150
-  _incomingConnectionsPerMinute: 10
-  _incomingDisconnectionsPerMinute: 3
+  _incomingConnectionsPerMinute: 35
+  _incomingDisconnectionsPerMinute: 10
   _autoSpawn: 0
   _defaultCluster:
     ClusterName: CLUSTER 1

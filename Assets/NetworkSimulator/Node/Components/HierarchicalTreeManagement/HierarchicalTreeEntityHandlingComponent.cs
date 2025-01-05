@@ -77,12 +77,14 @@ namespace Atom.Components.HierarchicalTree
         /*
          TODO comptage du subgraph pour éviter aux gros graph de rank up / down trop souvent par rapport aux petits (le petit bouge en prio, le gros attend plus longtemps)
 
+        Fixer comptage depuis parent
+
+        Optimiser en connectants directements aux pairs du networking connections
+
          placement des nodes en mode tree (via RPC) / penser au rank negatifs (foutre un offset ou normaliser)
            > parentPositionXZ + right * childIndex * parentRank + up * rank
 
          observer la rapidité VS le broadcast dans cette config
-
-        tester relayCount >= rank dans le research parent pour voir ce que ça donne
          */
 
 
@@ -297,7 +299,8 @@ namespace Atom.Components.HierarchicalTree
 
             _initialPosition = transform.position;
 
-            UpdateTask();
+            SearchingUpdateTask();
+            MaintainingUpdateTask();
         }
 
         private void InitializeSortingRuleDelegate()
@@ -436,7 +439,7 @@ namespace Atom.Components.HierarchicalTree
             return false;
         }
 
-        private async void UpdateTask()
+        private async void SearchingUpdateTask()
         {
 
             while (true)
@@ -454,14 +457,29 @@ namespace Atom.Components.HierarchicalTree
                 if (this == null)
                     break;
 
-                if (_parent != null)
-                    await PingParent();
-                else
+                if (_parent == null)
                     await SearchParent();
-                UpdateChildrenConnections();
 
                 if (this == null)
                     break;
+            }
+        }
+
+        private async void MaintainingUpdateTask()
+        {
+            var delay = _connectionsTimeout / 2;
+
+            while (true)
+            {                
+                await Task.Delay(delay);
+
+                if (this == null)
+                    break;
+
+                if (_parent != null)
+                    await PingParent();
+
+                CheckChildrenTimedOut();
             }
         }
 
@@ -552,7 +570,7 @@ namespace Atom.Components.HierarchicalTree
             _parent = null;
         }
 
-        private void UpdateChildrenConnections()
+        private void CheckChildrenTimedOut()
         {
             // updates children connections
             // parent should receive heartbeat from children on a regular basis
