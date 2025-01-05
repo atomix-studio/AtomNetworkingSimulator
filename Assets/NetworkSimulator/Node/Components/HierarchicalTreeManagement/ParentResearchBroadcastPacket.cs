@@ -12,7 +12,7 @@ namespace Atom.Components.HierarchicalTree
         public long broadcasterID { get; set; }
         public long broadcastID { get; set; }
         public int senderRank { get; set; }
-        public int relayCount { get; set; }
+        public int cyclesDistance { get; set; }
         public string senderAddress { get; set; }
         public int senderRound { get; set; }
 
@@ -28,11 +28,11 @@ namespace Atom.Components.HierarchicalTree
             this.senderRank = senderRank;
             this.senderAddress = senderAddress;
             this.senderRound = senderRound;
-            this.relayCount = relayCount;
+            this.cyclesDistance = relayCount;
         }
 
         public ParentResearchBroadcastPacket(ParentResearchBroadcastPacket subscriptionPacket) :
-            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.senderAddress, subscriptionPacket.senderRank, subscriptionPacket.senderRound, subscriptionPacket.relayCount)
+            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.senderAddress, subscriptionPacket.senderRank, subscriptionPacket.senderRound, subscriptionPacket.cyclesDistance)
         {
 
         }

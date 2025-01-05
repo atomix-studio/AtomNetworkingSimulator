@@ -308,6 +308,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7529d87b1419e2499079f1953081961, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _sortingRule: 1
   _wide: 5
   _childrenCount: 3
   _parentHeartbeatTimeout: 500000

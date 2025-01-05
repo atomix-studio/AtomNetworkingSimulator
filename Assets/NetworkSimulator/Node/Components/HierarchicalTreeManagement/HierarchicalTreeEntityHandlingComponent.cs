@@ -22,6 +22,8 @@ namespace Atom.Components.HierarchicalTree
         [Inject] private NetworkConnectionsComponent _connectingComponent;
 
         [Header("Paramètres")]
+        [SerializeField] private SortingRules _sortingRule = SortingRules.ClosestNode;
+
         // Max tree index distance moved when ranking up or down
         [SerializeField] private int _wide = 3;
         [SerializeField] private int _childrenCount = 3;
@@ -40,15 +42,37 @@ namespace Atom.Components.HierarchicalTree
         [ShowInInspector, ReadOnly] private PeerInfo _parent;
         [ShowInInspector, ReadOnly] private List<PeerInfo> _children = new List<PeerInfo>();
 
+        private int _closestRank = int.MaxValue;
+        private PeerInfo _closestRankPeerInfo = null;
+
         private float _delayTimer = 0f;
         private Vector3 _initialPosition;
 
+        private Func<int, bool> _checkSortingRuleDelegate;
+
+        public enum SortingRules
+        {
+            ClosestNode,
+            UnderOrEqualsRank,
+            AboveOrEqualsRank,
+        }
+
+        /*
+         TODO comptage du subgraph pour éviter aux gros graph de rank up / down trop souvent par rapport aux petits (le petit bouge en prio, le gros attend plus longtemps)
+
+         placement des nodes en mode tree (via RPC) / penser au rank negatifs (foutre un offset ou normaliser)
+           > parentPositionXZ + right * childIndex * parentRank + up * rank
+
+         observer la rapidité VS le broadcast dans cette config
+
+        tester relayCount >= rank dans le research parent pour voir ce que ça donne
+         */
+
+
         public async void OnInitialize()
         {
-            /* if (NodeRandom.Range(0, 100) > 90)
-             {
-                 SetRank(1);
-             }*/
+            InitializeSortingRuleDelegate();
+
             _parentSearchActive = true;
 
             _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(ParentResearchBroadcastPacket), (onreceived) =>
@@ -63,7 +87,40 @@ namespace Atom.Components.HierarchicalTree
                     _parentSearchActive = true;
                 }
 
-                if (broadcastable.senderRank < _rank && broadcastable.relayCount <= _rank)
+                if (_checkSortingRuleDelegate(broadcastable.cyclesDistance) // the rule : we search only for close nodes / the rule can be changed with rank comparison (seeking node at/until/above "cycles" range from this)
+                    && _children.Count < _childrenCount
+                    && !IsChildren(broadcastable.senderID))
+                {
+                    // Case 1 : already avalaible children, we send a request
+                    if (broadcastable.senderRank < _rank)
+                    {
+                        // responding to the potential conneciton by a connection request from the receiver
+                        // we set the round of the broadcast sender in the request
+                        // if the round has changed on the sender, the request will be discarded 
+                        _packetRouter.SendRequest(broadcastable.senderAddress, new RankedConnectingRequestPacket(_rank, broadcastable.senderRound), (response) =>
+                        {
+                            if (response == null)
+                                return;
+
+                            _children.Add(new PeerInfo(response.senderID, broadcastable.senderAddress));
+                        });
+                    }
+                    // Case 2 : evaluating a potential children if the subgraph of this parent node would be moved
+                    // we seek for the smallest possible move in rank by keeping the closest possible rank on a round
+                    // this will be used in the SearchParent function on each round
+                    else if (_parent == null && broadcastable.senderRank < _closestRank)
+                    {
+                        _closestRankPeerInfo = new PeerInfo(broadcastable.senderID, broadcastable.senderAddress);
+                        _closestRank = broadcastable.senderRank;
+                    }
+                }
+                // in other cases we just relay the message
+                var cloned = (ParentResearchBroadcastPacket)broadcastable.ClonePacket(broadcastable);
+                cloned.cyclesDistance++;
+
+                _broadcaster.RelayBroadcast(cloned);
+
+                /*if (broadcastable.senderRank < _rank && broadcastable.relayCount <= 1)
                 {
                     // accepting a connection of same rank if rank is missing
                     if (_children.Count < _childrenCount
@@ -83,6 +140,12 @@ namespace Atom.Components.HierarchicalTree
                 }
                 else
                 {
+                    if (_parent == null && _children.Count < _childrenCount && broadcastable.relayCount <= 1 && broadcastable.senderRank < _closestRank)
+                    {
+                        _closestRankPeerInfo = new PeerInfo(broadcastable.senderID, broadcastable.senderAddress);
+                        _closestRank = broadcastable.senderRank;
+                    }
+
                     // check if has any connection with this higher rank and if the higher rank is within the wide (+ 1 or -1)
 
                     // relaying the broadcast to other known peers 
@@ -90,7 +153,7 @@ namespace Atom.Components.HierarchicalTree
                     cloned.relayCount++;
 
                     _broadcaster.RelayBroadcast(cloned);
-                }
+                }*/
             });
 
             // connecting requests are send by potential parent when they receive a broadcast from a node with lower rank
@@ -198,11 +261,29 @@ namespace Atom.Components.HierarchicalTree
             },
             true);
 
+            _packetRouter.RegisterPacketHandler(typeof(SubgraphCountingResponsePacket), null);
+            _packetRouter.RegisterPacketHandler(typeof(SubraphCountingRequestPacket), async (onReceived) =>
+            {
+                await HandleSubgraphCountingAsync((SubraphCountingRequestPacket)onReceived);
+            });
+
             await Task.Delay(3000);
 
             _initialPosition = transform.position;
 
             UpdateTask();
+        }
+
+        private void InitializeSortingRuleDelegate()
+        {
+            switch (_sortingRule)
+            {
+                case SortingRules.ClosestNode: _checkSortingRuleDelegate = (dist) => dist <= 1; return;
+                case SortingRules.UnderOrEqualsRank: _checkSortingRuleDelegate = (dist) => dist <= _rank; return;
+                case SortingRules.AboveOrEqualsRank: _checkSortingRuleDelegate = (dist) => dist >= _rank; return;
+            }
+
+            throw new NotImplementedException();
         }
 
         private void SetRank(int rank, int childIndex, Vector3 parentPosition)
@@ -244,7 +325,8 @@ namespace Atom.Components.HierarchicalTree
                     var relayedPacket = upcastablePacket.ClonePacket(upcastablePacket);
                     _packetRouter.Send(_parent.peerAdress, relayedPacket);
                 }
-                else if (receivedPacket is IDowncastablePacket downcastablePacket)
+                
+                if (receivedPacket is IDowncastablePacket downcastablePacket)
                 {
                     for (int i = 0; i < _children.Count; i++)
                     {
@@ -256,6 +338,14 @@ namespace Atom.Components.HierarchicalTree
             true);
         }
 
+        /// <summary>
+        /// Sends a cast in the tree (up or down depending on the interface of the message)
+        /// Note that messages can be both down and upcast. In this case the message will be sent up by each parent to its parent node, but also to evert of its children
+        /// If upcasting, the mesage goest to the higher parent in graph
+        /// If down casting, the message goes in every node of the subgraph from the caller
+        /// </summary>
+        /// <param name="treecastablePacket"></param>
+        /// <exception cref="Exception"></exception>
         public void SendTreecast(ITreecastablePacket treecastablePacket)
         {
             // the work is now done by the packet router as it is the solo entry point for transport layer 
@@ -372,24 +462,39 @@ namespace Atom.Components.HierarchicalTree
             // remind that nodes can only connect with node from the same group, and the rank is equal to the fanout distance of the broadcast (which should indicate a distance from the sender in a well constructed gossip network)
             if (_parent == null)
             {
-
-                // move random up or down all te subgraph to be avalaible to other children
-                if (NodeRandom.Range(0, 100) > 49)
+                if (_closestRankPeerInfo != null)
                 {
-                    SetRank(_rank + NodeRandom.Range(1, _wide), 0, Vector3.zero);
+                    //Debug.Log(1);
 
-                    Debug.Log($"Ranking {controller.LocalNodeId} up to rank {_rank}");
+                    // case of a parent that is under another potential parent node
+                    // the local parent will set the subgraph above this potential parent to allow the other node to connect itself to it on the next round
+                    SendUpdateRankTreecast(new UpdateRankPacket() { newRank = _closestRank + 1, parentPosition = transform.position });
+
+                    _closestRankPeerInfo = null;
+                    _closestRank = int.MaxValue;
                 }
                 else
                 {
-                    SetRank(_rank - NodeRandom.Range(1, _wide), 0, Vector3.zero);
+                    //Debug.Log(2);
 
-                    Debug.Log($"Ranking {controller.LocalNodeId} down to rank {_rank}");
+                    // move random up or down all te subgraph to be avalaible to other children
+                    if (NodeRandom.Range(0, 100) > 49)
+                    {
+                        SetRank(_rank + NodeRandom.Range(1, _wide), 0, Vector3.zero);
+
+                        Debug.Log($"Ranking {controller.LocalNodeId} up to rank {_rank}");
+                    }
+                    else
+                    {
+                        SetRank(_rank - NodeRandom.Range(1, _wide), 0, Vector3.zero);
+
+                        Debug.Log($"Ranking {controller.LocalNodeId} down to rank {_rank}");
+                    }
+
+                    // tree cast to subgraph to modify the ranks
+
+                    SendUpdateRankTreecast(new UpdateRankPacket() { newRank = _rank - 1, parentPosition = transform.position });
                 }
-
-                // tree cast to subgraph to modify the ranks
-
-                SendUpdateRankTreecast(new UpdateRankPacket() { newRank = _rank - 1, parentPosition = transform.position });
             }
         }
 
@@ -414,10 +519,64 @@ namespace Atom.Components.HierarchicalTree
             _parent = null;
         }
 
+        private async Task HandleSubgraphCountingAsync(SubraphCountingRequestPacket subraphCountingRequestPacket)
+        {
+            if (_children.Count == 0)
+            {
+                _packetRouter.SendResponse(subraphCountingRequestPacket, new SubgraphCountingResponsePacket() { childrenCount = 1 });
+            }
+            else
+            {
+                var tasks = new Task<SubgraphCountingResponsePacket>[_children.Count];
+                for (int i = 0; i < tasks.Length; ++i)
+                {
+                    tasks[i] = _packetRouter.SendRequestAsync<SubgraphCountingResponsePacket>(_children[i].peerAdress, new SubraphCountingRequestPacket());
+                }
+
+                var results = await Task.WhenAll(tasks);
+                int count = 0;
+                for (int i = 0; i < results.Length; ++i)
+                {
+                    if (results[i] != null)
+                        count += results[i].childrenCount;
+                }
+
+                _packetRouter.SendResponse(subraphCountingRequestPacket, new SubgraphCountingResponsePacket() { childrenCount = count + 1 });
+            }
+        }
+
+        /// <summary>
+        /// This function allows a node to request all its subgraph to count the nodes
+        /// The mesage will recursively goes throught parent to children until the leaf nodes and then go up by aggregating the values
+        /// The caller will receive only one message for each direct children 
+        /// </summary>
+        [Button]
+        private async void CountSubgraph()
+        {
+            var tasks = new Task<SubgraphCountingResponsePacket>[_children.Count];
+            for (int i = 0; i < tasks.Length; ++i)
+            {
+                tasks[i] = _packetRouter.SendRequestAsync<SubgraphCountingResponsePacket>(_children[i].peerAdress, new SubraphCountingRequestPacket());
+            }
+
+            var results = await Task.WhenAll(tasks);
+            int count = 0;
+            for (int i = 0; i < results.Length; ++i)
+            {
+                if (results[i] != null)
+                    count += results[i].childrenCount;
+            }
+
+            // counting self as well
+            count += 1;
+
+            Debug.Log("Total counted nodes : " + count);
+        }
+
         [Button]
         private void SetColorUpcast()
         {
-            SendTreecast(new SetColorUpcastPacket() { newColor = new Color(NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), 1) }); ;
+            SendTreecast(new SetColorUpcastPacket() { newColor = new Color(NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), 1) });
         }
 
         [Button]
