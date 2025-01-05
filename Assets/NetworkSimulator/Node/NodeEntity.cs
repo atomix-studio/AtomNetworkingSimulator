@@ -12,16 +12,27 @@ using Atom.Components.Connecting;
 using Sirenix.Utilities;
 using UnityEditor.Rendering.LookDev;
 using Atom.DependencyProvider.Samples;
+using Atom.Components.GraphNetwork;
+using System;
+using Atom.PlayerSimulation;
 
+/// <summary>
+/// The dependency provider will create an instance for each type inheriting from INodeComponent.
+/// This allow the node entity to have all of its components ready at startup, regardless of the fact that the dependencies exists as field of the class.
+/// The reason for this is that components may reference one or many other components, and we dont want them to create instances of it internaly. 
+/// We actually want all of the components binded to the NodeEntity instance dependencies container.
+/// </summary>
 [InjectionContext(ForceInheritedTypesInjectionInContext = typeof(INodeComponent))]
 public class NodeEntity : MonoBehaviour
 {
     public BroadcasterComponent broadcaster { get; set; }
     public TransportLayerComponent transportLayer { get; set; }
-    public PeerSamplingService peerSampling { get; set; }
-    public NetworkHandlingComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }
+    public PeerNetworkDiscoveryComponent peerSampling { get; set; }
+    public NetworkConnectionsComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }
+    public GraphEntityComponent graphEntityComponent { get; set; }
+    public PlayerNetworkSynchronizationComponent playerNetworkSynchronization { get; set; }
 
-    [SerializeField] private NetworkHandlingComponent _networkInfo;
+    [SerializeField] private NetworkConnectionsComponent _networkInfo;
     [SerializeField] private BootNodeHandling _bootNodeHandling;
 
     private List<INodeUpdatableComponent> _updatableComponents = new List<INodeUpdatableComponent>();
@@ -49,6 +60,11 @@ public class NodeEntity : MonoBehaviour
     public float CurrentPingSimulatorMultiplier = 1;
 
     public bool IsBoot => _isBoot;
+    public long LocalNodeId => networkHandling.LocalPeerInfo.peerID;
+    public string LocalNodeAdress => networkHandling.LocalPeerInfo.peerAdress;
+
+    public Atom.PlayerSimulation.PlayerEntity Player => playerNetworkSynchronization.playerEntity;
+
     public Material material => _material;
 
     private float _timerBetweenTryConnection;
@@ -91,9 +107,9 @@ public class NodeEntity : MonoBehaviour
         }
     }
 
-    public void OnStart(ClusterInfo clusterInfo, bool sleeping)
+    public void OnStart(ClusterInfo clusterInfo, bool sleeping, long id)
     {
-        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = System.Guid.NewGuid().ToString(), peerAdress = this.name, averagePing = 0, trust_coefficient = 0 });
+        networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = id, peerAdress = this.name, averagePing = 0, trust_coefficient = 0 });
 
         GetNodeComponent<ClusterConnectionService>().ConnectToCluster(clusterInfo);
         IsSleeping = sleeping;
@@ -204,7 +220,7 @@ public class NodeEntity : MonoBehaviour
         if (IsSleeping)
             return;
 
-        CurrentPingSimulatorMultiplier = Mathf.PerlinNoise(Random.Range(-10, 10), Random.Range(-10, 10)) * _pingSimulatorStability;
+        CurrentPingSimulatorMultiplier = Mathf.PerlinNoise(UnityEngine.Random.Range(-10, 10), UnityEngine.Random.Range(-10, 10)) * _pingSimulatorStability;
 
         for (int i = 0; i < _updatableComponents.Count; ++i)
             _updatableComponents[i].OnUpdate();

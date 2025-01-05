@@ -14,11 +14,15 @@ GameObject:
   - component: {fileID: 5533586626479675319}
   - component: {fileID: 5533586626479675318}
   - component: {fileID: 3554877669675035482}
-  - component: {fileID: 5533586626479675317}
   - component: {fileID: 5533586626479675315}
   - component: {fileID: 5533586626479675312}
   - component: {fileID: 5173503354320299876}
   - component: {fileID: 1913134587}
+  - component: {fileID: 211928795875905314}
+  - component: {fileID: 6776344880569498796}
+  - component: {fileID: 602485854339787189}
+  - component: {fileID: -5243297547924693675}
+  - component: {fileID: -29674215270887382}
   m_Layer: 0
   m_Name: NodeEntityAgent
   m_TagString: Untagged
@@ -33,13 +37,13 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5533586626479675272}
+  serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 41.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &5533586626479675316
 MonoBehaviour:
@@ -59,7 +63,7 @@ MonoBehaviour:
   _preferedGroupSize: 2
   _delayBetweenGroupFindingRequest: 10
   _pingSimulatorStability: 1
-  _networkViewsTargetCount: 9
+  _networkViewsTargetCount: 5
   IsConnectedAndReady: 0
   IsInGroup: 0
   IsSleeping: 0
@@ -126,28 +130,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _responsesCount: 0
---- !u!195 &5533586626479675317
-NavMeshAgent:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5533586626479675272}
-  m_Enabled: 1
-  m_AgentTypeID: 0
-  m_Radius: 0.5
-  m_Speed: 3.5
-  m_Acceleration: 8
-  avoidancePriority: 50
-  m_AngularSpeed: 120
-  m_StoppingDistance: 0
-  m_AutoTraverseOffMeshLink: 1
-  m_AutoBraking: 1
-  m_AutoRepath: 1
-  m_Height: 2
-  m_BaseOffset: 1
-  m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 4
 --- !u!23 &5533586626479675315
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -165,6 +147,9 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -217,9 +202,10 @@ MonoBehaviour:
   _networkScoreBuffer: []
   _averageNetworkScore: 0
   _localPeerInfo:
-    _peerID: 
+    _peerID: 0
     _peerAdress: 
     _requestedByLocal: 0
+    _pendingAcceptation: 0
     _ping: 0
     _score: 0
     _trust_coefficient: 0
@@ -239,7 +225,92 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   debugColorConsensus:
     LocalSelection: -1
-    _alreadyVoted: []
-  _voteTimeOut: 2
+    _alreadyVoted: 
+  _voteTimeOut: 8
   _gossipFrequency: 2
   debugAggregate: 00000000000000000000000000000000
+--- !u!114 &211928795875905314
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5533586626479675272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1cb01426aa3ac8745b7dacd159df9275, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _leaderLeaseDuration: 2
+  _leaderUpdateSpan: 1.25
+  _minimumOutgoingEdgeExpirationDelay: 1
+  _takeLeadDelay: 3
+  _graphEdges: []
+  FragmentID: -1
+  FragmentLevel: 0
+  FragmentMembers: []
+--- !u!114 &6776344880569498796
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5533586626479675272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: febbd8ef4f1f191438745f4d62d47d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _gossipRate: 3
+--- !u!114 &602485854339787189
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5533586626479675272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d238d2695504174ca916c79c2586105, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &-5243297547924693675
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5533586626479675272}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33ca622c4587c2546bcd664e4131f664, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _pf_playerEntity: {fileID: 7197195168541630613, guid: c7b7a7ada3ff4d349b54c2079f8be723,
+    type: 3}
+  _playerEntity: {fileID: 0}
+  _maxPacketPlayerDatasCount: 16
+  _synchronizableRange: 32
+  _useGroupSynchronization: 1
+  _localGroupSize: 8
+  _synchronizationBufferSize: 64
+  _synchronizationDelay: 0.25
+  _isGroupMaster: 0
+--- !u!114 &-29674215270887382
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5533586626479675272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7529d87b1419e2499079f1953081961, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _sortingRule: 1
+  _dynamicDelayFunctionLogarithmicBase: 3
+  _wide: 5
+  _childrenCount: 3
+  _parentHeartbeatTimeout: 5000
+  _roundTimeout: 500

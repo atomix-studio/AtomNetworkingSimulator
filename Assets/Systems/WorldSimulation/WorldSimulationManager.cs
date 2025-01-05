@@ -14,10 +14,12 @@ using static UnityEngine.EventSystems.EventTrigger;
 public class WorldSimulationManager : MonoBehaviour
 {
     public bool DisplayBestConnection;
+    public bool DisplayGHSTree;
     public bool DisplayListennersConnections;
     public bool DisplaySelectedOnly;
     public bool DisplayPackets;
     public bool TransportInstantaneously = true;
+    public bool TransportUnserialized = true;
     public float PacketSpeed = 25;
 
     [SerializeField] private NodeEntity _pf_NodeEntity;
@@ -53,6 +55,7 @@ public class WorldSimulationManager : MonoBehaviour
     public static int _totalPacketReceivedPerSecondCount = 0;
     public static float _packetTimer = 1;
 
+    public Vector2 SpawnSize = new Vector2(-50, 50);
 
     private void Awake()
     {
@@ -72,7 +75,7 @@ public class WorldSimulationManager : MonoBehaviour
         for (int i = 0; i < _defaultCluster.BootNodes.Count; i++)
         {
             nodeAddresses.Add(_defaultCluster.BootNodes[i].name, _defaultCluster.BootNodes[i]);
-            _defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = _defaultCluster.BootNodes[i].name, peerAdress = _defaultCluster.BootNodes[i].name, averagePing = 0, trust_coefficient = 0 });
+            _defaultCluster.BootNodes[i].networkHandling.InitializeLocalInfo(new PeerInfo() { peerID = i, peerAdress = _defaultCluster.BootNodes[i].name, averagePing = 0, trust_coefficient = 0 });
         }
 
         GenerateEntities(_startNodeEntitiesCount, false);
@@ -133,6 +136,15 @@ public class WorldSimulationManager : MonoBehaviour
             }
         }
 
+        if (DisplayGHSTree)
+        {
+
+            for (int i = 0; i < _currentAliveNodes.Count; ++i)
+            {
+                _currentAliveNodes[i].graphEntityComponent.DisplayDebugConnectionLines();
+            }
+        }
+
         if (!_autoSpawn)
             return;
 
@@ -158,21 +170,25 @@ public class WorldSimulationManager : MonoBehaviour
     public void GenerateNodeEntity(bool startAsleep)
     {
         var newNodeEntity = PoolManager.Instance.SpawnGo(_pf_NodeEntity.gameObject, transform.position).GetComponent<NodeEntity>();
-        if (NavMesh.SamplePosition(new Vector3(Random.Range(-50, 50), 0, Random.Range(-50, 50)), out var hit, 50, 0))
+       /* if (NavMesh.SamplePosition(new Vector3(Random.Range(SpawnSize.x, SpawnSize.y), 0, Random.Range(SpawnSize.x, SpawnSize.y)), out var hit, 50, 0))
         {
             newNodeEntity.transform.position = hit.position;
         }
         else
         {
-            newNodeEntity.transform.position = new Vector3(Random.Range(-50, 50), 0, Random.Range(-50, 50));
-        }
+            newNodeEntity.transform.position = new Vector3(Random.Range(SpawnSize.x, SpawnSize.y), 0, Random.Range(SpawnSize.x, SpawnSize.y));
+        }*/
 
-        newNodeEntity.name = "nodeEntity_" + _nodeEntityIdGenerator++;
+        newNodeEntity.transform.position = new Vector3(Random.Range(SpawnSize.x, SpawnSize.y), _pf_NodeEntity.transform.position.y, Random.Range(SpawnSize.x, SpawnSize.y));
+
+
+        long id = _nodeEntityIdGenerator++;
+        newNodeEntity.name = "nodeEntity_" + id;
         _currentAliveNodes.Add(newNodeEntity);
         nodeAddresses.Add(newNodeEntity.name, newNodeEntity);
 
         newNodeEntity.transform.SetParent(this.transform);
-        newNodeEntity.OnStart(_defaultCluster, startAsleep);
+        newNodeEntity.OnStart(_defaultCluster, startAsleep, id);
     }
 
     public void DisconnectRandomNodeEntity()
@@ -251,11 +267,45 @@ public class WorldSimulationManager : MonoBehaviour
     }
 
     [Button]
+    private void StartGraphcreationSingleCast()
+    {
+        var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
+        startNode.graphEntityComponent.StartSpanningTreeCreationWithOneCast();
+
+    }
+
+    [Button]
+    private void StartGraphcreationBroadcasted()
+    {
+        var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
+        startNode.graphEntityComponent.StartSpanningTreeCreationWithBroadcast();
+
+    }
+
+    [Button]
+    private void StopGraphCreation()
+    {
+        foreach (var node in _currentAliveNodes)
+        {
+            node.graphEntityComponent.StopSearching();
+        }
+    }
+
+    [Button]
+    private void ResetGraph()
+    {
+        foreach (var node in _currentAliveNodes)
+        {
+            node.graphEntityComponent.ResetGraphEdges();
+        }
+    }
+
+   /* [Button]
     private void SendGroupConnectionRequest()
     {
         var startNode = _currentAliveNodes[Random.Range(0, _currentAliveNodes.Count)];
         startNode.peerSampling.SendGroupConnectionRequest();
-    }
+    }*/
 
     private void OnGUI()
     {

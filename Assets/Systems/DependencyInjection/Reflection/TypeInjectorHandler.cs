@@ -33,7 +33,7 @@ namespace Atom.DependencyProvider
                 _reflectingType = fieldInfo.FieldType;
                 _injectAttribute = injectAttribute;
                 _binder = new DynamicMemberDelegateBinder();
-                _binder.createFieldDelegatesAuto(fieldInfo);
+                _binder.CreateFieldDelegatesAuto(fieldInfo);
             }
 
             public TypeInjectorHandler(Type context, PropertyInfo propertyInfo, InjectAttribute injectAttribute)
@@ -42,7 +42,7 @@ namespace Atom.DependencyProvider
                 _reflectingType = propertyInfo.PropertyType;
                 _injectAttribute = injectAttribute;
                 _binder = new DynamicMemberDelegateBinder();
-                _binder.createPropertyDelegatesAuto(propertyInfo);
+                _binder.CreatePropertyDelegatesAuto(propertyInfo);
             }
 
             /// <summary>
@@ -53,7 +53,7 @@ namespace Atom.DependencyProvider
             public object Inject(object instance)
             {
                 var dependency = DependencyProvider.getOrCreate(_reflectingType, instance);
-                _binder.setValueGeneric(instance, dependency);
+                _binder.SetValueGeneric(instance, dependency);
                 return dependency;
             }
 
@@ -69,7 +69,7 @@ namespace Atom.DependencyProvider
                     return Inject(instance);
 
                 var dependency = DependencyProvider.getOrCreate(_reflectingType, container);
-                _binder.setValueGeneric(instance, dependency);
+                _binder.SetValueGeneric(instance, dependency);
                 return dependency;
             }
         }

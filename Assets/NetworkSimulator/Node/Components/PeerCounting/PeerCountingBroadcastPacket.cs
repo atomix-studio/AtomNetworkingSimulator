@@ -10,8 +10,8 @@ namespace Atom.Components.PeerCounting
 {
     public class PeerCountingBroadcastPacket : AbstractNetworkPacket, IBroadcastablePacket, IRespondable
     {        
-        public string broadcasterID { get; set; }
-        public string broadcastID { get; set; }
+        public long broadcasterID { get; set; }
+        public long broadcastID { get; set; }
 
         public INetworkPacket packet => this;
 
@@ -19,7 +19,7 @@ namespace Atom.Components.PeerCounting
 
         public PeerCountingBroadcastPacket() { }
 
-        public PeerCountingBroadcastPacket(short packetIdentifier, string senderID, DateTime sentTime, string broadcastID, string broadcasterID)
+        public PeerCountingBroadcastPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID)
         {
             this.packetTypeIdentifier = packetIdentifier;
             this.senderID = senderID;

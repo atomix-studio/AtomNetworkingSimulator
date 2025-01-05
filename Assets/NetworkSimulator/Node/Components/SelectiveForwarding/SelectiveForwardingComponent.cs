@@ -17,7 +17,7 @@ namespace Atom.Broadcasting.SelectiveForwarding
     {
         public NodeEntity context { get; set; }
         [Inject] private PacketRouter _packetRouter;
-        [Inject] private NetworkHandlingComponent _networkHandling;
+        [Inject] private NetworkConnectionsComponent _networkHandling;
 
         public void OnInitialize()
         {
@@ -27,7 +27,7 @@ namespace Atom.Broadcasting.SelectiveForwarding
         }
 
         [Button]
-        public void SendSelectiveForwardingToNodeByID(string nodeId)
+        public void SendSelectiveForwardingToNodeByID(long nodeId)
         {
             ForwardSinglecastAsync(_networkHandling.Connections.ElementAt(0).Value.peerAdress, new SinglecastPacket(_networkHandling.LocalPeerInfo.peerAdress, _networkHandling.LocalPeerInfo.peerID, nodeId, 0));
         }
@@ -73,6 +73,8 @@ namespace Atom.Broadcasting.SelectiveForwarding
             while (true)
             {
                 int nextIndex = BroadcastingHelpers.GetRandomConnectionIndexForBroadcast(_networkHandling.Connections, singlecast.casterID, singlecast.senderID, 6);
+                if (nextIndex == -1)
+                    break;
 
                 var success = await ForwardSinglecastAsync(_networkHandling.Connections.ElementAt(nextIndex).Value.peerAdress, new SinglecastPacket(singlecast.casterAdress, singlecast.casterID, singlecast.targetID, singlecast.cycles));
 

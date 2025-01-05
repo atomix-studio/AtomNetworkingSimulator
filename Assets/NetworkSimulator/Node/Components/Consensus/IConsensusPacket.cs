@@ -17,7 +17,7 @@ namespace Atom.Broadcasting.Consensus
         /// <summary>
         /// when a node starts a consensus request, it initializes this ID that will be kept over  many broadcasts over the newtork
         /// </summary>
-        public string consensusId { get; set; }
+        public long consensusId { get; set; }
 
         /// <summary>
         /// version 0 is the original broadcast

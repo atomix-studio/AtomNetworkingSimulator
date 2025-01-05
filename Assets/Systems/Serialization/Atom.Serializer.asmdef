@@ -1,0 +1,16 @@
+{
+    "name": "Atom.Serializer",
+    "rootNamespace": "",
+    "references": [
+        "GUID:1c9225a585e08634c8423f3d73573803"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
