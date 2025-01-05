@@ -22,25 +22,42 @@ namespace Atom.Components.HierarchicalTree
         [Inject] private NetworkConnectionsComponent _connectingComponent;
 
         [Header("Paramètres")]
+        /// <summary>
+        /// Sorting rule looks for the cycles of a gossip message to evaluate the graph distance of a potential children
+        /// </summary>
         [SerializeField] private SortingRules _sortingRule = SortingRules.ClosestNode;
-
-        // Max tree index distance moved when ranking up or down
+        /// <summary>
+        /// Base of the logarithmic function used to compute the delay timer of a graph updating, depending on its size (the bigger graph the slower update)
+        /// </summary>
+        [SerializeField, Range(2, 10)] private int _dynamicDelayFunctionLogarithmicBase = 3;
+        /// <summary>
+        /// Max tree index distance moved when ranking up or down
+        /// </summary>
         [SerializeField] private int _wide = 3;
+        /// <summary>
+        /// Max number of children per node
+        /// </summary>
         [SerializeField] private int _childrenCount = 3;
+
+        /// <summary>
+        /// Timeout of the heartbeat with a parent. If time out is reached, the node disconnects and seeks a new parent
+        /// </summary>
         [SerializeField] private int _parentHeartbeatTimeout = 5000;
 
         /// <summary>
-        /// timeout of a request round, in milliseconds
+        /// Timeout of a parent search request round (time before sending a broadcast and looking for the next step when no parent), in milliseconds
         /// </summary>
         [SerializeField] private int _roundTimeout = 1000;
 
         [Header("Runtime")]
+        [ShowInInspector, ReadOnly] private int _currentSubgraphNodesCount = 1;
         [ShowInInspector, ReadOnly] private int _rank;
         [ShowInInspector, ReadOnly] private int _currentRound = 0;
         [ShowInInspector] private bool _parentSearchActive;
 
         [ShowInInspector, ReadOnly] private PeerInfo _parent;
         [ShowInInspector, ReadOnly] private List<PeerInfo> _children = new List<PeerInfo>();
+
 
         private int _closestRank = int.MaxValue;
         private PeerInfo _closestRankPeerInfo = null;
@@ -97,12 +114,14 @@ namespace Atom.Components.HierarchicalTree
                         // responding to the potential conneciton by a connection request from the receiver
                         // we set the round of the broadcast sender in the request
                         // if the round has changed on the sender, the request will be discarded 
-                        _packetRouter.SendRequest(broadcastable.senderAddress, new RankedConnectingRequestPacket(_rank, broadcastable.senderRound), (response) =>
+                        _packetRouter.SendRequest(broadcastable.senderAddress, new RankedConnectingRequestPacket(_rank, broadcastable.senderRound), async (response) =>
                         {
                             if (response == null)
                                 return;
 
                             _children.Add(new PeerInfo(response.senderID, broadcastable.senderAddress));
+
+                            _currentSubgraphNodesCount = await CountSubgraphAsync();
                         });
                     }
                     // Case 2 : evaluating a potential children if the subgraph of this parent node would be moved
@@ -181,8 +200,7 @@ namespace Atom.Components.HierarchicalTree
 
                 var diff = respondable.senderRank - _rank;
 
-                // if parent-children rank diff is more than 1, the parent will downgrad his subgraph OR the children will upgrad the subgraph depending on 
-                // 
+                // if parent-children rank diff is more than 1, the children that is connection will move his subgraph up so the graph distance parent-children is 1
                 if (diff > 1)
                 {
                     _rank = respondable.senderRank - 1;
@@ -415,7 +433,13 @@ namespace Atom.Components.HierarchicalTree
 
             while (true)
             {
-                _delayTimer = NodeRandom.Range(.5f, 1f);
+                _delayTimer = NodeRandom.Range(.5f, 1f) 
+                    // we multiply the timer by the log on base 2 of the children count. 
+                    // it allows bigger graph to evolute slower that smallest one, for fastest convergence
+                    * ((float)Math.Log(_currentSubgraphNodesCount, _dynamicDelayFunctionLogarithmicBase));
+
+                // insuring a minimal value (log2(1) = 0)
+                _delayTimer = Math.Max(_delayTimer, .5f);
 
                 await Task.Delay((int)(_delayTimer * 1000));
 
@@ -550,8 +574,7 @@ namespace Atom.Components.HierarchicalTree
         /// The mesage will recursively goes throught parent to children until the leaf nodes and then go up by aggregating the values
         /// The caller will receive only one message for each direct children 
         /// </summary>
-        [Button]
-        private async void CountSubgraph()
+        private async Task<int> CountSubgraphAsync()
         {
             var tasks = new Task<SubgraphCountingResponsePacket>[_children.Count];
             for (int i = 0; i < tasks.Length; ++i)
@@ -571,7 +594,16 @@ namespace Atom.Components.HierarchicalTree
             count += 1;
 
             Debug.Log("Total counted nodes : " + count);
+
+            return count;
         }
+
+        [Button]
+        private async void CountSubgraph()
+        {
+            await CountSubgraphAsync();
+        }
+
 
         [Button]
         private void SetColorUpcast()
