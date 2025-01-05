@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace Atom.Components.HierarchicalTree
 {
@@ -11,6 +12,7 @@ namespace Atom.Components.HierarchicalTree
     {
         public long broadcasterID { get; set; }
         public long broadcastID { get; set; }
+        public Vector3 senderPosition { get; set; }
         public int senderRank { get; set; }
         public int cyclesDistance { get; set; }
         public string senderAddress { get; set; }
@@ -18,7 +20,7 @@ namespace Atom.Components.HierarchicalTree
 
         public ParentResearchBroadcastPacket() { }
 
-        public ParentResearchBroadcastPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID, string senderAddress, int senderRank, int senderRound, int relayCount)
+        public ParentResearchBroadcastPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID, string senderAddress, Vector3 senderPosition, int senderRank, int senderRound, int relayCount)
         {
             this.packetTypeIdentifier = packetIdentifier;
             this.senderID = senderID;
@@ -29,10 +31,11 @@ namespace Atom.Components.HierarchicalTree
             this.senderAddress = senderAddress;
             this.senderRound = senderRound;
             this.cyclesDistance = relayCount;
+            this.senderPosition = senderPosition;
         }
 
         public ParentResearchBroadcastPacket(ParentResearchBroadcastPacket subscriptionPacket) :
-            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.senderAddress, subscriptionPacket.senderRank, subscriptionPacket.senderRound, subscriptionPacket.cyclesDistance)
+            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.senderAddress, subscriptionPacket.senderPosition, subscriptionPacket.senderRank, subscriptionPacket.senderRound, subscriptionPacket.cyclesDistance)
         {
 
         }
@@ -43,41 +46,45 @@ namespace Atom.Components.HierarchicalTree
         }
     }
 
-    public class RankedConnectingRequestPacket : AbstractNetworkPacket, IRespondable
+    public class ParentConnectionRequestPacket : AbstractNetworkPacket, IRespondable
     {
-
         public INetworkPacket packet => this;
 
         public string senderAdress { get; set; }
-        public int senderRank { get; set; }
-        public int senderRound { get; set; }
-        public RankedConnectingRequestPacket() { }
+        public int parentRank { get; set; }
+        public int childrenRoundAtRequest { get; set; }
+        public int parentChildrenCount { get; set; }
+        public Vector3 parentPosition { get; set; }
 
-        public RankedConnectingRequestPacket(int senderRank, int senderRound)
+        public ParentConnectionRequestPacket() { }
+
+        public ParentConnectionRequestPacket(Vector3 parentPosition, int parentRank, int parentChildrenCount, int childrenRoundAtRequest)
         {
-            this.senderRank = senderRank;
-            this.senderRound = senderRound;   
+            this.parentPosition = parentPosition;
+            this.parentRank = parentRank;
+            this.parentChildrenCount = parentChildrenCount;
+            this.childrenRoundAtRequest = childrenRoundAtRequest;   
         }
 
-        public RankedConnectingRequestPacket(RankedConnectingRequestPacket subscriptionPacket) :
-            this(subscriptionPacket.senderRank, subscriptionPacket.senderRound)
+        public ParentConnectionRequestPacket(ParentConnectionRequestPacket subscriptionPacket) :
+            this(subscriptionPacket.parentPosition, subscriptionPacket.parentRank, subscriptionPacket.parentChildrenCount, subscriptionPacket.childrenRoundAtRequest)
         {
 
         }
 
         public INetworkPacket ClonePacket(INetworkPacket received)
         {
-            return new RankedConnectingRequestPacket(received as RankedConnectingRequestPacket);
+            return new ParentConnectionRequestPacket(received as ParentConnectionRequestPacket);
         }
 
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
-            return new RankedConnectionResponsePacket();
+            return new ParentConnectionResponsePacket();
         }
     }
 
 
-    public class RankedConnectionResponsePacket : AbstractNetworkPacket, IResponse
+    public class ParentConnectionResponsePacket : AbstractNetworkPacket, IResponse
     {
         public long callerPacketUniqueId { get; set; }
 
@@ -88,8 +95,56 @@ namespace Atom.Components.HierarchicalTree
         public int senderRound { get; set; }
 
 
-        public RankedConnectionResponsePacket()
+        public ParentConnectionResponsePacket()
         {
         }
     }
+
+/*
+    public class ChildrenConnectionRequestPacket : AbstractNetworkPacket, IRespondable
+    {
+        public INetworkPacket packet => this;
+
+        public string senderAdress { get; set; }
+        public int senderRank { get; set; }
+
+        public ChildrenConnectionRequestPacket() { }
+
+        public ChildrenConnectionRequestPacket(int senderRank)
+        {
+            this.senderRank = senderRank;
+        }
+
+        public ChildrenConnectionRequestPacket(ChildrenConnectionRequestPacket subscriptionPacket) :
+            this(subscriptionPacket.senderRank)
+        {
+
+        }
+
+        public INetworkPacket ClonePacket(INetworkPacket received)
+        {
+            return new ChildrenConnectionRequestPacket(received as ChildrenConnectionRequestPacket);
+        }
+
+        public IResponse GetResponsePacket(IRespondable answerPacket)
+        {
+            return new ChildrenConnectionResponsePacket();
+        }
+    }
+
+    public class ChildrenConnectionResponsePacket : AbstractNetworkPacket, IResponse
+    {
+        public long callerPacketUniqueId { get; set; }
+
+        public INetworkPacket packet => this;
+
+        public int requestPing { get; set; }
+
+        public int senderRound { get; set; }
+
+
+        public ChildrenConnectionResponsePacket()
+        {
+        }
+    }*/
 }

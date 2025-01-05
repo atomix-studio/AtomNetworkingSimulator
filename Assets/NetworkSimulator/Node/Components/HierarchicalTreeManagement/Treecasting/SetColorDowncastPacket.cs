@@ -14,7 +14,10 @@ namespace Atom.Components.HierarchicalTree
         public long broadcastID { get; set; }
         public Color newColor { get; set; }
 
-        public SetColorDowncastPacket() { }
+        public SetColorDowncastPacket() {
+
+            Debug.Log("downcast");
+        }
 
         public SetColorDowncastPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID, Color newColor)
         {
@@ -24,12 +27,13 @@ namespace Atom.Components.HierarchicalTree
             this.broadcastID = broadcastID;
             this.broadcasterID = broadcasterID;
             this.newColor = newColor;
+            Debug.Log("downcast");
         }
 
         public SetColorDowncastPacket(SetColorDowncastPacket subscriptionPacket) :
             this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.newColor)
         {
-
+            Debug.Log("downcast");
         }
 
         public INetworkPacket ClonePacket(INetworkPacket received)
