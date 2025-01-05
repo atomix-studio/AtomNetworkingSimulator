@@ -42,7 +42,7 @@ namespace Atom.Components.HierarchicalTree
         /// <summary>
         /// Timeout of the heartbeat with a parent. If time out is reached, the node disconnects and seeks a new parent
         /// </summary>
-        [SerializeField] private int _parentHeartbeatTimeout = 5000;
+        [SerializeField] private int _connectionsTimeout = 5000;
 
         /// <summary>
         /// Timeout of a parent search request round (time before sending a broadcast and looking for the next step when no parent), in milliseconds
@@ -233,6 +233,14 @@ namespace Atom.Components.HierarchicalTree
                 if (packet == null)
                     return;
 
+                for(int i = 0; i < _children.Count; ++i)
+                {
+                    if(packet.senderID == _children[i].peerID)
+                    {
+                        _children[i].last_updated = DateTime.UtcNow;
+                    }
+                }
+
                 var respondable = (packet as IRespondable);
                 var response = (ParentHeartbeatResponsePacket)respondable.GetResponsePacket(respondable);
                 _packetRouter.SendResponse(respondable, response);
@@ -310,7 +318,7 @@ namespace Atom.Components.HierarchicalTree
 
             /* if(_parent == null)
              {*/
-            transform.position = new Vector3(_initialPosition.x, 0, _initialPosition.z) + Vector3.up * 3 * _rank;
+            transform.position = new Vector3(_initialPosition.x, 0, _initialPosition.z) + Vector3.up * 5 * _rank;
             /*}
             else
             {
@@ -433,7 +441,7 @@ namespace Atom.Components.HierarchicalTree
 
             while (true)
             {
-                _delayTimer = NodeRandom.Range(.5f, 1f) 
+                _delayTimer = NodeRandom.Range(.5f, 1f)
                     // we multiply the timer by the log on base 2 of the children count. 
                     // it allows bigger graph to evolute slower that smallest one, for fastest convergence
                     * ((float)Math.Log(_currentSubgraphNodesCount, _dynamicDelayFunctionLogarithmicBase));
@@ -450,6 +458,7 @@ namespace Atom.Components.HierarchicalTree
                     await PingParent();
                 else
                     await SearchParent();
+                UpdateChildrenConnections();
 
                 if (this == null)
                     break;
@@ -524,14 +533,14 @@ namespace Atom.Components.HierarchicalTree
 
         private async Task PingParent()
         {
-            _packetRouter.SendRequest(_parent.peerAdress, new HeartbeatPacket(), (heartbeatResponse) =>
+            _packetRouter.SendRequest(_parent.peerAdress, new ParentHeartbeatPacket(), (heartbeatResponse) =>
             {
                 if (heartbeatResponse == null)
                 {
                     DisconnectFromParent();
                 }
 
-            }, _parentHeartbeatTimeout);
+            }, _connectionsTimeout);
         }
 
         private void DisconnectFromParent()
@@ -541,6 +550,23 @@ namespace Atom.Components.HierarchicalTree
 
             _packetRouter.Send(_parent.peerAdress, new DisconnectionNotificationPacket());
             _parent = null;
+        }
+
+        private void UpdateChildrenConnections()
+        {
+            // updates children connections
+            // parent should receive heartbeat from children on a regular basis
+            for (int i = 0; i < _children.Count; ++i)
+            {
+                if ((DateTime.Now - _children[i].last_updated).Milliseconds > _connectionsTimeout)
+                {
+                    Debug.Log("Children timed out");
+
+                    _packetRouter.Send(_children[i].peerAdress, new DisconnectionNotificationPacket());
+                    _children.RemoveAt(i);
+                    i--;
+                }
+            }
         }
 
         private async Task HandleSubgraphCountingAsync(SubraphCountingRequestPacket subraphCountingRequestPacket)
@@ -625,6 +651,9 @@ namespace Atom.Components.HierarchicalTree
 
         private void OnDrawGizmos()
         {
+            if (!this.enabled)
+                return;
+
             foreach (var child in _children)
             {
                 var from = WorldSimulationManager.nodeAddresses[child.peerAdress].transform.position;

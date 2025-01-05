@@ -309,7 +309,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _sortingRule: 1
+  _dynamicDelayFunctionLogarithmicBase: 3
   _wide: 5
   _childrenCount: 3
-  _parentHeartbeatTimeout: 500000
+  _parentHeartbeatTimeout: 5000
   _roundTimeout: 500

@@ -15,7 +15,7 @@ namespace Atom.Components.HierarchicalTree
 
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
-            return new HeartbeatResponsePacket();
+            return new ParentHeartbeatResponsePacket();
         }
     }
 
