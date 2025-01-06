@@ -15,6 +15,7 @@ using Atom.DependencyProvider.Samples;
 using Atom.Components.GraphNetwork;
 using System;
 using Atom.PlayerSimulation;
+using Atom.Components.HierarchicalTree;
 
 /// <summary>
 /// The dependency provider will create an instance for each type inheriting from INodeComponent.
@@ -26,6 +27,7 @@ using Atom.PlayerSimulation;
 public class NodeEntity : MonoBehaviour
 {
     public BroadcasterComponent broadcaster { get; set; }
+    public HierarchicalTreeEntityHandlingComponent treeComponent { get; set; }
     public TransportLayerComponent transportLayer { get; set; }
     public PeerNetworkDiscoveryComponent peerSampling { get; set; }
     public NetworkConnectionsComponent networkHandling { get => _networkInfo; set => _networkInfo = value; }

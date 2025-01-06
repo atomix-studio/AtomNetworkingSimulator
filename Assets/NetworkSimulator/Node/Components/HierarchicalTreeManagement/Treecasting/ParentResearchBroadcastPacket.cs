@@ -102,39 +102,39 @@ namespace Atom.Components.HierarchicalTree
         }
     }
 
-/*
-    public class ChildrenConnectionRequestPacket : AbstractNetworkPacket, IRespondable
+
+    public class ChildrenSearchActivationPacket : AbstractNetworkPacket
+    {
+
+    }
+
+
+    public class ChildrenValidationPacket : AbstractNetworkPacket, IRespondable
     {
         public INetworkPacket packet => this;
 
         public string senderAdress { get; set; }
-        public int senderRank { get; set; }
 
-        public ChildrenConnectionRequestPacket() { }
+        public ChildrenValidationPacket() { }
 
-        public ChildrenConnectionRequestPacket(int senderRank)
-        {
-            this.senderRank = senderRank;
-        }
-
-        public ChildrenConnectionRequestPacket(ChildrenConnectionRequestPacket subscriptionPacket) :
-            this(subscriptionPacket.senderRank)
+        public ChildrenValidationPacket(ChildrenValidationPacket subscriptionPacket) :
+            this()
         {
 
         }
 
         public INetworkPacket ClonePacket(INetworkPacket received)
         {
-            return new ChildrenConnectionRequestPacket(received as ChildrenConnectionRequestPacket);
+            return new ChildrenValidationPacket(received as ChildrenValidationPacket);
         }
 
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
-            return new ChildrenConnectionResponsePacket();
+            return new ChildrenValidationResponsePacket();
         }
     }
 
-    public class ChildrenConnectionResponsePacket : AbstractNetworkPacket, IResponse
+    public class ChildrenValidationResponsePacket : AbstractNetworkPacket, IResponse
     {
         public long callerPacketUniqueId { get; set; }
 
@@ -142,11 +142,10 @@ namespace Atom.Components.HierarchicalTree
 
         public int requestPing { get; set; }
 
-        public int senderRound { get; set; }
 
 
-        public ChildrenConnectionResponsePacket()
+        public ChildrenValidationResponsePacket()
         {
         }
-    }*/
+    }
 }

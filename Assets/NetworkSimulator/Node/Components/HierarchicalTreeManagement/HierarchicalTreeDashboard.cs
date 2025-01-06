@@ -11,6 +11,7 @@ namespace Atom.Components.HierarchicalTree
 {
     internal class HierarchicalTreeDashboard : MonoBehaviour
     {
+        [Title("Data")]
         [Button]
         private void GetInfos()
         {
@@ -33,15 +34,20 @@ namespace Atom.Components.HierarchicalTree
             Debug.Log($"Min rank : {min_rank}, Max_rank : {max_rank}, average children cout : {average_connections}");
         }
 
+        [Title("Disband")]
+
+
         [Button]
         private void DisbandGraph()
         {
             var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None);
             foreach (var entity in comps)
             {
-                entity.ResetTreeData();
+                entity.LocalReset();
             }
         }
+
+        [Title("Launch / Modify")]
 
         [Button]
         private void SetMode(GraphSortingRules graphSortingRule)
@@ -51,6 +57,14 @@ namespace Atom.Components.HierarchicalTree
             {
                 entity.SortingRule = graphSortingRule;
             }
+        }
+
+        [Button]
+        private void StartAlt()
+        {
+            var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None).ToList().Find(t => t.controller.IsBoot );
+
+            comps.StartTreeGeneration();
         }
     }
 }

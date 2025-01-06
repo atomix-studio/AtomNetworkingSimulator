@@ -234,6 +234,8 @@ namespace Atom.CommunicationSystem
 
         public async Task<T> SendRequestAsync<T>(string targetAddress, INetworkPacket networkPacket, int timeout_ms = 2000) where T : INetworkPacket
         {
+            networkPacket = onBeforeSendInternal(networkPacket);
+
             var tcs = new TaskCompletionSource<T>(TaskContinuationOptions.RunContinuationsAsynchronously);
 
             try
@@ -251,6 +253,7 @@ namespace Atom.CommunicationSystem
 
             return await tcs.Task;
         }
+
 
         private INetworkPacket onBeforeSendInternal(INetworkPacket networkPacket)
         {

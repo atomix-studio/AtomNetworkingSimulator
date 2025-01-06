@@ -308,6 +308,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7529d87b1419e2499079f1953081961, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _alternativeMode: 1
+  _singleGraphParenting: 0
   _roundsBeforeAugmentRange: 3
   _roundDelayTimerRange: {x: 0.2, y: 0.35972697}
   _sortingRule: 0
@@ -315,6 +317,6 @@ MonoBehaviour:
   _wide: 1
   _childrenCount: 6
   _connectionsTimeout: 2000
-  _childrenRequestTimeout: 333
-  _roundTimeout: 500
+  _childrenRequestTimeout: 1000
+  _roundTimeout: 250
   _relayedTreecastBufferSize: 50

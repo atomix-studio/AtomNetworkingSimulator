@@ -538,11 +538,6 @@ PrefabInstance:
       propertyPath: _localPeerInfo._peerAdress
       value: BT1
       objectReference: {fileID: 0}
-    - target: {fileID: 5308062706113184368, guid: 09dc6b9d771e62b499c312e8b50d669d,
-        type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 5533586626479675272, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
       propertyPath: m_Name
@@ -623,11 +618,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 5533586626479675314, guid: 09dc6b9d771e62b499c312e8b50d669d,
-        type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 5533586626479675315, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
       propertyPath: m_Enabled
@@ -641,11 +631,6 @@ PrefabInstance:
     - target: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
       propertyPath: _isBoot
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 5533586626479675317, guid: 09dc6b9d771e62b499c312e8b50d669d,
-        type: 3}
-      propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5533586626479675318, guid: 09dc6b9d771e62b499c312e8b50d669d,
@@ -779,7 +764,7 @@ MonoBehaviour:
   PacketSpeed: 100
   _pf_NodeEntity: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
     type: 3}
-  _startNodeEntitiesCount: 75
+  _startNodeEntitiesCount: 150
   _maxNodeEntitiesCount: 150
   _incomingConnectionsPerMinute: 25
   _incomingDisconnectionsPerMinute: 10
@@ -1298,6 +1283,11 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1173228168}
     m_Modifications:
+    - target: {fileID: -29674215270887382, guid: 09dc6b9d771e62b499c312e8b50d669d,
+        type: 3}
+      propertyPath: _singleGraphParenting
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5533586626479675272, guid: 09dc6b9d771e62b499c312e8b50d669d,
         type: 3}
       propertyPath: m_Name
