@@ -27,7 +27,7 @@ namespace Atom.Components.HierarchicalTree
         [SerializeField] private bool _singleGraphParenting;
         // A node will seek further every X rounds without parent
         [SerializeField] private int _roundsBeforeAugmentRange = 10;
-        [SerializeField, MinMaxSlider(.2f, 2f)] private Vector2 _roundDelayTimerRange = new Vector2();
+        [SerializeField, MinMaxSlider(.05f, 2f)] private Vector2 _roundDelayTimerRange = new Vector2();
         /// <summary>
         /// Sorting rule looks for the cycles of a gossip message to evaluate the graph distance of a potential children
         /// </summary>
@@ -268,7 +268,7 @@ namespace Atom.Components.HierarchicalTree
             var local = transform.position;
             local.y = 0;
 
-            Debug.LogError($"{controller.LocalNodeId} sorting {_pendingParentRequests.Count} parenting requests");
+            Debug.Log($"{controller.LocalNodeId} sorting {_pendingParentRequests.Count} parenting requests");
 
             _pendingParentRequests.Sort((a, b) =>
             {
@@ -280,7 +280,7 @@ namespace Atom.Components.HierarchicalTree
                 return Vector3.Distance(p_a, local).CompareTo(Vector3.Distance(p_b, local));
             });
 
-            Debug.LogError($"{controller.LocalNodeId} accepting parent request from {_pendingParentRequests[0].ParentConnectionRequestPacket.senderID}");
+            Debug.Log($"{controller.LocalNodeId} accepting parent request from {_pendingParentRequests[0].ParentConnectionRequestPacket.senderID}");
 
             _parent = new PeerInfo(_pendingParentRequests[0].ParentConnectionRequestPacket.senderID, _pendingParentRequests[0].ParentConnectionRequestPacket.senderAdress);
             _packetRouter.SendResponse(_pendingParentRequests[0].ParentConnectionRequestPacket, _pendingParentRequests[0].ParentConnectionResponsePacket);
@@ -291,9 +291,11 @@ namespace Atom.Components.HierarchicalTree
         private async Task SearchPotentialChildren()
         {
             _delayTimer = _roundDelayTimerRange.x;
-
+            int round_index = 0;
             while (true)
             {
+                Debug.Log($"Node {controller.LocalNodeId} > start children round search {round_index}");
+
                 await Task.Delay((int)(_delayTimer * 1000));
 
                 var local = transform.position;
@@ -323,6 +325,9 @@ namespace Atom.Components.HierarchicalTree
                 }
 
                 var toFind = Math.Min(_childrenCount - _children.Count, list.Count);
+
+                Debug.Log($"Node {controller.LocalNodeId} > send {toFind} request for children");
+
                 Task<ParentConnectionResponsePacket>[] tasks = new Task<ParentConnectionResponsePacket>[toFind];
 
                 for (int i = 0; i < toFind; ++i)
@@ -333,8 +338,7 @@ namespace Atom.Components.HierarchicalTree
 
                 var results = await Task.WhenAll(tasks);
 
-                Debug.Log("Round end");
-
+                Debug.Log($"Node {controller.LocalNodeId} > children request round end");
 
                 bool has_response = false;
                 for (int i = 0; i < results.Length; ++i)
@@ -356,7 +360,7 @@ namespace Atom.Components.HierarchicalTree
                         _children.Add(new PeerInfo(list[i].peerID, list[i].peerAdress));
                         _packetRouter.Send(list[i].peerAdress, new UpdateRankPacket() { newRank = _rank - 1, parentPosition = transform.position, broadcasterID = controller.LocalNodeId, broadcastID = NodeRandom.UniqueID() });
 
-                        Debug.LogError($"{controller.LocalNodeId} connect with {list[i].peerID}");
+                        Debug.Log($"{controller.LocalNodeId} connect with {list[i].peerID}");
 
                         //_currentSubgraphNodesCount = await CountSubgraphAsync();
                     }
@@ -387,12 +391,15 @@ namespace Atom.Components.HierarchicalTree
 
                     break;
                 }
+
+                round_index++;
             }
 
-            Debug.LogError($"{controller.LocalNodeId} end searching children");
+            Debug.Log($"{controller.LocalNodeId} end searching children");
         }
 
         #endregion
+
 
         #region Legacy
         private void InitializeDefaultConnectivityPackets()

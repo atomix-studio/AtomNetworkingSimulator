@@ -317,6 +317,6 @@ MonoBehaviour:
   _wide: 1
   _childrenCount: 6
   _connectionsTimeout: 2000
-  _childrenRequestTimeout: 1000
-  _roundTimeout: 250
+  _childrenRequestTimeout: 700
+  _roundTimeout: 500
   _relayedTreecastBufferSize: 50
