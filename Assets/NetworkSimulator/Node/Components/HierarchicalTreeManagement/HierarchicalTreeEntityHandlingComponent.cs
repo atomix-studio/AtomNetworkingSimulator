@@ -63,8 +63,8 @@ namespace Atom.Components.HierarchicalTree
         [ShowInInspector, ReadOnly] private PeerInfo _parent;
         [ShowInInspector, ReadOnly] private List<PeerInfo> _children = new List<PeerInfo>();
 
-        private int _closestRank = int.MaxValue;
-        private PeerInfo _closestRankPeerInfo = null;
+        private int _closestUpperBroadcasterRank = int.MaxValue;
+        private PeerInfo _closestUpperBroadcasterPeerInfo = null;
 
         private float _delayTimer = 0f;
         private Vector3 _initialPosition;
@@ -124,9 +124,7 @@ namespace Atom.Components.HierarchicalTree
                 // if we receive message from nodes that seeks a parent, then we set every parent graph in search mode
                 // because it means that other subgraphs aren't connected with this one
                 if (_parent == null)
-                {
                     _parentSearchActive = true;
-                }
 
                 if (_checkSortingRuleDelegate(broadcastable.cyclesDistance, broadcastable.maxCycleDistance) // the rule : we search only for close nodes / the rule can be changed with rank comparison (seeking node at/until/above "cycles" range from this)
                                                                                                             //&& _children.Count < Math.Min(_rank * 2, _childrenCount)
@@ -190,10 +188,12 @@ namespace Atom.Components.HierarchicalTree
                     // Case 2 : evaluating a potential children if the subgraph of this parent node would be moved
                     // we seek for the smallest possible move in rank by keeping the closest possible rank on a round
                     // this will be used in the SearchParent function on each round
-                    else if (_parent == null && broadcastable.senderRank < _closestRank)
+                    else if (_parent == null 
+                    && broadcastable.senderRank < _closestUpperBroadcasterRank 
+                    && _children.Count < _childrenCount) // possible only if child slot avalaible
                     {
-                        _closestRankPeerInfo = new PeerInfo(broadcastable.senderID, broadcastable.senderAddress);
-                        _closestRank = broadcastable.senderRank;
+                        _closestUpperBroadcasterPeerInfo = new PeerInfo(broadcastable.senderID, broadcastable.senderAddress);
+                        _closestUpperBroadcasterRank = broadcastable.senderRank;
                     }
                 }
 
@@ -214,12 +214,18 @@ namespace Atom.Components.HierarchicalTree
                 if (respondable.childrenRoundAtRequest != _currentRound)
                     return;
 
+                // CHECK HERE
+                _currentRound++;
+
                 // if parent already found
                 if (_parent != null)
                     return;
 
                 if (IsChildren(respondable.senderID))
                     return;
+
+                // parent found, stop searching
+                _parentSearchActive = false;
 
                 var response = (ParentConnectionResponsePacket)respondable.GetResponsePacket(respondable).packet;
                 AcceptParentConnectionRequest(respondable, response);
@@ -360,6 +366,8 @@ namespace Atom.Components.HierarchicalTree
                 Debug.LogError("Rank error");
             }
             _rank = respondable.parentRank - 1;
+
+            // le déplacement du graphe est maintenant commandé par le parent à la connection pour eviter d'avoir une valeur outdated
 
             /* // if parent-children rank diff is more than 1, the children that is connection will move his subgraph up so the graph distance parent-children is 1
              if (diff > 1)
@@ -616,21 +624,19 @@ namespace Atom.Components.HierarchicalTree
             // remind that nodes can only connect with node from the same group, and the rank is equal to the fanout distance of the broadcast (which should indicate a distance from the sender in a well constructed gossip network)
             if (_parent == null)
             {
-                if (_closestRankPeerInfo != null)
-                {
-                    //Debug.Log(1);
+                // every broadcast received by a parent that is over its rank will be comparated to keep the best possible current parent peer
+                if (_closestUpperBroadcasterPeerInfo != null && _children.Count < _childrenCount)
+                { 
+                    // case of a parent that is under another potential children node (aka a node that seeks parent)
+                    // the local parent goes up the potential children 
+                    // it might create a connection on next round
+                    SendUpdateRankTreecast(new UpdateRankPacket() { newRank = _closestUpperBroadcasterRank + 1, parentPosition = transform.position });
 
-                    // case of a parent that is under another potential parent node
-                    // the local parent will set the subgraph above this potential parent to allow the other node to connect itself to it on the next round
-                    SendUpdateRankTreecast(new UpdateRankPacket() { newRank = _closestRank + 1, parentPosition = transform.position });
-
-                    _closestRankPeerInfo = null;
-                    _closestRank = int.MaxValue;
+                    _closestUpperBroadcasterPeerInfo = null;
+                    _closestUpperBroadcasterRank = int.MaxValue;
                 }
                 else
                 {
-                    //Debug.Log(2);
-
                     // move random up or down all te subgraph to be avalaible to other children
                     if (NodeRandom.Range(0, 100) > 50)
                     {
@@ -689,7 +695,7 @@ namespace Atom.Components.HierarchicalTree
             // parent should receive heartbeat from children on a regular basis
             for (int i = 0; i < _children.Count; ++i)
             {
-                if ((DateTime.Now - _children[i].last_updated).Milliseconds > _connectionsTimeout)
+                if ((DateTime.Now - _children[i].last_updated).Seconds > _connectionsTimeout / 1000)
                 {
                     Debug.Log("Children timed out");
 
