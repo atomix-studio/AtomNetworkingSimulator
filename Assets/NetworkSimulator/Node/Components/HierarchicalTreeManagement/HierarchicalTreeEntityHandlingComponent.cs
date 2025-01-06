@@ -52,7 +52,7 @@ namespace Atom.Components.HierarchicalTree
         /// Timeout of a parent search request round (time before sending a broadcast and looking for the next step when no parent), in milliseconds
         /// </summary>
         [SerializeField] private int _roundTimeout = 1000;
-
+        [SerializeField] private int _relayedTreecastBufferSize = 50;
         [Header("Runtime")]
         [ShowInInspector, ReadOnly] private int _currentSubgraphNodesCount = 1;
         [ShowInInspector, ReadOnly] private int _rank;
@@ -67,7 +67,8 @@ namespace Atom.Components.HierarchicalTree
 
         private float _delayTimer = 0f;
         private Vector3 _initialPosition;
-        private HashSet<long> _pendingRequestToChildren = new HashSet<long>();
+        private HashSet<long> _pendingRequestToChildren;
+        private HashSet<long> _relayedTreecastsBuffer;
 
         private Func<int, int, bool> _checkSortingRuleDelegate;
 
@@ -179,6 +180,8 @@ namespace Atom.Components.HierarchicalTree
 
                             _children.Add(new PeerInfo(response.senderID, broadcastable.senderAddress));
 
+                            _packetRouter.Send(broadcastable.senderAddress, new UpdateRankPacket() { newRank = _rank - 1, parentPosition = transform.position, broadcasterID = controller.LocalNodeId, broadcastID = NodeRandom.UniqueID() });
+
                             _currentSubgraphNodesCount = await CountSubgraphAsync();
                         },
                         _childrenRequestTimeout);
@@ -229,7 +232,7 @@ namespace Atom.Components.HierarchicalTree
                     {
                         _children.RemoveAt(i);
                         _currentSubgraphNodesCount = await CountSubgraphAsync();
-                        break;
+                        return;
                     }
                 }
 
@@ -237,7 +240,10 @@ namespace Atom.Components.HierarchicalTree
                 {
                     _parent = null;
                     _currentSubgraphNodesCount = await CountSubgraphAsync();
+                    return;
                 }
+
+                Debug.LogError("Disconnection packet received from an unconnected node.");
             });
 
             _packetRouter.RegisterPacketHandler(typeof(ParentConnectionResponsePacket), null);
@@ -331,8 +337,9 @@ namespace Atom.Components.HierarchicalTree
 
         public void ResetTreeData()
         {
-            _pendingRequestToChildren.Clear();
-            _children.Clear();
+            _pendingRequestToChildren = new HashSet<long>(250);
+            _relayedTreecastsBuffer = new HashSet<long>(_relayedTreecastBufferSize);
+            _children = new List<PeerInfo>(_childrenCount);
             _currentSubgraphNodesCount = 1;
             _rank = NodeRandom.Range(0, 10) >= 8 ? 1 : 0;
             SetRank(_rank, 0, Vector3.zero);
@@ -345,14 +352,20 @@ namespace Atom.Components.HierarchicalTree
         {
             _parent = new PeerInfo(respondable.senderID, respondable.senderAdress);
 
-            var diff = respondable.parentRank - _rank;
+            var diff = Math.Abs(respondable.parentRank - _rank);
 
-            // if parent-children rank diff is more than 1, the children that is connection will move his subgraph up so the graph distance parent-children is 1
-            if (diff > 1)
+            if (respondable.parentRank <= _rank)
             {
-                _rank = respondable.parentRank - 1;
-                SendUpdateRankTreecast(new UpdateRankPacket() { newRank = respondable.parentRank - 2, parentPosition = transform.position });
+                Debug.LogError("Rank error");
             }
+            _rank = respondable.parentRank - 1;
+
+            /* // if parent-children rank diff is more than 1, the children that is connection will move his subgraph up so the graph distance parent-children is 1
+             if (diff > 1)
+             {
+                 _rank = respondable.parentRank - 1;
+                 SendUpdateRankTreecast(new UpdateRankPacket() { newRank = respondable.parentRank - 2, parentPosition = transform.position });
+             }*/
 
             // accept
             _packetRouter.SendResponse(respondable, response);
@@ -379,14 +392,14 @@ namespace Atom.Components.HierarchicalTree
         private void SetRank(int rank, int childIndex, Vector3 parentPosition)
         {
             _rank = rank;
-            transform.position = new Vector3(_initialPosition.x, 0, _initialPosition.z) + Vector3.up * 5 * _rank;            
+            transform.position = new Vector3(_initialPosition.x, 0, _initialPosition.z) + Vector3.up * 5 * _rank;
         }
 
         public void RegisterTreecastPacketHandler<T>(Action<INetworkPacket> packetReceiveHandler) where T : ITreecastablePacket
         {
             _packetRouter.RegisterPacketHandler(typeof(T), (receivedPacket) =>
             {
-                if (receivedPacket is ITreecastablePacket == false)
+                if (receivedPacket is ITreecastablePacket treecastablePacket == false)
                     return;
 
                 packetReceiveHandler?.Invoke(receivedPacket);
@@ -410,6 +423,16 @@ namespace Atom.Components.HierarchicalTree
                         var relayedPacket = downcastablePacket.ClonePacket(downcastablePacket);
                         _packetRouter.Send(_children[i].peerAdress, relayedPacket);
                     }
+                }
+
+                // the automatic disconnection is done after the message has been relayed
+                // it allows to propagate the information about the cycle to every member of the cycled graph one time before every
+                // of them resets
+                if (!CheckBroadcastRelayCycles(treecastablePacket))
+                {
+                    DisconnectFromParent();
+                    DisconnectChildren();
+                    ResetTreeData();
                 }
             },
             true);
@@ -449,6 +472,30 @@ namespace Atom.Components.HierarchicalTree
             }
             else throw new Exception("Packe ttype not handled");
         }
+
+        /// <summary>
+        /// Checking for treecast that already has been received. It will mean that there is a cycle in the graph because the graph are unidirectionnal and oriented top-bottom
+        /// </summary>
+        /// <param name="packet"></param>
+        /// <returns></returns>
+        private bool CheckBroadcastRelayCycles(IBroadcastablePacket packet)
+        {
+            if (_relayedTreecastsBuffer.Contains(packet.broadcastID))
+            {
+                Debug.LogError("Detected cycle in graph, disconnect node" + packet.GetType());
+                return false;
+            }
+            else
+            {
+                if (_relayedTreecastsBuffer.Count >= _relayedTreecastBufferSize)
+                {
+                    _relayedTreecastsBuffer.Remove(_relayedTreecastsBuffer.ElementAt(0));
+                }
+                _relayedTreecastsBuffer.Add(packet.broadcastID);
+                return true;
+            }
+        }
+
 
         private void SendUpdateRankTreecast(UpdateRankPacket updateRankPacket)
         {
@@ -618,6 +665,16 @@ namespace Atom.Components.HierarchicalTree
 
             _packetRouter.Send(_parent.peerAdress, new DisconnectionNotificationPacket());
             _parent = null;
+        }
+
+        private void DisconnectChildren()
+        {
+            for (int i = 0; i < _children.Count; ++i)
+            {
+                _packetRouter.Send(_children[i].peerAdress, new DisconnectionNotificationPacket());
+            }
+
+            _children.Clear();
         }
 
         private void CheckChildrenTimedOut()

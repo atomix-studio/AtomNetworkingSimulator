@@ -313,7 +313,7 @@ MonoBehaviour:
   _sortingRule: 0
   _dynamicDelayFunctionLogarithmicBase: 3
   _wide: 1
-  _childrenCount: 4
+  _childrenCount: 12
   _connectionsTimeout: 5000
   _childrenRequestTimeout: 333
   _roundTimeout: 500
