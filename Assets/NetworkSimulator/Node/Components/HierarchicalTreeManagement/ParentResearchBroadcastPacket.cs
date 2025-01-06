@@ -15,12 +15,13 @@ namespace Atom.Components.HierarchicalTree
         public Vector3 senderPosition { get; set; }
         public int senderRank { get; set; }
         public int cyclesDistance { get; set; }
+        public int maxCycleDistance { get; set; }
         public string senderAddress { get; set; }
         public int senderRound { get; set; }
 
         public ParentResearchBroadcastPacket() { }
 
-        public ParentResearchBroadcastPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID, string senderAddress, Vector3 senderPosition, int senderRank, int senderRound, int relayCount)
+        public ParentResearchBroadcastPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID, string senderAddress, Vector3 senderPosition, int senderRank, int senderRound, int currentCycleDistance, int maxCycleDistance)
         {
             this.packetTypeIdentifier = packetIdentifier;
             this.senderID = senderID;
@@ -30,12 +31,13 @@ namespace Atom.Components.HierarchicalTree
             this.senderRank = senderRank;
             this.senderAddress = senderAddress;
             this.senderRound = senderRound;
-            this.cyclesDistance = relayCount;
+            this.cyclesDistance = currentCycleDistance;
             this.senderPosition = senderPosition;
+            this.maxCycleDistance = maxCycleDistance;
         }
 
         public ParentResearchBroadcastPacket(ParentResearchBroadcastPacket subscriptionPacket) :
-            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.senderAddress, subscriptionPacket.senderPosition, subscriptionPacket.senderRank, subscriptionPacket.senderRound, subscriptionPacket.cyclesDistance)
+            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.senderAddress, subscriptionPacket.senderPosition, subscriptionPacket.senderRank, subscriptionPacket.senderRound, subscriptionPacket.cyclesDistance, subscriptionPacket.maxCycleDistance)
         {
 
         }

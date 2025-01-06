@@ -188,17 +188,7 @@ namespace Atom.CommunicationSystem
                     // refreshing the score at the same time
                     HeartbeatConnectionWith(peer.Value);
                 }
-            }
-            /*for (int i = 0; i < Connections.Count; ++i)
-            {
-
-
-            }*/
-
-            /*if (Connections.Count > context.NetworkViewsTargetCount)
-            {
-                // sorting listenners by score and disconnect from the one that are not kept in selection
-            }*/
+            }            
         }
 
         private void UpdateNetworkScore()

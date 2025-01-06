@@ -63,7 +63,7 @@ MonoBehaviour:
   _preferedGroupSize: 2
   _delayBetweenGroupFindingRequest: 10
   _pingSimulatorStability: 1
-  _networkViewsTargetCount: 10
+  _networkViewsTargetCount: 9
   IsConnectedAndReady: 0
   IsInGroup: 0
   IsSleeping: 0
@@ -308,8 +308,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7529d87b1419e2499079f1953081961, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _childrenRequestSorting: 0
-  _sortingRule: 1
+  _roundsBeforeAugmentRange: 10
+  _sortingRule: 0
   _dynamicDelayFunctionLogarithmicBase: 3
   _wide: 5
   _childrenCount: 3

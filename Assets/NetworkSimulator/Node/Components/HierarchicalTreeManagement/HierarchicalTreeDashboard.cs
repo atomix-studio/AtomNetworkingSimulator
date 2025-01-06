@@ -30,15 +30,5 @@ namespace Atom.Components.HierarchicalTree
                 entity.SortingRule = graphSortingRule;
             }
         }
-
-        [Button]
-        private void SetRequestSorting(bool state)
-        {
-            var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None);
-            foreach (var entity in comps)
-            {
-                entity.ChildrenRequestSorting = state;
-            }
-        }
     }
 }
