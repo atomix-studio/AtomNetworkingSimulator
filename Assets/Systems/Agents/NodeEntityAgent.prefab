@@ -313,7 +313,8 @@ MonoBehaviour:
   _sortingRule: 0
   _dynamicDelayFunctionLogarithmicBase: 3
   _wide: 1
-  _childrenCount: 12
-  _connectionsTimeout: 5000
+  _childrenCount: 6
+  _connectionsTimeout: 2000
   _childrenRequestTimeout: 333
   _roundTimeout: 500
+  _relayedTreecastBufferSize: 50

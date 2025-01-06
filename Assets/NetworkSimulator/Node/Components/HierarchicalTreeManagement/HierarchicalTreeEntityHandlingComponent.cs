@@ -55,6 +55,7 @@ namespace Atom.Components.HierarchicalTree
         [SerializeField] private int _relayedTreecastBufferSize = 50;
         [Header("Runtime")]
         [ShowInInspector, ReadOnly] private int _currentSubgraphNodesCount = 1;
+        [ShowInInspector, ReadOnly] private int _currentSubgraphDepth = 0;
         [ShowInInspector, ReadOnly] private int _rank;
         [ShowInInspector, ReadOnly] private int _currentRound = 0;
         [ShowInInspector] private bool _parentSearchActive;
@@ -225,7 +226,7 @@ namespace Atom.Components.HierarchicalTree
             });
 
             _packetRouter.RegisterPacketHandler(typeof(DisconnectionNotificationPacket), async (onReceived) =>
-            {
+            {                
                 for (int i = 0; i < _children.Count; ++i)
                 {
                     if (_children[i].peerID == onReceived.senderID)
@@ -430,12 +431,17 @@ namespace Atom.Components.HierarchicalTree
                 // of them resets
                 if (!CheckBroadcastRelayCycles(treecastablePacket))
                 {
-                    DisconnectFromParent();
-                    DisconnectChildren();
-                    ResetTreeData();
+                    FullReset();
                 }
             },
             true);
+        }
+
+        private void FullReset()
+        {
+            DisconnectFromParent();
+            DisconnectChildren();
+            ResetTreeData();
         }
 
         /// <summary>
@@ -756,6 +762,9 @@ namespace Atom.Components.HierarchicalTree
             count += 1;
 
             Debug.Log($"Depth = {overallMaxDepth}, Total counted nodes = {count}");
+
+            _currentSubgraphNodesCount = count;
+            _currentSubgraphDepth = overallMaxDepth;
 
             return count;
         }

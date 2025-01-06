@@ -779,9 +779,9 @@ MonoBehaviour:
   PacketSpeed: 100
   _pf_NodeEntity: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
     type: 3}
-  _startNodeEntitiesCount: 100
+  _startNodeEntitiesCount: 75
   _maxNodeEntitiesCount: 150
-  _incomingConnectionsPerMinute: 35
+  _incomingConnectionsPerMinute: 25
   _incomingDisconnectionsPerMinute: 10
   _autoSpawn: 0
   _defaultCluster:
@@ -796,7 +796,7 @@ MonoBehaviour:
   - {fileID: 584273122}
   DebugSelectedNodeEntity: {fileID: 0}
   SelectedIndex: 0
-  SpawnSize: {x: -50, y: 50}
+  SpawnSize: {x: -35, y: 35}
 --- !u!4 &1173228168
 Transform:
   m_ObjectHideFlags: 0
