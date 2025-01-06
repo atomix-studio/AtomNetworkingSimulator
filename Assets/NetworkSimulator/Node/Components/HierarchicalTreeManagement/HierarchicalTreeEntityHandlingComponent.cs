@@ -24,6 +24,7 @@ namespace Atom.Components.HierarchicalTree
         [Header("Paramètres")]
         // A node will seek further every X rounds without parent
         [SerializeField] private int _roundsBeforeAugmentRange = 10;
+        [SerializeField, MinMaxSlider(.2f, 2f)] private Vector2 _roundDelayTimerRange = new Vector2();
         /// <summary>
         /// Sorting rule looks for the cycles of a gossip message to evaluate the graph distance of a potential children
         /// </summary>
@@ -45,6 +46,7 @@ namespace Atom.Components.HierarchicalTree
         /// Timeout of the heartbeat with a parent. If time out is reached, the node disconnects and seeks a new parent
         /// </summary>
         [SerializeField] private int _connectionsTimeout = 5000;
+        [SerializeField] private int _childrenRequestTimeout = 333;
 
         /// <summary>
         /// Timeout of a parent search request round (time before sending a broadcast and looking for the next step when no parent), in milliseconds
@@ -65,8 +67,12 @@ namespace Atom.Components.HierarchicalTree
 
         private float _delayTimer = 0f;
         private Vector3 _initialPosition;
+        private HashSet<long> _pendingRequestToChildren = new HashSet<long>();
 
         private Func<int, int, bool> _checkSortingRuleDelegate;
+
+        public int currentRank => _rank;
+        public List<PeerInfo> children => _children;
 
         public GraphSortingRules SortingRule
         {
@@ -103,6 +109,7 @@ namespace Atom.Components.HierarchicalTree
 
         public async void OnInitialize()
         {
+            ResetTreeData();
             InitializeSortingRuleDelegate();
 
             _parent = null;
@@ -120,31 +127,61 @@ namespace Atom.Components.HierarchicalTree
                 }
 
                 if (_checkSortingRuleDelegate(broadcastable.cyclesDistance, broadcastable.maxCycleDistance) // the rule : we search only for close nodes / the rule can be changed with rank comparison (seeking node at/until/above "cycles" range from this)
-                    && _children.Count < _rank
-                    && !IsChildren(broadcastable.senderID))
+                                                                                                            //&& _children.Count < Math.Min(_rank * 2, _childrenCount)
+                    && _children.Count < _childrenCount
+                    && !IsChildren(broadcastable.senderID)
+                    && !_pendingRequestToChildren.Contains(broadcastable.broadcasterID)
+                        && (_parent == null || broadcastable.broadcasterID != _parent.peerID)) // avoid direct cycles
                 {
-                    // Case 1 : already avalaible children, we send a request
+                    // Case 1 : avalaible children, we send a request
                     if (broadcastable.senderRank < _rank)
                     {
-                        /*var random = NodeRandom.Range(0f, 1f);
-                        var prop = _children.Count / _childrenCount +.33f;
-                        if (random <= prop)*/
+                        var round = _currentRound;
+
+                        _pendingRequestToChildren.Add(broadcastable.broadcasterID);
+
+                        // responding to the potential conneciton by a connection request from the receiver
+                        // we set the round of the broadcast sender in the request
+                        // if the round has changed on the sender, the request will be discarded 
+                        _packetRouter.SendRequest(broadcastable.senderAddress, new ParentConnectionRequestPacket(transform.position, _rank, _children.Count, broadcastable.senderRound), async (response) =>
                         {
+                            _pendingRequestToChildren.Remove(broadcastable.broadcasterID);
 
-                            // responding to the potential conneciton by a connection request from the receiver
-                            // we set the round of the broadcast sender in the request
-                            // if the round has changed on the sender, the request will be discarded 
-                            _packetRouter.SendRequest(broadcastable.senderAddress, new ParentConnectionRequestPacket(transform.position, _rank, _children.Count, broadcastable.senderRound), async (response) =>
+                            if (response == null)
+                                return;
+
+                            if (IsChildren(broadcastable.broadcasterID))
                             {
-                                if (response == null)
-                                    return;
+                                Debug.LogError("Already children");
+                                return;
+                            }
 
-                                _children.Add(new PeerInfo(response.senderID, broadcastable.senderAddress));
+                            if (_children.Count >= _childrenCount)
+                            {
+                                Debug.LogError("Too much children");
+                                _packetRouter.Send(broadcastable.senderAddress, new DisconnectionNotificationPacket());
+                                return;
+                            }
 
-                                _currentSubgraphNodesCount = await CountSubgraphAsync();
-                            });
-                        }
+                            if (_parent != null && broadcastable.broadcasterID == _parent.peerID)
+                            {
+                                Debug.LogError("Cycling");
+                                _packetRouter.Send(broadcastable.senderAddress, new DisconnectionNotificationPacket());
+                                return;
+                            }
 
+                            if (round != _currentRound)
+                            {
+                                Debug.LogError("Round has changed");
+                                _packetRouter.Send(broadcastable.senderAddress, new DisconnectionNotificationPacket());
+                                return;
+                            }
+
+                            _children.Add(new PeerInfo(response.senderID, broadcastable.senderAddress));
+
+                            _currentSubgraphNodesCount = await CountSubgraphAsync();
+                        },
+                        _childrenRequestTimeout);
                     }
                     // Case 2 : evaluating a potential children if the subgraph of this parent node would be moved
                     // we seek for the smallest possible move in rank by keeping the closest possible rank on a round
@@ -167,7 +204,6 @@ namespace Atom.Components.HierarchicalTree
             _packetRouter.RegisterPacketHandler(typeof(ParentConnectionRequestPacket), (packet) =>
             {
                 var respondable = (packet as ParentConnectionRequestPacket);
-                var response = (ParentConnectionResponsePacket)respondable.GetResponsePacket(respondable).packet;
 
                 // if round has changed since the broadcast, discarding
                 // round change on request timeout
@@ -181,6 +217,7 @@ namespace Atom.Components.HierarchicalTree
                 if (IsChildren(respondable.senderID))
                     return;
 
+                var response = (ParentConnectionResponsePacket)respondable.GetResponsePacket(respondable).packet;
                 AcceptParentConnectionRequest(respondable, response);
             });
 
@@ -292,11 +329,14 @@ namespace Atom.Components.HierarchicalTree
             MaintainingUpdateTask();
         }
 
-        public void ClearConnections()
+        public void ResetTreeData()
         {
-            _currentSubgraphNodesCount = 1;
-
+            _pendingRequestToChildren.Clear();
             _children.Clear();
+            _currentSubgraphNodesCount = 1;
+            _rank = NodeRandom.Range(0, 10) >= 8 ? 1 : 0;
+            SetRank(_rank, 0, Vector3.zero);
+            _currentRound = 0;
             _parent = null;
             _parentSearchActive = true;
         }
@@ -339,17 +379,7 @@ namespace Atom.Components.HierarchicalTree
         private void SetRank(int rank, int childIndex, Vector3 parentPosition)
         {
             _rank = rank;
-
-            //if (_parent == null)
-            //{
-            transform.position = new Vector3(_initialPosition.x, 0, _initialPosition.z) + Vector3.up * 5 * _rank;
-            //}
-            /*else
-            {
-                
-                parentPosition.y = 0;
-                transform.position = parentPosition + Vector3.right * 5 * (_rank + 1) * childIndex + Vector3.up * 5 * _rank;
-            }*/
+            transform.position = new Vector3(_initialPosition.x, 0, _initialPosition.z) + Vector3.up * 5 * _rank;            
         }
 
         public void RegisterTreecastPacketHandler<T>(Action<INetworkPacket> packetReceiveHandler) where T : ITreecastablePacket
@@ -461,7 +491,7 @@ namespace Atom.Components.HierarchicalTree
         {
             while (true)
             {
-                _delayTimer = NodeRandom.Range(.50f, 1.5f)
+                _delayTimer = NodeRandom.Range(_roundDelayTimerRange.x, _roundDelayTimerRange.y)
                     // we multiply the timer by the log on base 2 of the children count. 
                     // it allows bigger graph to evolute slower that smallest one, for fastest convergence
                     * ((float)Math.Log(_currentSubgraphNodesCount, _dynamicDelayFunctionLogarithmicBase));
@@ -611,25 +641,31 @@ namespace Atom.Components.HierarchicalTree
         {
             if (_children.Count == 0)
             {
-                _packetRouter.SendResponse(subraphCountingRequestPacket, new SubgraphCountingResponsePacket() { childrenCount = 1 });
+                _packetRouter.SendResponse(subraphCountingRequestPacket, new SubgraphCountingResponsePacket() { childrenCount = 1, maxDepth = subraphCountingRequestPacket.depth + 1 });
             }
             else
             {
+                var crtDepth = subraphCountingRequestPacket.depth + 1;
+
                 var tasks = new Task<SubgraphCountingResponsePacket>[_children.Count];
                 for (int i = 0; i < tasks.Length; ++i)
                 {
-                    tasks[i] = _packetRouter.SendRequestAsync<SubgraphCountingResponsePacket>(_children[i].peerAdress, new SubraphCountingRequestPacket());
+                    tasks[i] = _packetRouter.SendRequestAsync<SubgraphCountingResponsePacket>(_children[i].peerAdress, new SubraphCountingRequestPacket() { depth = crtDepth });
                 }
+                int overallMaxDepth = int.MinValue;
 
                 var results = await Task.WhenAll(tasks);
                 int count = 0;
                 for (int i = 0; i < results.Length; ++i)
                 {
                     if (results[i] != null)
+                    {
                         count += results[i].childrenCount;
+                        overallMaxDepth = Math.Max(overallMaxDepth, results[i].maxDepth);
+                    }
                 }
 
-                _packetRouter.SendResponse(subraphCountingRequestPacket, new SubgraphCountingResponsePacket() { childrenCount = count + 1 });
+                _packetRouter.SendResponse(subraphCountingRequestPacket, new SubgraphCountingResponsePacket() { childrenCount = count + 1, maxDepth = overallMaxDepth });
             }
         }
 
@@ -648,16 +684,21 @@ namespace Atom.Components.HierarchicalTree
 
             var results = await Task.WhenAll(tasks);
             int count = 0;
+            int overallMaxDepth = int.MinValue;
             for (int i = 0; i < results.Length; ++i)
             {
+
                 if (results[i] != null)
+                {
+                    overallMaxDepth = Math.Max(overallMaxDepth, results[i].maxDepth);
                     count += results[i].childrenCount;
+                }
             }
 
             // counting self as well
             count += 1;
 
-            Debug.Log("Total counted nodes : " + count);
+            Debug.Log($"Depth = {overallMaxDepth}, Total counted nodes = {count}");
 
             return count;
         }

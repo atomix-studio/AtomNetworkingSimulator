@@ -779,7 +779,7 @@ MonoBehaviour:
   PacketSpeed: 100
   _pf_NodeEntity: {fileID: 5533586626479675316, guid: 09dc6b9d771e62b499c312e8b50d669d,
     type: 3}
-  _startNodeEntitiesCount: 75
+  _startNodeEntitiesCount: 100
   _maxNodeEntitiesCount: 150
   _incomingConnectionsPerMinute: 35
   _incomingDisconnectionsPerMinute: 10

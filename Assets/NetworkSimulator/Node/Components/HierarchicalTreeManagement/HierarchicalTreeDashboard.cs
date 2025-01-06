@@ -12,12 +12,34 @@ namespace Atom.Components.HierarchicalTree
     internal class HierarchicalTreeDashboard : MonoBehaviour
     {
         [Button]
+        private void GetInfos()
+        {
+            var min_rank = int.MaxValue;
+            var max_rank = int.MinValue;
+            var average_connections = 0f;
+            var parents = 0;
+            var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None);
+            foreach (var entity in comps)
+            {
+                min_rank = Math.Min(min_rank, entity.currentRank);
+                max_rank = Math.Max(max_rank, entity.currentRank);
+                average_connections += entity.children.Count;
+                if(entity.children.Count > 0 )
+                    parents++;
+            }
+
+            average_connections /= parents;
+
+            Debug.Log($"Min rank : {min_rank}, Max_rank : {max_rank}, average children cout : {average_connections}");
+        }
+
+        [Button]
         private void DisbandGraph()
         {
             var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None);
             foreach (var entity in comps)
             {
-                entity.ClearConnections();
+                entity.ResetTreeData();
             }
         }
 
