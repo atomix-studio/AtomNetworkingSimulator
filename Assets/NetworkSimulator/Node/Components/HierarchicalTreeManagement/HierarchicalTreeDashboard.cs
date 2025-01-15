@@ -1,4 +1,5 @@
-﻿using Sirenix.OdinInspector;
+﻿using Atom.Helpers;
+using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +14,7 @@ namespace Atom.Components.HierarchicalTree
     {
         [Title("Data")]
         [Button]
-        private void GetInfos()
+        private void GetGraphInfos()
         {
             var min_rank = int.MaxValue;
             var max_rank = int.MinValue;
@@ -35,8 +36,6 @@ namespace Atom.Components.HierarchicalTree
         }
 
         [Title("Disband")]
-
-
         [Button]
         private void DisbandGraph()
         {
@@ -47,24 +46,67 @@ namespace Atom.Components.HierarchicalTree
             }
         }
 
-        [Title("Launch / Modify")]
-
         [Button]
-        private void SetMode(GraphSortingRules graphSortingRule)
-        {
-            var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None);
-            foreach (var entity in comps)
-            {
-                entity.SortingRule = graphSortingRule;
-            }
-        }
-
-        [Button]
-        private void StartAlt()
+        private void StartGraphCreation()
         {
             var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None).ToList().Find(t => t.controller.IsBoot );
 
             comps.StartTreeGeneration();
+        }
+
+        [Button]
+        private void UpcastThenDowncastColor()
+        {
+            var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None);
+            comps[NodeRandom.Range(0, comps.Length)].SetColorUpcast();
+        }
+
+
+        [Button]
+        private void DowncastColor()
+        {
+            var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None).ToList().Find(t => t.controller.IsBoot);
+            comps.SetColorDowncast();
+        }
+
+        [Button]
+        private void FullcastColor()
+        {
+            var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None);
+            comps[NodeRandom.Range(0, comps.Length)].SetColorFullcast();
+
+        }
+
+        [Button]
+        private void BroadcastColor()
+        {
+            var comps = FindObjectsByType<HierarchicalTreeEntityHandlingComponent>(FindObjectsSortMode.None);
+            comps[NodeRandom.Range(0, comps.Length)].SetColorBroadcast();
+        }
+
+
+        private void OnGUI()
+        {
+            if (GUILayout.Button(nameof(GetGraphInfos)))
+                GetGraphInfos();
+
+            if(GUILayout.Button(nameof(DisbandGraph)))
+                DisbandGraph();
+
+            if (GUILayout.Button(nameof(StartGraphCreation)))
+                StartGraphCreation();
+
+            if (GUILayout.Button(nameof(UpcastThenDowncastColor)))
+                UpcastThenDowncastColor();
+
+            if (GUILayout.Button(nameof(DowncastColor)))
+                DowncastColor();
+
+            if (GUILayout.Button(nameof(FullcastColor)))
+                FullcastColor();
+
+            if (GUILayout.Button(nameof(BroadcastColor)))
+                BroadcastColor();
         }
     }
 }

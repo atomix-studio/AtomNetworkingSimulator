@@ -60,8 +60,6 @@ MonoBehaviour:
   _networkInfo: {fileID: 0}
   _worldSimulationManager: {fileID: 0}
   _isBoot: 0
-  _preferedGroupSize: 2
-  _delayBetweenGroupFindingRequest: 10
   _pingSimulatorStability: 1
   _networkViewsTargetCount: 9
   IsConnectedAndReady: 0
@@ -110,13 +108,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f674e9aae3c25a44b89f65f9b6563c55, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  AvalaiblePeers: []
-  PartialViewMaximumCount: 9
-  RefreshingTime: 12
   DelayBetweenDiscoveryRequests: 10
-  Fanout: 3
-  BroadcastForwardingMaxCycles: 2
-  ChancesToForgetPeerOnGroupRefused: 10
 --- !u!114 &3554877669675035482
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -196,7 +188,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   knownPeersMaximumCount: 25
-  peerConnectionLeaseTime: 120
   peerConnectionLeaseRefreshTime: 3
   _averageScore: 0
   _networkScoreBuffer: []
@@ -308,15 +299,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a7529d87b1419e2499079f1953081961, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _alternativeMode: 1
-  _singleGraphParenting: 0
-  _roundsBeforeAugmentRange: 3
-  _roundDelayTimerRange: {x: 0.2, y: 0.35972697}
-  _sortingRule: 0
-  _dynamicDelayFunctionLogarithmicBase: 3
-  _wide: 1
-  _childrenCount: 6
+  _sendRefuseResponse: 1
+  _roundDelayTimerRange: {x: 0.10625, y: 0.35972697}
   _connectionsTimeout: 2000
   _childrenRequestTimeout: 700
-  _roundTimeout: 500
+  _roundTimeout: 450
   _relayedTreecastBufferSize: 50

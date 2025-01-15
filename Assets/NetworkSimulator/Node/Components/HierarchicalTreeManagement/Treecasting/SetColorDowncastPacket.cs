@@ -71,4 +71,35 @@ namespace Atom.Components.HierarchicalTree
             return new SetColorUpcastPacket(received as SetColorUpcastPacket);
         }
     }
+
+    internal class SetColorFullcastPacket : AbstractNetworkPacket, IFullcastablePacket
+    {
+        public long broadcasterID { get; set; }
+        public long broadcastID { get; set; }
+        public Color newColor { get; set; }
+        public bool allowUpcasting { get ; set ; }
+
+        public SetColorFullcastPacket() { }
+
+        public SetColorFullcastPacket(short packetIdentifier, long senderID, DateTime sentTime, long broadcastID, long broadcasterID, Color newColor)
+        {
+            this.packetTypeIdentifier = packetIdentifier;
+            this.senderID = senderID;
+            this.sentTime = sentTime;
+            this.broadcastID = broadcastID;
+            this.broadcasterID = broadcasterID;
+            this.newColor = newColor;
+        }
+
+        public SetColorFullcastPacket(SetColorFullcastPacket subscriptionPacket) :
+            this(subscriptionPacket.packetTypeIdentifier, subscriptionPacket.senderID, subscriptionPacket.sentTime, subscriptionPacket.broadcastID, subscriptionPacket.broadcasterID, subscriptionPacket.newColor)
+        {
+
+        }
+
+        public INetworkPacket ClonePacket(INetworkPacket received)
+        {
+            return new SetColorFullcastPacket(received as SetColorFullcastPacket);
+        }
+    }
 }

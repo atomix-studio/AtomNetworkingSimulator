@@ -96,12 +96,12 @@ namespace Atom.Components.HierarchicalTree
 
         public int senderRound { get; set; }
 
+        public bool response { get; set; }
 
         public ParentConnectionResponsePacket()
         {
         }
     }
-
 
     public class ChildrenSearchActivationPacket : AbstractNetworkPacket
     {

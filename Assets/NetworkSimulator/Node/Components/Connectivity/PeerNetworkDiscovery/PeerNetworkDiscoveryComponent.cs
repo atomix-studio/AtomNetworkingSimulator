@@ -41,33 +41,12 @@ using Atom.Helpers;
 public class PeerNetworkDiscoveryComponent : MonoBehaviour, INodeUpdatableComponent
 {
     public NodeEntity controller { get; set; }
-    [Inject] private TransportLayerComponent _transportLayer;
     [Inject] private NetworkConnectionsComponent _networkInfo;
     [Inject] private BroadcasterComponent _broadcaster;
-    [Inject] private HandshakingComponent _handshaking;
     [Inject] private ConnectingComponent _connecting;
-    [Inject] private PacketRouter _packetRouter;
-
-    /// <summary>
-    /// Known connections that can be 
-    /// </summary>
-    public List<NodeEntity> AvalaiblePeers = new List<NodeEntity>();
-
-    /// <summary>
-    /// the broadcaster will try to keep 
-    /// </summary>
-    public int PartialViewMaximumCount = 9;
-    public int RefreshingTime = 10;
 
     // each time a node relays a discovery, it will increment a timer to avoid too frequent broadcasting discoveries over the network
     public int DelayBetweenDiscoveryRequests = 10;
-    public int Fanout = 3;
-    public int BroadcastForwardingMaxCycles = 2;
-
-    public int ChancesToForgetPeerOnGroupRefused = 10;
-    private Dictionary<int, int> _relayedBroadcasts = new Dictionary<int, int>();
-    public Dictionary<int, int> relayedBroadcasts => _relayedBroadcasts;
-
 
     private float _discoveryBroadcastCooldown = 0;
     private float _discoveryBroadcastOverrideTimer = 0;
@@ -81,7 +60,6 @@ public class PeerNetworkDiscoveryComponent : MonoBehaviour, INodeUpdatableCompon
     {
         _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(NetworkDiscoveryBroadcastPacket), async (packet) =>
         {
-
             // when receiving a network discovery broadcast, a node will handle it be either
             // selecting this new peer as a good connection and notify the peer that the connection is accepted
             // forwards the packet to other peers
@@ -178,7 +156,6 @@ public class PeerNetworkDiscoveryComponent : MonoBehaviour, INodeUpdatableCompon
         TryBroadcastDiscoveryRequest();
     }
 
-
     public void OnUpdate()
     {
         if (controller.IsSleeping)
@@ -194,96 +171,6 @@ public class PeerNetworkDiscoveryComponent : MonoBehaviour, INodeUpdatableCompon
             TryBroadcastDiscoveryRequest();
         }
     }
-
-    private float GetPeerScore(NodeEntity peer)
-    {
-        // in a real network situation we would have ping-probed these datas
-        if (!peer.IsConnectedAndReady)
-            return 0;
-
-        if (!peer.gameObject.activeSelf)
-            return 0;
-
-        var dist = Vector3.Distance(peer.transform.position, transform.position);
-        return 1f / dist * 100f;
-    }
-
-    public void TryRegisterPeer(NodeEntity nodeEntity)
-    {
-        if (AvalaiblePeers.Count >= PartialViewMaximumCount)
-        {
-            // we put this check here because its more cpu expensive to do a contains rather than a count comparison
-            if (AvalaiblePeers.Contains(nodeEntity))
-                return;
-
-            for (int j = 0; j < AvalaiblePeers.Count; ++j)
-            {
-                if (GetPeerScore(nodeEntity) > GetPeerScore(AvalaiblePeers[j]))
-                {
-                    UnregisterPeer(AvalaiblePeers[j]);
-                    AvalaiblePeers.Add(nodeEntity);
-                    break;
-                }
-            }
-            return;
-
-        }
-
-        //Debug.Log($"{this} registers new peer : {nodeEntity}");
-
-        if (!AvalaiblePeers.Contains(nodeEntity))
-            AvalaiblePeers.Add(nodeEntity);
-    }
-
-    public void UnregisterPeer(NodeEntity nodeEntity)
-    {
-        AvalaiblePeers.Remove(nodeEntity);
-    }
-
-    /*    // heartbeat should ping random nodes 
-        // these nodes then now that local is alive
-        // if ping has reponse, the local know that pinged is alive
-        private void Heartbeat()
-        {
-            for (int i = 0; i < AvalaiblePeers.Count; ++i)
-            {
-                if (!AvalaiblePeers[i].gameObject.activeSelf)
-                {
-                    //Debug.LogError("Removing unavalaible peer");
-                    AvalaiblePeers.RemoveAt(i);
-                    i--;
-                }
-            }
-
-            if (AvalaiblePeers.Count == 0)
-                return;
-
-            // here we will try to check the connectivity health of the local node
-            // we do so by computing a peer score value (indexex on the latency to each distant peer and maybe other things like message loss, etc..)
-            // if the computed score is lower enough from a previous value, we will trigger the call of a discovery request
-
-            var current_peers_score = 0f;
-            // the heartbeat should be able to maintain a score routine and see if a peer becomes too low in PeerScore (like latency is increasing)
-            for (int i = 0; i < AvalaiblePeers.Count; ++i)
-            {
-                current_peers_score += GetPeerScore(AvalaiblePeers[i]);
-            }
-            current_peers_score /= AvalaiblePeers.Count;
-
-            // abritrary value for now
-            // the idea is to check if the score is decreasing from a previous high value
-            // if so, the node will trigger a discovery request to recreate its network with better peers
-            if (current_peers_score * 1.33f < _peersScore)
-            {
-                BroadcastDiscoveryRequest();
-                _peersScore = current_peers_score;
-            }
-            else if (current_peers_score > _peersScore)
-            {
-                _peersScore = current_peers_score;
-            }
-        }
-    */
 
     [Button]
     private void BroadcastDiscoveryRequestTest()

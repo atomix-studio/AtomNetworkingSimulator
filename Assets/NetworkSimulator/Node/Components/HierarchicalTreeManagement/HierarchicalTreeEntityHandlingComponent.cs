@@ -22,28 +22,11 @@ namespace Atom.Components.HierarchicalTree
         [Inject] private NetworkConnectionsComponent _connectingComponent;
 
         [Header("Paramètres")]
-        [SerializeField] private bool _alternativeMode;
 
-        [SerializeField] private bool _singleGraphParenting;
-        // A node will seek further every X rounds without parent
-        [SerializeField] private int _roundsBeforeAugmentRange = 10;
+        /// Send "NO" response to node that wont become local node parent / or leave to timeout on parent
+        [SerializeField] private bool _sendRefuseResponse = true;
+
         [SerializeField, MinMaxSlider(.05f, 2f)] private Vector2 _roundDelayTimerRange = new Vector2();
-        /// <summary>
-        /// Sorting rule looks for the cycles of a gossip message to evaluate the graph distance of a potential children
-        /// </summary>
-        [SerializeField] private GraphSortingRules _sortingRule = GraphSortingRules.ClosestCyclesDistance;
-        /// <summary>
-        /// Base of the logarithmic function used to compute the delay timer of a graph updating, depending on its size (the bigger graph the slower update)
-        /// </summary>
-        [SerializeField, Range(2, 10)] private int _dynamicDelayFunctionLogarithmicBase = 3;
-        /// <summary>
-        /// Max tree index distance moved when ranking up or down
-        /// </summary>
-        [SerializeField] private int _wide = 3;
-        /// <summary>
-        /// Max number of children per node
-        /// </summary>
-        [SerializeField] private int _childrenCount = 3;
 
         /// <summary>
         /// Timeout of the heartbeat with a parent. If time out is reached, the node disconnects and seeks a new parent
@@ -68,82 +51,37 @@ namespace Atom.Components.HierarchicalTree
         [ShowInInspector, ReadOnly] private PeerInfo _parent;
         [ShowInInspector, ReadOnly] private List<PeerInfo> _children = new List<PeerInfo>();
 
-        private int _closestUpperBroadcasterRank = int.MaxValue;
-        private PeerInfo _closestUpperBroadcasterPeerInfo = null;
-
         private float _delayTimer = 0f;
         private Vector3 _initialPosition;
-        private HashSet<long> _pendingRequestToChildren;
         private HashSet<long> _relayedTreecastsBuffer;
-
-        private Func<int, int, bool> _checkSortingRuleDelegate;
-        private bool _waitParentInitialization = false;
 
         public int currentRank => _rank;
         public List<PeerInfo> children => _children;
 
-        public GraphSortingRules SortingRule
-        {
-            get
-            {
-                return _sortingRule;
-            }
-            set
-            {
-                _sortingRule = value;
-            }
-        }
-
-        public enum GraphSortingRules
-        {
-            ClosestCyclesDistance,
-            UnderOrEqualsRank,
-            AboveOrEqualsRank,
-        }
-
-        /*
-         TODO comptage du subgraph pour éviter aux gros graph de rank up / down trop souvent par rapport aux petits (le petit bouge en prio, le gros attend plus longtemps)
-
-        Fixer comptage depuis parent
-
-        Optimiser en connectants directements aux pairs du networking connections
-
-         placement des nodes en mode tree (via RPC) / penser au rank negatifs (foutre un offset ou normaliser)
-           > parentPositionXZ + right * childIndex * parentRank + up * rank
-
-         observer la rapidité VS le broadcast dans cette config
-         */
-
         #region Packet Initialization 
+
         public async void OnInitialize()
         {
             LocalReset();
-            InitializeSortingRuleDelegate();
 
-            _parent = null;
-
-            if (_alternativeMode)
+            _packetRouter.RegisterPacketHandler(typeof(ParentConnectionResponsePacket), null);
+            _packetRouter.RegisterPacketHandler(typeof(ParentConnectionRequestPacket), async (packet) =>
             {
-                _packetRouter.RegisterPacketHandler(typeof(ParentConnectionResponsePacket), null);
-                _packetRouter.RegisterPacketHandler(typeof(ParentConnectionRequestPacket), async (packet) =>
+                Debug.Log("Received parent connection request");
+
+                var respondable = (packet as ParentConnectionRequestPacket);
+
+
+                if (IsChildren(respondable.senderID))
+                    return;
+
+                if (_children.Count > 0 || _parent != null)
                 {
-                    Debug.Log("Received parent connection request");
-
-                    var respondable = (packet as ParentConnectionRequestPacket);
-
-                    if(_children.Count > 0)
-                    {
-                        // Impossible to be parented with already children = CYCLE
-                        return;
-                    }
-
-                    // if parent already found
-                    if (_parent != null)
-                        return;
-
-                    if (IsChildren(respondable.senderID))
-                        return;
-
+                    // Impossible to be parented with already children = CYCLE   // if parent already found
+                    return;
+                }
+                else
+                {
                     var response = (ParentConnectionResponsePacket)respondable.GetResponsePacket(respondable);
                     _pendingParentRequests.Add(new PendingParentRequest() { ParentConnectionRequestPacket = respondable, ParentConnectionResponsePacket = response });
 
@@ -153,85 +91,63 @@ namespace Atom.Components.HierarchicalTree
 
                         await WaitBeforeFilterParentRequests();
                     }
-                });
-
-                _packetRouter.RegisterPacketHandler(typeof(ChildrenValidationPacket), (onReceived) =>
-                {
-                    var packet = (ChildrenValidationPacket)onReceived;
-
-                    _pendingValidations.Add(new PendingValidationCallback()
-                    {
-                        ValidationPacket = packet,
-                        ValidationResponsePacket = (ChildrenValidationResponsePacket)packet.GetResponsePacket(packet)
-                    });
-
-                    if (_pendingValidations.Count == _children.Count)
-                    {
-                        for (int i = 0; i < _pendingValidations.Count; ++i)
-                            _packetRouter.SendResponse(_pendingValidations[i].ValidationPacket, _pendingValidations[i].ValidationResponsePacket);
-                    }
-                });
-
-                _packetRouter.RegisterPacketHandler(typeof(ChildrenSearchActivationPacket), async (onReceived) =>
-                {
-                    var packet = (ChildrenSearchActivationPacket)onReceived;
-                    await SearchPotentialChildren();
-                });
-
-                RegisterTreecastPacketHandler<UpdateRankPacket>((updateRankPacket) =>
-                {
-                    if (_parent == null)
-                    {
-                        Debug.LogError("PROBLEM");
-                        return;
-                    }
-
-                    var upp = (updateRankPacket as UpdateRankPacket);                                      
-                    SetRank(upp.newRank);
-                    // rank decrease as we descend through children nodes
-                    upp.newRank--;
-                    upp.parentPosition = transform.position;
-                });
-
-                InitializeNetworkMaintainingPackets();
-                InitializeTreecastPackets();
-
-                await Task.Delay(200);
-                _initialPosition = transform.position;
-
-                await Task.Delay(4000);
-
-                if (controller.IsBoot)
-                {
-                    StartTreeGeneration();
                 }
-            }
-            else
+            });
+
+            _packetRouter.RegisterPacketHandler(typeof(ChildrenValidationPacket), (onReceived) =>
             {
-                _parentSearchActive = true;
+                var packet = (ChildrenValidationPacket)onReceived;
 
-                if (_singleGraphParenting)
+                _pendingValidations.Add(new PendingValidationCallback()
                 {
-                    InitializeSingleGraphParentResearchPackets();
+                    ValidationPacket = packet,
+                    ValidationResponsePacket = (ChildrenValidationResponsePacket)packet.GetResponsePacket(packet)
+                });
+
+                if (_pendingValidations.Count == _children.Count)
+                {
+                    for (int i = 0; i < _pendingValidations.Count; ++i)
+                        _packetRouter.SendResponse(_pendingValidations[i].ValidationPacket, _pendingValidations[i].ValidationResponsePacket);
                 }
-                else
-                    InitializeDefaultParentResearchPackets();
+            });
 
-                InitializeDefaultConnectivityPackets();
-                InitializeNetworkMaintainingPackets();
-                InitializeTreecastPackets();
+            _packetRouter.RegisterPacketHandler(typeof(ChildrenSearchActivationPacket), async (onReceived) =>
+            {
+                var packet = (ChildrenSearchActivationPacket)onReceived;
+                await SearchPotentialChildren();
+            });
 
-                await Task.Delay(4000);
+            RegisterTreecastPacketHandler<UpdateRankPacket>((updateRankPacket) =>
+            {
+                if (_parent == null)
+                {
+                    Debug.LogError("PROBLEM");
+                    return;
+                }
 
-                _initialPosition = transform.position;
+                var upp = (updateRankPacket as UpdateRankPacket);
+                SetRank(upp.newRank);
+                // rank decrease as we descend through children nodes
+                upp.newRank--;
+                upp.parentPosition = transform.position;
+            });
 
-                SearchingUpdateTask();
-                MaintainingUpdateTask();
+            InitializeNetworkMaintainingPackets();
+            InitializeTreecastPackets();
+
+            await Task.Delay(200);
+            _initialPosition = transform.position;
+
+            await Task.Delay(4000);
+
+            if (controller.IsBoot)
+            {
+                StartTreeGeneration();
             }
         }
 
         #region Alternative Mode
-        
+
         public async void StartTreeGeneration()
         {
             await SearchPotentialChildren();
@@ -254,6 +170,7 @@ namespace Atom.Components.HierarchicalTree
             public ChildrenValidationPacket ValidationPacket { get; set; }
             public ChildrenValidationResponsePacket ValidationResponsePacket { get; set; }
         }
+
 
         private async Task WaitBeforeFilterParentRequests()
         {
@@ -283,7 +200,18 @@ namespace Atom.Components.HierarchicalTree
             Debug.Log($"{controller.LocalNodeId} accepting parent request from {_pendingParentRequests[0].ParentConnectionRequestPacket.senderID}");
 
             _parent = new PeerInfo(_pendingParentRequests[0].ParentConnectionRequestPacket.senderID, _pendingParentRequests[0].ParentConnectionRequestPacket.senderAdress);
+
+            _pendingParentRequests[0].ParentConnectionResponsePacket.response = true;
             _packetRouter.SendResponse(_pendingParentRequests[0].ParentConnectionRequestPacket, _pendingParentRequests[0].ParentConnectionResponsePacket);
+
+            if (_sendRefuseResponse)
+            {
+                for (int i = 1; i < _pendingParentRequests.Count; i++)
+                {
+                    _pendingParentRequests[i].ParentConnectionResponsePacket.response = false;
+                    _packetRouter.SendResponse(_pendingParentRequests[i].ParentConnectionRequestPacket, _pendingParentRequests[i].ParentConnectionResponsePacket);
+                }
+            }
 
             _awaitIncomingParentRequests = false;
         }
@@ -302,15 +230,6 @@ namespace Atom.Components.HierarchicalTree
                 local.y = 0;
 
                 var list = _connectingComponent.Connections.Values.ToList();
-                list.Sort((a, b) =>
-                {
-                    var p_a = WorldSimulationManager.nodeAddresses[a.peerAdress].transform.position;
-                    p_a.y = 0;
-                    var p_b = WorldSimulationManager.nodeAddresses[b.peerAdress].transform.position;
-                    p_b.y = 0;
-
-                    return Vector3.Distance(p_a, local).CompareTo(Vector3.Distance(p_b, local));
-                });
 
                 for (int i = 0; i < _children.Count; ++i)
                 {
@@ -324,16 +243,13 @@ namespace Atom.Components.HierarchicalTree
                     }
                 }
 
-                var toFind = Math.Min(_childrenCount - _children.Count, list.Count);
+                Debug.Log($"Node {controller.LocalNodeId} > send {list.Count} request for children");
 
-                Debug.Log($"Node {controller.LocalNodeId} > send {toFind} request for children");
+                Task<ParentConnectionResponsePacket>[] tasks = new Task<ParentConnectionResponsePacket>[list.Count];
 
-                Task<ParentConnectionResponsePacket>[] tasks = new Task<ParentConnectionResponsePacket>[toFind];
-
-                for (int i = 0; i < toFind; ++i)
+                for (int i = 0; i < list.Count; ++i)
                 {
                     tasks[i] = _packetRouter.SendRequestAsync<ParentConnectionResponsePacket>(list[i].peerAdress, new ParentConnectionRequestPacket(transform.position, _rank, _children.Count, 0), _childrenRequestTimeout);
-
                 }
 
                 var results = await Task.WhenAll(tasks);
@@ -345,19 +261,28 @@ namespace Atom.Components.HierarchicalTree
                 {
                     if (results[i] == null)
                     {
-                        // timeout
+                        // timeout                       
+                      
                     }
                     else
                     {
+                        if (_sendRefuseResponse && results[i].response == false)
+                        {                           
+                            continue;
+                        }
+
+                        has_response = true;
+
                         if (IsChildren(results[i].senderID))
                         {
                             Debug.LogError("Already children");
                             return;
                         }
 
-                        has_response = true;
-
+                        // children has accepted this node as parent so we just add to connection
                         _children.Add(new PeerInfo(list[i].peerID, list[i].peerAdress));
+
+                        // updating children rank/depth
                         _packetRouter.Send(list[i].peerAdress, new UpdateRankPacket() { newRank = _rank - 1, parentPosition = transform.position, broadcasterID = controller.LocalNodeId, broadcastID = NodeRandom.UniqueID() });
 
                         Debug.Log($"{controller.LocalNodeId} connect with {list[i].peerID}");
@@ -366,9 +291,9 @@ namespace Atom.Components.HierarchicalTree
                     }
                 }
 
-                if (!has_response || _children.Count >= _childrenCount || list.Count == 0)
+                if (!has_response || list.Count == 0) //  || _children.Count >= _childrenCount ||
                 {
-                    if(_parent == null)
+                    if (_parent == null)
                     {
                         // activation directe de la recherche d'enfant sur les enfants
                         for (int i = 0; i < _children.Count; ++i)
@@ -387,7 +312,6 @@ namespace Atom.Components.HierarchicalTree
                             }
                         }, -1);
                     }
-                    
 
                     break;
                 }
@@ -395,121 +319,12 @@ namespace Atom.Components.HierarchicalTree
                 round_index++;
             }
 
-            Debug.Log($"{controller.LocalNodeId} end searching children");
+            Debug.Log($"{controller.LocalNodeId} end searching children : {round_index}");
         }
 
         #endregion
 
-
         #region Legacy
-        private void InitializeDefaultConnectivityPackets()
-        {
-            // connecting requests are send by potential parent when they receive a broadcast from a node with lower rank
-            _packetRouter.RegisterPacketHandler(typeof(ParentConnectionRequestPacket), (packet) =>
-            {
-                var respondable = (packet as ParentConnectionRequestPacket);
-
-                // if round has changed since the broadcast, discarding
-                // round change on request timeout
-                if (respondable.childrenRoundAtRequest != _currentRound)
-                    return;
-
-                // CHECK HERE
-                _currentRound++;
-
-                // if parent already found
-                if (_parent != null)
-                    return;
-
-                if (IsChildren(respondable.senderID))
-                    return;
-
-                // parent found, stop searching
-                _parentSearchActive = false;
-                _waitParentInitialization = true;
-
-                var response = (ParentConnectionResponsePacket)respondable.GetResponsePacket(respondable).packet;
-
-                _parent = new PeerInfo(respondable.senderID, respondable.senderAdress);
-
-                var diff = Math.Abs(respondable.parentRank - _rank);
-
-                if (respondable.parentRank <= _rank)
-                {
-                    Debug.LogError("Rank error");
-                }
-
-                _rank = respondable.parentRank - 1;
-
-                // accept
-                _packetRouter.SendResponse(respondable, response);
-            });
-
-            _packetRouter.RegisterPacketHandler(typeof(ParentConnectionResponsePacket), null);
-
-            if (_singleGraphParenting)
-            {
-                _packetRouter.RegisterPacketHandler(typeof(DisconnectionNotificationPacket), async (onReceived) =>
-                {
-                    for (int i = 0; i < _children.Count; ++i)
-                    {
-                        if (_children[i].peerID == onReceived.senderID)
-                        {
-                            _children.RemoveAt(i);
-                            _currentSubgraphNodesCount = await CountSubgraphAsync();
-                            return;
-                        }
-                    }
-
-                    if (_parent != null && _parent.peerID == onReceived.senderID)
-                    {
-                        _parent = null;
-
-                        SendDisconnectionDowncast();
-
-                        _currentSubgraphNodesCount = 1;
-                        _currentSubgraphDepth = 0;
-                        _waitParentInitialization = false;
-
-                        return;
-                    }
-
-                    Debug.LogError("Disconnection packet received from an unconnected node.");
-                });
-
-                _packetRouter.RegisterPacketHandler<DisconnectionDowncastPacket>((onReceived) =>
-                {
-                    SendDisconnectionDowncast();
-                }, true);
-
-            }
-            else
-            {
-                _packetRouter.RegisterPacketHandler(typeof(DisconnectionNotificationPacket), async (onReceived) =>
-                {
-                    for (int i = 0; i < _children.Count; ++i)
-                    {
-                        if (_children[i].peerID == onReceived.senderID)
-                        {
-                            _children.RemoveAt(i);
-                            _currentSubgraphNodesCount = await CountSubgraphAsync();
-                            return;
-                        }
-                    }
-
-                    if (_parent != null && _parent.peerID == onReceived.senderID)
-                    {
-                        _parent = null;
-                        _waitParentInitialization = false;
-                        _currentSubgraphNodesCount = await CountSubgraphAsync();
-                        return;
-                    }
-
-                    Debug.LogError("Disconnection packet received from an unconnected node.");
-                });
-            }
-
-        }
 
         private void SendDisconnectionDowncast()
         {
@@ -521,275 +336,6 @@ namespace Atom.Components.HierarchicalTree
             }
 
             _inMainGraph = false;
-        }
-
-        private void InitializeDefaultParentResearchPackets()
-        {
-            _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(ParentResearchBroadcastPacket), (onreceived) =>
-            {
-                var broadcastable = onreceived as ParentResearchBroadcastPacket;
-
-                // if we receive message from nodes that seeks a parent, then we set every parent graph in search mode
-                // because it means that other subgraphs aren't connected with this one
-                if (_parent == null)
-                    _parentSearchActive = true;
-
-                if (!_waitParentInitialization
-                    && _checkSortingRuleDelegate(broadcastable.cyclesDistance, broadcastable.maxCycleDistance) // the rule : we search only for close nodes / the rule can be changed with rank comparison (seeking node at/until/above "cycles" range from this)
-                                                                                                               //&& _children.Count < Math.Min(_rank * 2, _childrenCount)
-                    && _children.Count < _childrenCount
-                    && !IsChildren(broadcastable.senderID)
-                    && !_pendingRequestToChildren.Contains(broadcastable.broadcasterID)
-                        && (_parent == null || broadcastable.broadcasterID != _parent.peerID)) // avoid direct cycles
-                {
-                    // Case 1 : avalaible children, we send a request
-                    if (broadcastable.senderRank < _rank)
-                    {
-                        var round = _currentRound;
-
-                        _pendingRequestToChildren.Add(broadcastable.broadcasterID);
-
-                        // responding to the potential conneciton by a connection request from the receiver
-                        // we set the round of the broadcast sender in the request
-                        // if the round has changed on the sender, the request will be discarded 
-                        _packetRouter.SendRequest(broadcastable.senderAddress, new ParentConnectionRequestPacket(transform.position, _rank, _children.Count, broadcastable.senderRound), async (response) =>
-                        {
-                            _pendingRequestToChildren.Remove(broadcastable.broadcasterID);
-
-                            if (response == null)
-                                return;
-
-                            if (IsChildren(broadcastable.broadcasterID))
-                            {
-                                Debug.LogError("Already children");
-                                return;
-                            }
-
-                            if (_children.Count >= _childrenCount)
-                            {
-                                Debug.LogError("Too much children");
-                                _packetRouter.Send(broadcastable.senderAddress, new DisconnectionNotificationPacket());
-                                return;
-                            }
-
-                            if (_parent != null && broadcastable.broadcasterID == _parent.peerID)
-                            {
-                                Debug.LogError("Cycling");
-                                _packetRouter.Send(broadcastable.senderAddress, new DisconnectionNotificationPacket());
-                                return;
-                            }
-
-                            if (round != _currentRound)
-                            {
-                                Debug.LogError("Round has changed");
-                                _packetRouter.Send(broadcastable.senderAddress, new DisconnectionNotificationPacket());
-                                return;
-                            }
-
-                            _children.Add(new PeerInfo(response.senderID, broadcastable.senderAddress));
-
-                            _packetRouter.Send(broadcastable.senderAddress, new UpdateRankPacket() { newRank = _rank - 1, parentPosition = transform.position, broadcasterID = controller.LocalNodeId, broadcastID = NodeRandom.UniqueID() });
-
-                            _currentSubgraphNodesCount = await CountSubgraphAsync();
-                        },
-                        _childrenRequestTimeout);
-                    }
-                    // Case 2 : evaluating a potential children if the subgraph of this parent node would be moved
-                    // we seek for the smallest possible move in rank by keeping the closest possible rank on a round
-                    // this will be used in the SearchParent function on each round
-                    else if (_parent == null
-                    && broadcastable.senderRank < _closestUpperBroadcasterRank
-                    && _children.Count < _childrenCount) // possible only if child slot avalaible
-                    {
-                        _closestUpperBroadcasterPeerInfo = new PeerInfo(broadcastable.senderID, broadcastable.senderAddress);
-                        _closestUpperBroadcasterRank = broadcastable.senderRank;
-                    }
-                }
-
-                // in other cases we just relay the message
-                var cloned = (ParentResearchBroadcastPacket)broadcastable.ClonePacket(broadcastable);
-                cloned.cyclesDistance++;
-
-                _broadcaster.RelayBroadcast(cloned);
-            });
-
-            RegisterTreecastPacketHandler<UpdateRankPacket>((updateRankPacket) =>
-            {
-                var upp = (updateRankPacket as UpdateRankPacket);
-                SetRank(upp.newRank);
-
-                if (upp.broadcasterID == _parent.peerID)
-                {
-                    _waitParentInitialization = false;
-                }
-
-                // rank decrease as we descend through children nodes
-                upp.newRank--;
-                upp.parentPosition = transform.position;
-            });
-        }
-
-        private void InitializeSingleGraphParentResearchPackets()
-        {
-            _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(ParentResearchBroadcastPacket), (onreceived) =>
-            {
-                var broadcastable = onreceived as ParentResearchBroadcastPacket;
-
-                if (!_inMainGraph)
-                    return;
-
-                // if we receive message from nodes that seeks a parent, then we set every parent graph in search mode
-                // because it means that other subgraphs aren't connected with this one
-                if (_parent == null)
-                    _parentSearchActive = true;
-
-                if (!_waitParentInitialization
-                    && _checkSortingRuleDelegate(broadcastable.cyclesDistance, broadcastable.maxCycleDistance) // the rule : we search only for close nodes / the rule can be changed with rank comparison (seeking node at/until/above "cycles" range from this)
-                                                                                                               //&& _children.Count < Math.Min(_rank * 2, _childrenCount)
-                    && _children.Count < _childrenCount
-                    && !IsChildren(broadcastable.senderID)
-                    && !_pendingRequestToChildren.Contains(broadcastable.broadcasterID)
-                        && (_parent == null || broadcastable.broadcasterID != _parent.peerID)) // avoid direct cycles
-                {
-                    // Case 1 : avalaible children, we send a request
-                    if (broadcastable.senderRank < _rank)
-                    {
-                        var round = _currentRound;
-
-                        if (broadcastable.cyclesDistance == 0)
-                        {
-                            /*for(int i = 0; i < _connectingComponent.Connections.Count; ++i)
-                            {
-
-                            }*/
-                            var local = transform.position;
-                            local.y = 0;
-
-                            var list = _connectingComponent.Connections.Values.ToList();
-                            list.Sort((a, b) =>
-                            {
-                                var p_a = WorldSimulationManager.nodeAddresses[a.peerAdress].transform.position;
-                                p_a.y = 0;
-                                var p_b = WorldSimulationManager.nodeAddresses[b.peerAdress].transform.position;
-                                p_b.y = 0;
-
-                                return Vector3.Distance(p_a, local).CompareTo(Vector3.Distance(p_b, local));
-                            });
-
-                            for (int i = 0; i < _children.Count; ++i)
-                            {
-                                for (int j = 0; j < list.Count; ++j)
-                                {
-                                    if (list[j].peerID == _children[i].peerID)
-                                    {
-                                        list.RemoveAt(j);
-                                        j--;
-                                    }
-                                }
-                            }
-
-                            if (list.Count > 0)
-                                if (broadcastable.broadcasterID != list[0].peerID)
-                                {
-                                    Debug.LogError("There is better connectin;");
-                                    return;
-                                }
-                                else
-                                {
-                                    Debug.LogError("Best connection");
-                                }
-                        }
-
-                        _pendingRequestToChildren.Add(broadcastable.broadcasterID);
-
-                        // responding to the potential conneciton by a connection request from the receiver
-                        // we set the round of the broadcast sender in the request
-                        // if the round has changed on the sender, the request will be discarded 
-                        _packetRouter.SendRequest(broadcastable.senderAddress, new ParentConnectionRequestPacket(transform.position, _rank, _children.Count, broadcastable.senderRound), async (response) =>
-                        {
-                            _pendingRequestToChildren.Remove(broadcastable.broadcasterID);
-
-                            if (response == null)
-                                return;
-
-                            if (IsChildren(broadcastable.broadcasterID))
-                            {
-                                Debug.LogError("Already children");
-                                return;
-                            }
-
-                            if (_children.Count >= _childrenCount)
-                            {
-                                Debug.LogError("Too much children");
-                                _packetRouter.Send(broadcastable.senderAddress, new DisconnectionNotificationPacket());
-                                return;
-                            }
-
-                            if (_parent != null && broadcastable.broadcasterID == _parent.peerID)
-                            {
-                                Debug.LogError("Cycling");
-                                _packetRouter.Send(broadcastable.senderAddress, new DisconnectionNotificationPacket());
-                                return;
-                            }
-
-                            if (round != _currentRound)
-                            {
-                                Debug.LogError("Round has changed");
-                                _packetRouter.Send(broadcastable.senderAddress, new DisconnectionNotificationPacket());
-                                return;
-                            }
-
-                            _children.Add(new PeerInfo(response.senderID, broadcastable.senderAddress));
-
-                            Debug.LogError($"{controller.LocalNodeId} Send rank update ({_rank - 1}) to {broadcastable.senderAddress}");
-                            _packetRouter.Send(broadcastable.senderAddress, new UpdateRankPacket() { newRank = _rank - 1, parentPosition = transform.position, broadcasterID = controller.LocalNodeId, broadcastID = NodeRandom.UniqueID() });
-
-                            _currentSubgraphNodesCount = await CountSubgraphAsync();
-                        },
-                        _childrenRequestTimeout);
-                    }
-                    /*// Case 2 : evaluating a potential children if the subgraph of this parent node would be moved
-                    // we seek for the smallest possible move in rank by keeping the closest possible rank on a round
-                    // this will be used in the SearchParent function on each round
-                    else if (_parent == null
-                    && broadcastable.senderRank < _closestUpperBroadcasterRank
-                    && _children.Count < _childrenCount) // possible only if child slot avalaible
-                    {
-                        _closestUpperBroadcasterPeerInfo = new PeerInfo(broadcastable.senderID, broadcastable.senderAddress);
-                        _closestUpperBroadcasterRank = broadcastable.senderRank;
-                    }*/
-                }
-
-                // in other cases we just relay the message
-                var cloned = (ParentResearchBroadcastPacket)broadcastable.ClonePacket(broadcastable);
-                cloned.cyclesDistance++;
-
-                _broadcaster.RelayBroadcast(cloned);
-            });
-
-            RegisterTreecastPacketHandler<UpdateRankPacket>((updateRankPacket) =>
-            {
-                if (_parent == null)
-                {
-                    Debug.LogError("PROBLEM");
-                    return;
-                }
-
-                var upp = (updateRankPacket as UpdateRankPacket);
-
-                if (upp.broadcasterID == _parent.peerID)
-                {
-                    _waitParentInitialization = false;
-                }
-
-                SetRank(upp.newRank);
-
-                _inMainGraph = true;
-
-                // rank decrease as we descend through children nodes
-                upp.newRank--;
-                upp.parentPosition = transform.position;
-            });
         }
 
         private void InitializeNetworkMaintainingPackets()
@@ -831,16 +377,12 @@ namespace Atom.Components.HierarchicalTree
         {
             RegisterTreecastPacketHandler<SetColorDowncastPacket>((setColorPacket) =>
             {
-                Debug.Log("downcast color");
-
                 var upp = (setColorPacket as SetColorDowncastPacket);
                 controller.material.color = upp.newColor;
             });
 
             RegisterTreecastPacketHandler<SetColorUpcastPacket>((setColorPacket) =>
             {
-                Debug.Log("upcast color");
-
                 var upp = (setColorPacket as SetColorUpcastPacket);
                 controller.material.color = upp.newColor;
 
@@ -851,10 +393,19 @@ namespace Atom.Components.HierarchicalTree
                 }
             });
 
+            RegisterTreecastPacketHandler<SetColorFullcastPacket>((setColorPacket) =>
+            {
+                var upp = (setColorPacket as SetColorFullcastPacket);
+                controller.material.color = upp.newColor;
+            });
+
+            RegisterTreecastPacketHandler<DisconnectionDowncastPacket>((onReceived) =>
+            {
+                SendDisconnectionDowncast();
+            });
+
             _broadcaster.RegisterPacketHandlerWithMiddleware(typeof(BroadcastColorPacket), (received) =>
             {
-                Debug.Log("broadcast color");
-
                 var upp = (received as BroadcastColorPacket);
                 controller.material.color = upp.newColor;
             },
@@ -865,23 +416,33 @@ namespace Atom.Components.HierarchicalTree
             {
                 await HandleSubgraphCountingAsync((SubraphCountingRequestPacket)onReceived);
             });
-        }
 
-        private void InitializeSortingRuleDelegate()
-        {
-            switch (_sortingRule)
+            _packetRouter.RegisterPacketHandler(typeof(DisconnectionNotificationPacket), async (onReceived) =>
             {
-                case GraphSortingRules.ClosestCyclesDistance:
-                    _checkSortingRuleDelegate = (dist, maxDist) =>
+                for (int i = 0; i < _children.Count; ++i)
+                {
+                    if (_children[i].peerID == onReceived.senderID)
                     {
-                        return dist <= maxDist;
-                    };
-                    return;
-                case GraphSortingRules.UnderOrEqualsRank: _checkSortingRuleDelegate = (dist, maxDist) => dist <= _rank; return;
-                case GraphSortingRules.AboveOrEqualsRank: _checkSortingRuleDelegate = (dist, maxDist) => dist >= _rank; return;
-            }
+                        _children.RemoveAt(i);
+                        return;
+                    }
+                }
 
-            throw new NotImplementedException();
+                if (_parent != null && _parent.peerID == onReceived.senderID)
+                {
+                    _parent = null;
+
+                    SendDisconnectionDowncast();
+
+                    _currentSubgraphNodesCount = 1;
+                    _currentSubgraphDepth = 0;
+
+                    return;
+                }
+
+                Debug.LogError("Disconnection packet received from an unconnected node.");
+            });
+
         }
 
         #endregion
@@ -895,9 +456,8 @@ namespace Atom.Components.HierarchicalTree
 
         public void LocalReset()
         {
-            _pendingRequestToChildren = new HashSet<long>(250);
             _relayedTreecastsBuffer = new HashSet<long>(_relayedTreecastBufferSize);
-            _children = new List<PeerInfo>(_childrenCount);
+            _children = new List<PeerInfo>(controller.NetworkViewsTargetCount);
             _currentSubgraphNodesCount = 1;
             _currentRound = 0;
             _parent = null;
@@ -907,20 +467,10 @@ namespace Atom.Components.HierarchicalTree
             _pendingValidations.Clear();
             _pendingParentRequests.Clear();
 
-            if (_alternativeMode)
-            {
-                if (_singleGraphParenting && controller.IsBoot)
-                    SetRank(10);
-                else
-                    SetRank(0);
-            }
+            if (controller.IsBoot)
+                SetRank(1);
             else
-            {
-                if (_singleGraphParenting && controller.IsBoot)
-                    SetRank(10);
-                else
-                    SetRank(NodeRandom.Range(0, 10) >= 8 ? 1 : 0);
-            }           
+                SetRank(0);
         }
 
         #endregion
@@ -932,7 +482,7 @@ namespace Atom.Components.HierarchicalTree
 
             if (_parent != null && !controller.IsBoot)
             {
-                Debug.LogError("received up rank change");
+                Debug.Log("received up rank change");
             }
         }
 
@@ -958,12 +508,30 @@ namespace Atom.Components.HierarchicalTree
                     var relayedPacket = upcastablePacket.ClonePacket(upcastablePacket);
                     _packetRouter.Send(_parent.peerAdress, relayedPacket);
                 }
-
-                if (receivedPacket is IDowncastablePacket downcastablePacket)
+                else if (receivedPacket is IDowncastablePacket downcastablePacket)
                 {
                     for (int i = 0; i < _children.Count; i++)
                     {
                         var relayedPacket = downcastablePacket.ClonePacket(downcastablePacket);
+                        _packetRouter.Send(_children[i].peerAdress, relayedPacket);
+                    }
+                }
+                else if (receivedPacket is IFullcastablePacket fullcastablePacket)
+                {
+                    if (_parent != null && fullcastablePacket.allowUpcasting)
+                    {
+                        var relayedPacket = (IFullcastablePacket)fullcastablePacket.ClonePacket(fullcastablePacket);
+                        relayedPacket.allowUpcasting = true;
+                        _packetRouter.Send(_parent.peerAdress, relayedPacket);
+                    }
+
+                    for (int i = 0; i < _children.Count; i++)
+                    {
+                        if (_children[i].peerID == fullcastablePacket.senderID)
+                            continue;
+
+                        var relayedPacket = fullcastablePacket.ClonePacket(fullcastablePacket);
+                        (receivedPacket as IFullcastablePacket).allowUpcasting = false;
                         _packetRouter.Send(_children[i].peerAdress, relayedPacket);
                     }
                 }
@@ -1011,7 +579,20 @@ namespace Atom.Components.HierarchicalTree
                     current = treecastablePacket.ClonePacket(current);
                 }
             }
-            else throw new Exception("Packe ttype not handled");
+            else if (treecastablePacket is IFullcastablePacket fullcastablePacket)
+            {
+                fullcastablePacket.allowUpcasting = true;
+                _packetRouter.Send(_parent.peerAdress, treecastablePacket);
+
+                INetworkPacket current = treecastablePacket.ClonePacket(treecastablePacket);
+
+                for (int i = 0; i < _children.Count; ++i)
+                {
+                    (current as IFullcastablePacket).allowUpcasting = false;
+                    _packetRouter.Send(_children[i].peerAdress, current);
+                    current = treecastablePacket.ClonePacket(current);
+                }
+            }
         }
 
         /// <summary>
@@ -1075,31 +656,6 @@ namespace Atom.Components.HierarchicalTree
             return false;
         }
 
-        private async void SearchingUpdateTask()
-        {
-            while (true)
-            {
-                _delayTimer = NodeRandom.Range(_roundDelayTimerRange.x, _roundDelayTimerRange.y)
-                    // we multiply the timer by the log on base 2 of the children count. 
-                    // it allows bigger graph to evolute slower that smallest one, for fastest convergence
-                    * ((float)Math.Log(_currentSubgraphNodesCount, _dynamicDelayFunctionLogarithmicBase));
-
-                // insuring a minimal value (log2(1) = 0)
-                _delayTimer = Math.Max(_delayTimer, .5f);
-
-                await Task.Delay((int)(_delayTimer * 1000));
-
-                if (this == null)
-                    break;
-
-                if (_parent == null)
-                    await SearchParent();
-
-                if (this == null)
-                    break;
-            }
-        }
-
         private async void MaintainingUpdateTask()
         {
             var delay = _connectionsTimeout / 2;
@@ -1115,86 +671,6 @@ namespace Atom.Components.HierarchicalTree
                     await PingParent();
 
                 CheckChildrenTimedOut();
-            }
-        }
-
-        private async Task SearchParent()
-        {
-            if (_parent != null)
-                return;
-
-            if (!_parentSearchActive)
-                return;
-
-            // a node can stop searching if it has children and if it doesn't received any incoming parent search
-            if (_children.Count > 0)
-                _parentSearchActive = false;
-
-            if (_singleGraphParenting && controller.LocalNodeId == 0)
-            {
-
-            }
-            else
-            {
-                var packet = new ParentResearchBroadcastPacket();
-                packet.senderAddress = controller.LocalNodeAdress;
-                packet.senderRank = _rank;
-                packet.senderRound = _currentRound;
-                packet.senderPosition = transform.position;
-                packet.maxCycleDistance = _currentRound / _roundsBeforeAugmentRange;
-                Debug.Log(packet.maxCycleDistance);
-
-                _broadcaster.SendBroadcast(packet);
-
-            }
-
-            // waiting a timeout of the request
-            await Task.Delay(_roundTimeout);
-
-            // prevent after timeout handling of messages
-            _currentRound++;
-
-            // if not finding any connection before the timeout
-            // ranking the node up
-            // remind that nodes can only connect with node from the same group, and the rank is equal to the fanout distance of the broadcast (which should indicate a distance from the sender in a well constructed gossip network)
-            if (_parent == null)
-            {
-                HandleDefaultParentSubgraphRankUpdate();
-            }
-        }
-
-        private void HandleDefaultParentSubgraphRankUpdate()
-        {
-            // every broadcast received by a parent that is over its rank will be comparated to keep the best possible current parent peer
-            if (_closestUpperBroadcasterPeerInfo != null && _children.Count < _childrenCount)
-            {
-                // case of a parent that is under another potential children node (aka a node that seeks parent)
-                // the local parent goes up the potential children 
-                // it might create a connection on next round
-                SendUpdateRankTreecast(new UpdateRankPacket() { newRank = _closestUpperBroadcasterRank + 1, parentPosition = transform.position });
-
-                _closestUpperBroadcasterPeerInfo = null;
-                _closestUpperBroadcasterRank = int.MaxValue;
-            }
-            else
-            {
-                // move random up or down all te subgraph to be avalaible to other children
-                if (NodeRandom.Range(0, 100) > 50)
-                {
-                    SetRank(_rank + NodeRandom.Range(1, _wide));
-
-                    //Debug.Log($"Ranking {controller.LocalNodeId} up to rank {_rank}");
-                }
-                else
-                {
-                    SetRank(_rank - NodeRandom.Range(1, _wide));
-
-                    //Debug.Log($"Ranking {controller.LocalNodeId} down to rank {_rank}");
-                }
-
-                // tree cast to subgraph to modify the ranks
-
-                SendUpdateRankTreecast(new UpdateRankPacket() { newRank = _rank - 1, parentPosition = transform.position });
             }
         }
 
@@ -1328,19 +804,25 @@ namespace Atom.Components.HierarchicalTree
 
         #region Debug functions
         [Button]
-        private void SetColorUpcast()
+        public void SetColorUpcast()
         {
             SendTreecast(new SetColorUpcastPacket() { newColor = new Color(NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), 1) });
         }
 
         [Button]
-        private void SetColorDowncast()
+        public void SetColorDowncast()
         {
             SendTreecast(new SetColorDowncastPacket() { newColor = new Color(NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), 1) });
         }
 
         [Button]
-        private void SetColorBroadcast()
+        public void SetColorFullcast()
+        {
+            SendTreecast(new SetColorFullcastPacket() { newColor = new Color(NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), 1) });
+        }
+
+        [Button]
+        public void SetColorBroadcast()
         {
             _broadcaster.SendBroadcast(new BroadcastColorPacket() { newColor = new Color(NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), NodeRandom.Range(0f, 1f), 1) });
         }
