@@ -12,4 +12,4 @@ _Basic decentralized network connections visualization_
 _Computed N-Tree example (N = 3)_
 _The tree nodes are connected by the cycle distance of the received broadcasts made over gossip protocol
 
-![screenshot](Screenshots/graph_150nodes_tree.png)
+![screenshot](Screenshots/decentralized_bfs.png)
