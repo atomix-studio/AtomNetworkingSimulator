@@ -13,6 +13,7 @@ using static UnityEngine.EventSystems.EventTrigger;
 [Singleton]
 public class WorldSimulationManager : MonoBehaviour
 {
+    public bool DisplayTransportMetrics;
     public bool DisplayBestConnection;
     public bool DisplayGHSTree;
     public bool DisplayListennersConnections;
@@ -309,11 +310,14 @@ public class WorldSimulationManager : MonoBehaviour
 
     private void OnGUI()
     {
-        EditorGUILayout.LabelField("Total packet received : " + _totalPacketReceived);
-        EditorGUILayout.LabelField("Average packet received / s : " + (_totalPacketReceived / (Time.time - _startTime)));
-        EditorGUILayout.LabelField("Current packet received / s : " + _totalPacketReceivedPerSecondCount);
-        EditorGUILayout.LabelField("Total packet sent : " + _totalPacketSent);
-        EditorGUILayout.LabelField("Current packet sent / s : " + _totalPacketSentPerSecondCount);
-        EditorGUILayout.LabelField("Average packet sent / s : " + (_totalPacketSent / (Time.time - _startTime)));
+        if (!DisplayTransportMetrics)
+            return;
+
+        GUILayout.Label("Total packet received : " + _totalPacketReceived);
+        GUILayout.Label("Average packet received / s : " + (_totalPacketReceived / (Time.time - _startTime)));
+        GUILayout.Label("Current packet received / s : " + _totalPacketReceivedPerSecondCount);
+        GUILayout.Label("Total packet sent : " + _totalPacketSent);
+        GUILayout.Label("Current packet sent / s : " + _totalPacketSentPerSecondCount);
+        GUILayout.Label("Average packet sent / s : " + (_totalPacketSent / (Time.time - _startTime)));
     }
 }

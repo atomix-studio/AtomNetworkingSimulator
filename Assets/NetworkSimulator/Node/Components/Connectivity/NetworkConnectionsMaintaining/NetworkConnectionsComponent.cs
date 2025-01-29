@@ -26,7 +26,6 @@ namespace Atom.CommunicationSystem
         [Inject] private PacketRouter _packetRouter;
 
         [SerializeField] protected int knownPeersMaximumCount = 25;
-        [SerializeField] protected int peerConnectionLeaseTime = 5;
         [SerializeField] protected int peerConnectionLeaseRefreshTime = 3;
 
         [SerializeField, ReadOnly] private float _averageScore = 0;
@@ -172,10 +171,17 @@ namespace Atom.CommunicationSystem
             return null;
         }
 
+        private List<Task<bool>> _hearbeatsBuffer = new List<Task<bool>>();
+        private bool _isPendingHeartbeats = false;
+
         public async void OnUpdate()
         {
             if (controller.IsSleeping)
                 return;
+
+            if (_isPendingHeartbeats)
+                return;
+
 
             foreach (var peer in Connections)
             {
@@ -186,19 +192,19 @@ namespace Atom.CommunicationSystem
                 {
                     // refresh message to listenner
                     // refreshing the score at the same time
-                    HeartbeatConnectionWith(peer.Value);
+                    _hearbeatsBuffer.Add(HeartbeatConnectionWith(peer.Value));
                 }
+            } 
+            
+            if(_hearbeatsBuffer.Count > 0)
+            {
+                _isPendingHeartbeats = true;
+
+                await Task.WhenAll(_hearbeatsBuffer);
+
+                _isPendingHeartbeats = true;
+                _hearbeatsBuffer.Clear();
             }
-            /*for (int i = 0; i < Connections.Count; ++i)
-            {
-
-
-            }*/
-
-            /*if (Connections.Count > context.NetworkViewsTargetCount)
-            {
-                // sorting listenners by score and disconnect from the one that are not kept in selection
-            }*/
         }
 
         private void UpdateNetworkScore()

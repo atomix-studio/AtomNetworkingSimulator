@@ -12,6 +12,7 @@ namespace Atom.Components.HierarchicalTree
     {
         public string senderAdress { get; set; }
         public INetworkPacket packet => this;
+        public int depth { get; set; }
 
         public IResponse GetResponsePacket(IRespondable answerPacket)
         {
@@ -26,5 +27,6 @@ namespace Atom.Components.HierarchicalTree
         [SerializerIgnore] public int requestPing { get; set; }
 
         public int childrenCount { get; set; }
+        public int maxDepth { get; set; }
     }
 }
